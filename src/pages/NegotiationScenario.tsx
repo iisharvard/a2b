@@ -29,11 +29,20 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { RootState } from '../store';
-import { setScenarios, selectScenario, addRiskAssessment, updateRiskAssessment, setRiskAssessments } from '../store/negotiationSlice';
+import { 
+  setScenarios, 
+  selectScenario, 
+  addRiskAssessment, 
+  updateRiskAssessment, 
+  setRiskAssessments,
+  setScenariosRecalculated,
+  setRiskAssessmentsRecalculated
+} from '../store/negotiationSlice';
 import { api } from '../services/api';
 import LoadingOverlay from '../components/LoadingOverlay';
 import ScenarioSpectrum from '../components/ScenarioSpectrum';
 import RiskAssessmentTable from '../components/RiskAssessmentTable';
+import RecalculationWarning from '../components/RecalculationWarning';
 
 const NegotiationScenario = () => {
   const navigate = useNavigate();
@@ -51,7 +60,13 @@ const NegotiationScenario = () => {
   const [isGeneratingRisk, setIsGeneratingRisk] = useState(false);
   const generationInProgress = useRef(false);
   const [showRiskAssessment, setShowRiskAssessment] = useState(false);
-
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  
+  // Check if analysis has been recalculated but scenarios haven't been updated
+  const needsRecalculation = currentCase?.recalculationStatus && 
+    !currentCase.recalculationStatus.scenariosRecalculated && 
+    currentCase.recalculationStatus.analysisRecalculated;
+  
   useEffect(() => {
     if (!currentCase || !currentCase.analysis) {
       navigate('/boundaries');
@@ -162,26 +177,44 @@ const NegotiationScenario = () => {
   };
 
   const handleGenerateRiskAssessment = async () => {
-    if (!selectedScenario) {
+    if (!currentCase || !selectedScenario) {
       setError('Please select a scenario first.');
       return;
     }
     
-    setIsGeneratingRisk(true);
-    setError(null);
-    
     try {
-      // Check if we already have risk assessments for this scenario
-      const existingAssessments = currentCase?.riskAssessments.filter(
-        (ra) => ra.scenarioId === selectedScenario.id
-      ) || [];
+      setIsGeneratingRisk(true);
+      setError(null);
       
-      if (existingAssessments.length === 0 && currentCase) {
+      // Check if risk assessment already exists for this scenario
+      const existingRiskAssessment = currentCase.riskAssessments.find(
+        (ra) => ra.scenarioId === selectedScenario.id
+      );
+      
+      if (existingRiskAssessment) {
+        // If risk assessment exists and scenarios have been recalculated, update it
+        if (!currentCase.recalculationStatus.riskAssessmentsRecalculated) {
+          // Generate risk assessment
+          const riskAssessment = await api.generateRiskAssessment(selectedScenario.id);
+          
+          // Update the existing risk assessment
+          dispatch(updateRiskAssessment({
+            ...riskAssessment,
+            id: existingRiskAssessment.id
+          }));
+          
+          // Mark risk assessments as recalculated
+          dispatch(setRiskAssessmentsRecalculated(true));
+        }
+      } else {
         // Generate risk assessment
         const riskAssessment = await api.generateRiskAssessment(selectedScenario.id);
         
         // Add to Redux
-        dispatch(setRiskAssessments([...currentCase.riskAssessments, ...riskAssessment as any]));
+        dispatch(setRiskAssessments([...currentCase.riskAssessments, riskAssessment]));
+        
+        // Mark risk assessments as recalculated
+        dispatch(setRiskAssessmentsRecalculated(true));
       }
       
       // Show the risk assessment section
@@ -216,6 +249,36 @@ const NegotiationScenario = () => {
     navigate('/');
   };
 
+  // Function to handle recalculation of scenarios
+  const handleRecalculateScenarios = async () => {
+    if (!currentCase || !currentCase.analysis || !selectedIssueId) return;
+    
+    try {
+      setIsGenerating(true);
+      setError(null);
+      
+      // Generate new scenarios based on the updated analysis
+      const newScenarios = await api.generateScenarios(selectedIssueId);
+      
+      // Update Redux store with new scenarios
+      dispatch(setScenarios(newScenarios));
+      
+      // Mark scenarios as recalculated
+      dispatch(setScenariosRecalculated(true));
+      
+      // Update local state
+      setLocalScenarios(newScenarios);
+      
+      // Show success message
+      setError('Scenarios have been successfully recalculated based on the updated analysis.');
+    } catch (err) {
+      console.error('Error recalculating scenarios:', err);
+      setError('Failed to recalculate scenarios. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   if (!currentCase || !currentCase.analysis) {
     return null; // Will redirect in useEffect
   }
@@ -239,14 +302,21 @@ const NegotiationScenario = () => {
         <Divider sx={{ mb: 4 }} />
         
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
+          <Alert severity={error.includes('successfully') ? 'success' : 'error'} sx={{ mb: 3 }}>
             {error}
           </Alert>
         )}
         
+        {needsRecalculation && (
+          <RecalculationWarning 
+            message="The negotiation analysis has been updated. The scenarios may not reflect the latest changes."
+            onRecalculate={handleRecalculateScenarios}
+          />
+        )}
+        
         <Grid container spacing={4}>
           {/* Left panel for issue selection */}
-          <Grid item xs={12} md={3} sx={{ flexGrow: 0 }}>
+          <Grid item xs={12} md={4} sx={{ flexGrow: 1 }}>
             <Typography variant="h6" gutterBottom>
               Negotiation Issues
             </Typography>
@@ -271,7 +341,7 @@ const NegotiationScenario = () => {
                         variant: 'body2',
                         fontWeight: selectedIssueId === component.id ? 'bold' : 'normal',
                         sx: { 
-                          minWidth: '150px',
+                          minWidth: '200px',
                           whiteSpace: 'normal',
                           wordWrap: 'break-word',
                           lineHeight: 1.4
@@ -310,7 +380,7 @@ const NegotiationScenario = () => {
           </Grid>
           
           {/* Right panel for scenarios and risk assessment */}
-          <Grid item xs={12} md={9}>
+          <Grid item xs={12} md={8}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6">
                 Scenarios

@@ -15,11 +15,13 @@ import { RootState } from '../store';
 import { 
   addRiskAssessment, 
   updateRiskAssessment,
-  setRiskAssessments
+  setRiskAssessments,
+  setRiskAssessmentsRecalculated
 } from '../store/negotiationSlice';
 import { api } from '../services/api';
 import LoadingOverlay from '../components/LoadingOverlay';
 import RiskAssessmentTable from '../components/RiskAssessmentTable';
+import RecalculationWarning from '../components/RecalculationWarning';
 
 const RiskAssessment = () => {
   const navigate = useNavigate();
@@ -32,7 +34,12 @@ const RiskAssessment = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatingInitial, setGeneratingInitial] = useState(false);
-
+  
+  // Check if scenarios have been recalculated but risk assessments haven't been updated
+  const needsRecalculation = currentCase?.recalculationStatus && 
+    !currentCase.recalculationStatus.riskAssessmentsRecalculated && 
+    currentCase.recalculationStatus.scenariosRecalculated;
+  
   useEffect(() => {
     if (!currentCase || !selectedScenario) {
       navigate('/scenarios');
@@ -108,6 +115,49 @@ const RiskAssessment = () => {
     }
   };
 
+  // Function to handle recalculation of risk assessments
+  const handleRecalculateRiskAssessments = async () => {
+    if (!currentCase || !selectedScenario) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Get existing risk assessment for this scenario
+      const existingAssessment = currentCase.riskAssessments.find(
+        (ra) => ra.scenarioId === selectedScenario.id
+      );
+      
+      if (existingAssessment) {
+        // Generate new risk assessment
+        const assessment = await api.generateRiskAssessment(selectedScenario.id);
+        
+        // Update the existing assessment
+        dispatch(updateRiskAssessment({
+          ...assessment,
+          id: existingAssessment.id
+        }));
+      } else {
+        // Generate new risk assessment
+        const assessment = await api.generateRiskAssessment(selectedScenario.id);
+        
+        // Add to Redux
+        dispatch(addRiskAssessment(assessment));
+      }
+      
+      // Mark risk assessments as recalculated
+      dispatch(setRiskAssessmentsRecalculated(true));
+      
+      // Show success message
+      setError('Risk assessment has been successfully recalculated based on the updated scenarios.');
+    } catch (err) {
+      console.error('Error recalculating risk assessment:', err);
+      setError('Failed to recalculate risk assessment. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!currentCase || !selectedScenario) {
     return null; // Will redirect in useEffect
   }
@@ -126,9 +176,17 @@ const RiskAssessment = () => {
         <Divider sx={{ mb: 4 }} />
         
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
+          <Alert severity={error.includes('successfully') ? 'success' : 'error'} sx={{ mb: 3 }}>
             {error}
           </Alert>
+        )}
+        
+        {/* Show recalculation warning if scenarios have been recalculated */}
+        {needsRecalculation && (
+          <RecalculationWarning 
+            message="The negotiation scenarios have been updated. The risk assessment may not reflect the latest changes."
+            onRecalculate={handleRecalculateRiskAssessments}
+          />
         )}
         
         <Grid container spacing={4}>

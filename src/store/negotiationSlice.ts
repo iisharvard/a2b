@@ -94,6 +94,13 @@ export interface Case {
   riskAssessments: RiskAssessment[];
   processed: boolean;
   suggestedParties: Array<{name: string, description: string, isPrimary: boolean}>;
+  // Track recalculation status
+  recalculationStatus: {
+    analysisRecalculated: boolean;
+    scenariosRecalculated: boolean;
+    riskAssessmentsRecalculated: boolean;
+    lastRecalculationTimestamp: string | null;
+  };
 }
 
 interface NegotiationState {
@@ -146,6 +153,12 @@ export const negotiationSlice = createSlice({
           riskAssessments: [],
           processed: false,
           suggestedParties: [],
+          recalculationStatus: {
+            analysisRecalculated: false,
+            scenariosRecalculated: false,
+            riskAssessmentsRecalculated: false,
+            lastRecalculationTimestamp: null,
+          },
         };
       } else {
         state.currentCase.content = action.payload.content;
@@ -278,6 +291,49 @@ export const negotiationSlice = createSlice({
       state.error = null;
       state.selectedScenario = null;
     },
+    setAnalysisRecalculated: (state, action: PayloadAction<boolean>) => {
+      if (state.currentCase) {
+        state.currentCase.recalculationStatus.analysisRecalculated = action.payload;
+        if (action.payload) {
+          // If analysis is recalculated, mark scenarios and risk assessments as needing recalculation
+          state.currentCase.recalculationStatus.scenariosRecalculated = false;
+          state.currentCase.recalculationStatus.riskAssessmentsRecalculated = false;
+          state.currentCase.recalculationStatus.lastRecalculationTimestamp = new Date().toISOString();
+        }
+        saveStateToStorage(state);
+      }
+    },
+    setScenariosRecalculated: (state, action: PayloadAction<boolean>) => {
+      if (state.currentCase) {
+        state.currentCase.recalculationStatus.scenariosRecalculated = action.payload;
+        if (action.payload) {
+          // If scenarios are recalculated, mark risk assessments as needing recalculation
+          state.currentCase.recalculationStatus.riskAssessmentsRecalculated = false;
+          state.currentCase.recalculationStatus.lastRecalculationTimestamp = new Date().toISOString();
+        }
+        saveStateToStorage(state);
+      }
+    },
+    setRiskAssessmentsRecalculated: (state, action: PayloadAction<boolean>) => {
+      if (state.currentCase) {
+        state.currentCase.recalculationStatus.riskAssessmentsRecalculated = action.payload;
+        if (action.payload) {
+          state.currentCase.recalculationStatus.lastRecalculationTimestamp = new Date().toISOString();
+        }
+        saveStateToStorage(state);
+      }
+    },
+    resetRecalculationStatus: (state) => {
+      if (state.currentCase) {
+        state.currentCase.recalculationStatus = {
+          analysisRecalculated: true,
+          scenariosRecalculated: true,
+          riskAssessmentsRecalculated: true,
+          lastRecalculationTimestamp: new Date().toISOString(),
+        };
+        saveStateToStorage(state);
+      }
+    },
   },
 });
 
@@ -299,6 +355,10 @@ export const {
   updateRiskAssessment,
   deleteRiskAssessment,
   clearState,
+  setAnalysisRecalculated,
+  setScenariosRecalculated,
+  setRiskAssessmentsRecalculated,
+  resetRecalculationStatus,
 } = negotiationSlice.actions;
 
 export default negotiationSlice.reducer; 

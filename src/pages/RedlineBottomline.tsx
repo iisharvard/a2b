@@ -46,12 +46,21 @@ import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ReorderIcon from '@mui/icons-material/Reorder';
 import { RootState } from '../store';
-import { updateComponents, updateIoA, updateIceberg, updateComponent, setCaseContent, Component } from '../store/negotiationSlice';
+import { 
+  updateComponents, 
+  updateIoA, 
+  updateIceberg, 
+  updateComponent, 
+  setCaseContent, 
+  Component,
+  setAnalysisRecalculated
+} from '../store/negotiationSlice';
 import { api } from '../services/api';
 import LoadingOverlay from '../components/LoadingOverlay';
 import NegotiationIssueCard from '../components/NegotiationIssueCard';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import RecalculationWarning from '../components/RecalculationWarning';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -99,6 +108,7 @@ const RedlineBottomline = () => {
   const [selectedComponents, setSelectedComponents] = useState<string[]>([]);
   const [componentOrder, setComponentOrder] = useState<string[]>([]);
   const [selectedComponentId, setSelectedComponentId] = useState<string>('');
+  const [tabValue, setTabValue] = useState(0);
 
   // Get party names for display
   const party1Name = currentCase?.party1?.name || 'Party 1';
@@ -244,6 +254,33 @@ const RedlineBottomline = () => {
     dispatch(updateComponents(updatedComponents));
   };
 
+  // Function to handle recalculation of analysis
+  const handleRecalculateAnalysis = async () => {
+    if (!currentCase) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Recalculate boundaries using the API
+      const updatedComponents = await api.recalculateBoundaries(currentCase.analysis!);
+      
+      // Update Redux store with new components
+      dispatch(updateComponents(updatedComponents));
+      
+      // Mark analysis as recalculated
+      dispatch(setAnalysisRecalculated(true));
+      
+      // Show success message
+      setError('Analysis has been successfully recalculated.');
+    } catch (err) {
+      console.error('Error recalculating analysis:', err);
+      setError('Failed to recalculate analysis. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!currentCase || !currentCase.analysis) {
     return null; // Will redirect in useEffect
   }
@@ -257,15 +294,23 @@ const RedlineBottomline = () => {
     <Container maxWidth="xl">
       <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom align="center">
-          Redlines & Bottomlines
+          Redline & Bottomline Boundaries
         </Typography>
         
         <Divider sx={{ mb: 4 }} />
         
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
+          <Alert severity={error.includes('successfully') ? 'success' : 'error'} sx={{ mb: 3 }}>
             {error}
           </Alert>
+        )}
+        
+        {/* Show recalculation warning if case content has been updated */}
+        {currentCase?.recalculationStatus && !currentCase.recalculationStatus.analysisRecalculated && (
+          <RecalculationWarning 
+            message="The case content has been updated. The analysis may not reflect the latest changes."
+            onRecalculate={handleRecalculateAnalysis}
+          />
         )}
         
         <Grid container spacing={3}>
