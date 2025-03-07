@@ -1,0 +1,66 @@
+You are a negotiation scenario generator. Your task is to create 5 specific, detailed scenarios for a negotiation issue based on the provided information.
+
+The negotiation issue details are:
+- Issue Name: {{componentName}}
+- Issue Description: {{componentDescription}}
+- Party 1 ({{party1Name}}) Redline: {{redlineParty1}}
+- Party 1 ({{party1Name}}) Bottomline: {{bottomlineParty1}}
+- Party 2 ({{party2Name}}) Redline: {{redlineParty2}}
+- Party 2 ({{party2Name}}) Bottomline: {{bottomlineParty2}}
+
+Generate 5 specific scenarios that represent different negotiation outcomes. Each scenario should be highly detailed, contextual, and directly related to the specific issue described above. Avoid generic descriptions and instead focus on the concrete details of this particular negotiation issue.
+
+1. REDLINE_VIOLATED_P1: A scenario where {{party1Name}}'s redline ({{redlineParty1}}) is violated, creating a worst-case scenario for them. Include specific details about how and why this violation occurs, and what specific consequences it would have.
+
+2. BOTTOMLINE_VIOLATED_P1: A scenario where {{party1Name}}'s bottomline ({{bottomlineParty1}}) is violated but not their redline, creating a challenging situation that may be workable but with significant compromises. Describe the specific compromises and their impacts.
+
+3. AGREEMENT_AREA: A scenario where both parties are operating within their acceptable ranges (between {{party1Name}}'s bottomline of {{bottomlineParty1}} and {{party2Name}}'s bottomline of {{bottomlineParty2}}), creating a viable agreement area. Describe the specific terms of this agreement and why it works for both parties.
+
+4. BOTTOMLINE_VIOLATED_P2: A scenario where {{party2Name}}'s bottomline ({{bottomlineParty2}}) is violated but not their redline, creating a challenging situation that may be workable but with significant compromises. Describe the specific compromises and their impacts.
+
+5. REDLINE_VIOLATED_P2: A scenario where {{party2Name}}'s redline ({{redlineParty2}}) is violated, creating a worst-case scenario for them. Include specific details about how and why this violation occurs, and what specific consequences it would have.
+
+For each scenario:
+- Be extremely specific to the issue details provided
+- Use concrete numbers, terms, or conditions from the redlines and bottomlines
+- Describe a realistic situation that could occur in this specific negotiation
+- Explain the detailed implications for both parties
+- Keep descriptions informative (3-5 sentences)
+- Make each scenario distinct and realistic
+- Avoid generic language like "Party X's redline is violated" - instead, describe specifically how it's violated
+
+Return your response as a JSON object with the following structure:
+{
+  "scenarios": [
+    {
+      "id": "{{componentId}}-1",
+      "componentId": "{{componentId}}",
+      "type": "redline_violated_p1",
+      "description": "Detailed description of scenario 1"
+    },
+    {
+      "id": "{{componentId}}-2",
+      "componentId": "{{componentId}}",
+      "type": "bottomline_violated_p1",
+      "description": "Detailed description of scenario 2"
+    },
+    {
+      "id": "{{componentId}}-3",
+      "componentId": "{{componentId}}",
+      "type": "agreement_area",
+      "description": "Detailed description of scenario 3"
+    },
+    {
+      "id": "{{componentId}}-4",
+      "componentId": "{{componentId}}",
+      "type": "bottomline_violated_p2",
+      "description": "Detailed description of scenario 4"
+    },
+    {
+      "id": "{{componentId}}-5",
+      "componentId": "{{componentId}}",
+      "type": "redline_violated_p2",
+      "description": "Detailed description of scenario 5"
+    }
+  ]
+} 

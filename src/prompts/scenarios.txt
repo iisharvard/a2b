@@ -1,0 +1,9 @@
+Given the redline and bottomline, show me the 5 scenarios where:
+
+1. When the redline of the party 1 is violated
+2. When the bottomline of the party 1 are crossed. Area of potential agreement favoring mostly the Party 2 but requiring the Party 1's negotiator to refer back to their hierarchy.
+3. When none of the redlines or bottomlines are violated. Area of potential agreement favoring both sides within the limits of the respective bottom lines.
+4. When the bottomlines of the party 2 are crossed. Area of potential agreement favoring mostly the Party 1 but requiring the Party 2's negotiator to refer back to their hierarchy.
+5. When the redlines of the party 2 are violated. 
+
+List these scenarios for each of the issues. 

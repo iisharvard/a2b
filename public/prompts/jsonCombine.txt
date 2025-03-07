@@ -1,0 +1,26 @@
+Given the redlines and the bottomlines, and the possible scenarios, find the ideal situations for both party. Defined as: 
+- The starting position of the negotiation for the party is at the top of the organization’s iceberg.
+- This position is identified as the ideal situation of the negotiation.
+- It aims to maximize the benefit of the agreement for the party.
+- Little to no compromise is required from the party in this position.
+- However, this position is unrealistic.
+- It does not take into consideration the interests and motives of the counterpart.
+- It does not involve any shared benefit.
+- It only considers the constrains that the party is facing.
+
+Combine and return the results in the following JSON format. 
+
+{
+"pData": [ideal situations for party 1],
+"pPrimeData": [ideal situations for party 2],
+"issues": [
+{
+"name": ""
+"items": ["(you need to fill in these) situation for party 1 when their redline is violated", "situation for party 1 when their bottomline is violated", "situation when neither of the bottomlines are violated", "situation when party 2's bottomline is violated", "situation when party 2's redline is violated"] (there are in total 5 items in this.)
+"redline": ""
+"bottomline": ""
+"redlinePrime": ""
+"bottomlinePrime": ""
+}, ...
+]
+}

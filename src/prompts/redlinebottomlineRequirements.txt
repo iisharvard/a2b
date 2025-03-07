@@ -1,0 +1,1 @@
+Define the redline and the bottom lines for each of the negotiation parties and for each of the negotiation components.
