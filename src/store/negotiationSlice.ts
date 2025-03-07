@@ -293,6 +293,16 @@ export const negotiationSlice = createSlice({
     },
     setAnalysisRecalculated: (state, action: PayloadAction<boolean>) => {
       if (state.currentCase) {
+        // Initialize recalculationStatus if it doesn't exist
+        if (!state.currentCase.recalculationStatus) {
+          state.currentCase.recalculationStatus = {
+            analysisRecalculated: false,
+            scenariosRecalculated: false,
+            riskAssessmentsRecalculated: false,
+            lastRecalculationTimestamp: null,
+          };
+        }
+        
         state.currentCase.recalculationStatus.analysisRecalculated = action.payload;
         if (action.payload) {
           // If analysis is recalculated, mark scenarios and risk assessments as needing recalculation
@@ -305,6 +315,16 @@ export const negotiationSlice = createSlice({
     },
     setScenariosRecalculated: (state, action: PayloadAction<boolean>) => {
       if (state.currentCase) {
+        // Initialize recalculationStatus if it doesn't exist
+        if (!state.currentCase.recalculationStatus) {
+          state.currentCase.recalculationStatus = {
+            analysisRecalculated: true,
+            scenariosRecalculated: false,
+            riskAssessmentsRecalculated: false,
+            lastRecalculationTimestamp: null,
+          };
+        }
+        
         state.currentCase.recalculationStatus.scenariosRecalculated = action.payload;
         if (action.payload) {
           // If scenarios are recalculated, mark risk assessments as needing recalculation
@@ -316,6 +336,16 @@ export const negotiationSlice = createSlice({
     },
     setRiskAssessmentsRecalculated: (state, action: PayloadAction<boolean>) => {
       if (state.currentCase) {
+        // Initialize recalculationStatus if it doesn't exist
+        if (!state.currentCase.recalculationStatus) {
+          state.currentCase.recalculationStatus = {
+            analysisRecalculated: true,
+            scenariosRecalculated: true,
+            riskAssessmentsRecalculated: false,
+            lastRecalculationTimestamp: null,
+          };
+        }
+        
         state.currentCase.recalculationStatus.riskAssessmentsRecalculated = action.payload;
         if (action.payload) {
           state.currentCase.recalculationStatus.lastRecalculationTimestamp = new Date().toISOString();
