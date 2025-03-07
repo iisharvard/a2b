@@ -9,6 +9,8 @@ A React application designed for frontline negotiators who need to analyze case 
 - **Dynamic Boundary Adjustment**: Recalculate redlines and bottomlines based on revised analyses.
 - **Scenario Visualization**: Visual representation of negotiation scenarios along a spectrum.
 - **Risk Assessment**: Detailed risk analysis for selected scenarios with editable assessment tables.
+- **Retrieval-Augmented Generation (RAG)**: Search through large case files using semantic search to find relevant information quickly.
+- **File Upload**: Upload multiple case files in various formats instead of copying and pasting content.
 
 ## Getting Started
 
@@ -16,6 +18,8 @@ A React application designed for frontline negotiators who need to analyze case 
 
 - Node.js (v14 or higher)
 - npm or yarn
+- OpenAI API Key (for embeddings)
+- ChromaDB (for vector storage)
 
 ### Installation
 
@@ -30,12 +34,28 @@ A React application designed for frontline negotiators who need to analyze case 
    npm install
    ```
 
-3. Start the development server
+3. Set up environment variables
+   ```
+   cp .env.example .env
+   ```
+   Then edit the `.env` file to add your OpenAI API key.
+
+4. Set up ChromaDB (optional, for RAG functionality)
+   ```
+   pip install chromadb
+   ```
+   Or use Docker:
+   ```
+   docker pull chromadb/chroma
+   docker run -p 8000:8000 chromadb/chroma
+   ```
+
+5. Start the development server
    ```
    npm run dev
    ```
 
-4. Build for production
+6. Build for production
    ```
    npm run build
    ```
@@ -44,9 +64,17 @@ A React application designed for frontline negotiators who need to analyze case 
 
 ### Initial Setup
 
-1. Enter your case file text
+1. Enter your case file text or upload case files
 2. Specify the two negotiation parties (your side and the other side)
 3. Click "Enter" to process the information
+
+### Using the RAG Search
+
+1. After processing your case, the RAG search panel will appear
+2. Click "Index Case for Search" to prepare the case for semantic search
+3. Enter your search query in the search box
+4. View the search results showing the most relevant parts of your case file
+5. Use this to quickly find information in large case files
 
 ### Review and Revise
 
@@ -95,8 +123,14 @@ negotiation-app/
 ├── src/
 │   ├── components/
 │   │   ├── ComponentCard.tsx
+│   │   ├── FileUploader.tsx
 │   │   ├── LoadingOverlay.tsx
 │   │   ├── MarkdownEditor.tsx
+│   │   ├── rag/
+│   │   │   ├── CaseSearch.tsx
+│   │   │   ├── CaseSearchPanel.tsx
+│   │   │   ├── SearchResults.tsx
+│   │   │   └── index.ts
 │   │   ├── RiskAssessmentTable.tsx
 │   │   └── ScenarioSpectrum.tsx
 │   ├── pages/
@@ -106,18 +140,27 @@ negotiation-app/
 │   │   ├── ReviewAndRevise.tsx
 │   │   └── RiskAssessment.tsx
 │   ├── services/
-│   │   └── api.ts
+│   │   ├── api.ts
+│   │   └── rag/
+│   │       ├── documentLoader.ts
+│   │       ├── embeddingService.ts
+│   │       ├── index.ts
+│   │       ├── ragService.ts
+│   │       └── vectorStore.ts
 │   │   
 │   ├── store/
 │   │   ├── index.ts
-│   │   └── negotiationSlice.ts
+│   │   ├── negotiationSlice.ts
+│   │   └── ragSlice.ts
 │   │   
 │   ├── App.tsx
 │   ├── index.css
-│   └── main.tsx
+│   ├── main.tsx
+│   └── react-app-env.d.ts
 ├── index.html
 ├── package.json
 ├── tsconfig.json
+├── .env.example
 └── README.md
 ```
 

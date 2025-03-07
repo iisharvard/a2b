@@ -73,11 +73,29 @@ const NegotiationScenario = () => {
       return;
     }
 
-    // Set the first component as selected by default
-    if (currentCase.analysis.components.length > 0 && !selectedIssueId) {
-      setSelectedIssueId(currentCase.analysis.components[0].id);
+    // Only run this logic when there's no selected issue or when the component first mounts
+    if (!selectedIssueId) {
+      // Set the first enabled component as selected by default
+      const enabledComponents = currentCase.analysis.components.filter(c => c.enabled !== false);
+      if (enabledComponents.length > 0) {
+        setSelectedIssueId(enabledComponents[0].id);
+      }
     }
   }, [currentCase, navigate, selectedIssueId]);
+  
+  // Separate useEffect to handle the case when the currently selected issue becomes disabled
+  useEffect(() => {
+    if (!currentCase?.analysis?.components || !selectedIssueId) return;
+    
+    // Check if the currently selected issue is still enabled
+    const enabledComponents = currentCase.analysis.components.filter(c => c.enabled !== false);
+    const isCurrentEnabled = enabledComponents.some(c => c.id === selectedIssueId);
+    
+    // If the currently selected issue is disabled and there are other enabled components, select the first enabled one
+    if (!isCurrentEnabled && enabledComponents.length > 0) {
+      setSelectedIssueId(enabledComponents[0].id);
+    }
+  }, [currentCase?.analysis?.components, selectedIssueId]);
 
   // Use a separate effect for scenario generation to prevent infinite loops
   useEffect(() => {
@@ -344,36 +362,39 @@ const NegotiationScenario = () => {
             </Typography>
             
             <List dense sx={{ bgcolor: 'background.paper', border: '1px solid #eee', borderRadius: 1 }}>
-              {currentCase?.analysis?.components.map((component, index) => (
-                <ListItem 
-                  key={component.id}
-                  sx={{ 
-                    borderBottom: index < (currentCase.analysis?.components.length || 0) - 1 ? '1px solid #eee' : 'none',
-                    bgcolor: selectedIssueId === component.id ? 'action.selected' : 'inherit',
-                    py: 1,
-                    pr: 2
-                  }}
-                  button
-                  onClick={() => handleIssueChange(component.id)}
-                >
-                  <Tooltip title={component.name} placement="top" arrow>
-                    <ListItemText 
-                      primary={component.name} 
-                      primaryTypographyProps={{ 
-                        variant: 'body2',
-                        fontWeight: selectedIssueId === component.id ? 'bold' : 'normal',
-                        sx: { 
-                          minWidth: '150px',
-                          whiteSpace: 'normal',
-                          wordWrap: 'break-word',
-                          lineHeight: 1.4,
-                          fontSize: '0.8rem'
-                        }
-                      }}
-                    />
-                  </Tooltip>
-                </ListItem>
-              ))}
+              {currentCase?.analysis?.components
+                // Only show enabled components
+                .filter(component => component.enabled !== false)
+                .map((component, index) => (
+                  <ListItem 
+                    key={component.id}
+                    sx={{ 
+                      borderBottom: index < (currentCase.analysis?.components.filter(c => c.enabled !== false).length || 0) - 1 ? '1px solid #eee' : 'none',
+                      bgcolor: selectedIssueId === component.id ? 'action.selected' : 'inherit',
+                      py: 1,
+                      pr: 2
+                    }}
+                    button
+                    onClick={() => handleIssueChange(component.id)}
+                  >
+                    <Tooltip title={component.name} placement="top" arrow>
+                      <ListItemText 
+                        primary={component.name} 
+                        primaryTypographyProps={{ 
+                          variant: 'body2',
+                          fontWeight: selectedIssueId === component.id ? 'bold' : 'normal',
+                          sx: { 
+                            minWidth: '150px',
+                            whiteSpace: 'normal',
+                            wordWrap: 'break-word',
+                            lineHeight: 1.4,
+                            fontSize: '0.8rem'
+                          }
+                        }}
+                      />
+                    </Tooltip>
+                  </ListItem>
+                ))}
             </List>
             
             {selectedIssue && (

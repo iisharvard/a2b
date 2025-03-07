@@ -51,6 +51,7 @@ export interface Component {
   redlineParty2: string;
   bottomlineParty2: string;
   priority: number;
+  enabled?: boolean;
 }
 
 export interface Scenario {

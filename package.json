@@ -13,6 +13,9 @@
   "dependencies": {
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
+    "@langchain/community": "^0.3.34",
+    "@langchain/core": "^0.3.42",
+    "@langchain/openai": "^0.4.4",
     "@mui/icons-material": "^5.14.3",
     "@mui/material": "^5.14.3",
     "@reduxjs/toolkit": "^1.9.5",
@@ -20,7 +23,9 @@
     "@types/react-beautiful-dnd": "^13.1.8",
     "@uiw/react-codemirror": "^4.21.9",
     "axios": "^1.4.0",
+    "chromadb": "^1.10.5",
     "d3": "^7.8.5",
+    "langchain": "^0.3.19",
     "react": "^18.2.0",
     "react-beautiful-dnd": "^13.1.1",
     "react-dom": "^18.2.0",
@@ -32,6 +37,7 @@
     "remark-gfm": "^3.0.1"
   },
   "devDependencies": {
+    "@types/node": "^22.13.9",
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
     "@typescript-eslint/eslint-plugin": "^6.0.0",

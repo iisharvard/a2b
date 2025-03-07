@@ -27,6 +27,8 @@ import {
 import { setCaseContent, setParties, clearState, setCaseProcessed } from '../store/negotiationSlice';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { api } from '../services/api';
+import { CaseSearchPanel } from '../components/rag';
+import FileUploader from '../components/FileUploader';
 
 interface PartyOption {
   name: string;
@@ -289,45 +291,39 @@ const InitialSetup = () => {
         <form onSubmit={handleSubmit}>
           <Grid container spacing={4}>
             <Grid item xs={12}>
-              <Box component="div" sx={{ p: 3 }}>
+              <Box sx={{ mb: 3 }}>
                 <Typography variant="h6" gutterBottom>
                   Case Content
                 </Typography>
+                
+                {/* File Uploader */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Upload Case Files
+                  </Typography>
+                  <FileUploader 
+                    onFilesProcessed={(content) => {
+                      setCaseContentLocal(content);
+                    }}
+                    maxFiles={5}
+                    acceptedFileTypes=".txt,.pdf,.docx,.doc,.md"
+                  />
+                </Box>
+                
+                <Typography variant="subtitle1" gutterBottom>
+                  Or Enter Case Content Manually
+                </Typography>
                 <TextField
+                  label="Enter case content"
                   multiline
                   rows={10}
                   fullWidth
-                  variant="outlined"
                   value={caseContent}
                   onChange={(e) => setCaseContentLocal(e.target.value)}
-                  placeholder="Paste or type the case content here..."
-                  sx={{ mb: 2 }}
+                  variant="outlined"
+                  required
+                  placeholder="Paste your case content here..."
                 />
-                
-                {currentCase && currentCase.processed && (
-                  <Alert severity="success" sx={{ mb: 2 }}>
-                    Case content has been processed and parties have been identified.
-                  </Alert>
-                )}
-                
-                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
-                  <Button
-                    variant="outlined"
-                    color="primary"
-                    onClick={identifyPartiesFromContent}
-                    disabled={!caseContent.trim() || loading || partyIdentificationLoading}
-                    startIcon={partyIdentificationLoading ? <CircularProgress size={20} /> : null}
-                  >
-                    {partyIdentificationLoading ? 'Identifying...' : 'Auto-Identify Parties'}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    color="secondary"
-                    onClick={handleClearSavedData}
-                  >
-                    Clear Saved Data
-                  </Button>
-                </Box>
               </Box>
             </Grid>
             
@@ -437,6 +433,14 @@ const InitialSetup = () => {
       </Paper>
       
       {loading && <LoadingOverlay open={loading} message="Processing case content..." />}
+      
+      {/* RAG Search Panel - Only show if we have case content and it's been processed */}
+      {currentCase?.content && currentCase.processed && (
+        <CaseSearchPanel 
+          caseId={currentCase.id || 'current-case'} 
+          caseContent={currentCase.content} 
+        />
+      )}
       
       {/* Confirmation Dialog */}
       <Dialog

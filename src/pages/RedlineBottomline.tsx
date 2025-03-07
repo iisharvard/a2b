@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import {
@@ -109,6 +109,7 @@ const RedlineBottomline = () => {
   const [componentOrder, setComponentOrder] = useState<string[]>([]);
   const [selectedComponentId, setSelectedComponentId] = useState<string>('');
   const [tabValue, setTabValue] = useState(0);
+  const enabledInitialized = useRef(false);
 
   // Get party names for display
   const party1Name = currentCase?.party1?.name || 'Party 1';
@@ -132,11 +133,42 @@ const RedlineBottomline = () => {
     // Initialize selected components with all component IDs
     setSelectedComponents(currentCase.analysis.components.map(c => c.id));
   }, [currentCase, navigate]);
+  
+  // Separate useEffect to initialize enabled property only once when the component mounts
+  useEffect(() => {
+    if (!currentCase?.analysis?.components || enabledInitialized.current) return;
+    
+    // Check if any components don't have the enabled property set
+    const needsInitialization = currentCase.analysis.components.some(comp => comp.enabled === undefined);
+    
+    if (needsInitialization) {
+      // Initialize enabled property on all components if not already set
+      const updatedComponents = currentCase.analysis.components.map(comp => ({
+        ...comp,
+        enabled: comp.enabled !== undefined ? comp.enabled : true // Default to true if not set
+      }));
+      
+      dispatch(updateComponents(updatedComponents));
+      enabledInitialized.current = true;
+    } else {
+      enabledInitialized.current = true;
+    }
+  }, [dispatch, currentCase?.analysis?.components]); // Only depends on components, not their length
 
   useEffect(() => {
     if (currentCase?.analysis?.components) {
-      // Initialize selected components with all component IDs
-      setSelectedComponents(currentCase.analysis.components.map(c => c.id));
+      // Initialize selected components with all enabled components or all components if none are explicitly disabled
+      const hasEnabledProperty = currentCase.analysis.components.some(c => c.enabled !== undefined);
+      
+      if (hasEnabledProperty) {
+        // If components have the enabled property, only select the enabled ones
+        setSelectedComponents(currentCase.analysis.components
+          .filter(c => c.enabled !== false)
+          .map(c => c.id));
+      } else {
+        // If no components have the enabled property yet, select all
+        setSelectedComponents(currentCase.analysis.components.map(c => c.id));
+      }
       
       // Set the first component as selected by default if none is selected
       if (!selectedComponentId && currentCase.analysis.components.length > 0) {
@@ -160,13 +192,30 @@ const RedlineBottomline = () => {
   };
 
   const handleComponentSelect = (componentId: string) => {
-    setSelectedComponents(prev => {
-      if (prev.includes(componentId)) {
-        return prev.filter(id => id !== componentId);
-      } else {
-        return [...prev, componentId];
-      }
-    });
+    // First check if the component is already in the selected list
+    const isCurrentlySelected = selectedComponents.includes(componentId);
+    
+    // Update local state for UI
+    const newSelected = isCurrentlySelected
+      ? selectedComponents.filter(id => id !== componentId)
+      : [...selectedComponents, componentId];
+    
+    setSelectedComponents(newSelected);
+    
+    // Update the component's enabled property in Redux
+    if (currentCase?.analysis?.components) {
+      const updatedComponents = currentCase.analysis.components.map(comp => {
+        if (comp.id === componentId) {
+          return {
+            ...comp,
+            enabled: !isCurrentlySelected // Toggle enabled state
+          };
+        }
+        return comp;
+      });
+      
+      dispatch(updateComponents(updatedComponents));
+    }
   };
 
   const moveComponentUp = (index: number) => {
