@@ -128,21 +128,25 @@ const RiskAssessment = () => {
         (ra) => ra.scenarioId === selectedScenario.id
       );
       
+      let updatedAssessment;
+      
       if (existingAssessment) {
         // Generate new risk assessment
         const assessment = await api.generateRiskAssessment(selectedScenario.id);
         
         // Update the existing assessment
-        dispatch(updateRiskAssessment({
+        updatedAssessment = {
           ...assessment,
           id: existingAssessment.id
-        }));
+        };
+        
+        dispatch(updateRiskAssessment(updatedAssessment));
       } else {
         // Generate new risk assessment
-        const assessment = await api.generateRiskAssessment(selectedScenario.id);
+        updatedAssessment = await api.generateRiskAssessment(selectedScenario.id);
         
         // Add to Redux
-        dispatch(addRiskAssessment(assessment));
+        dispatch(addRiskAssessment(updatedAssessment));
       }
       
       // Mark risk assessments as recalculated
@@ -150,9 +154,12 @@ const RiskAssessment = () => {
       
       // Show success message
       setError('Risk assessment has been successfully recalculated based on the updated scenarios.');
+      
+      return updatedAssessment;
     } catch (err) {
       console.error('Error recalculating risk assessment:', err);
       setError('Failed to recalculate risk assessment. Please try again.');
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -186,6 +193,12 @@ const RiskAssessment = () => {
           <RecalculationWarning 
             message="The negotiation scenarios have been updated. The risk assessment may not reflect the latest changes."
             onRecalculate={handleRecalculateRiskAssessments}
+            showDiff={true}
+            diffTitle="Risk Assessment Changes"
+            originalItems={currentCase.originalContent.riskAssessments.filter(ra => ra.scenarioId === selectedScenario.id)}
+            updatedItems={currentCase.riskAssessments.filter(ra => ra.scenarioId === selectedScenario.id)}
+            idKey="id"
+            nameKey="category"
           />
         )}
         

@@ -101,6 +101,12 @@ export interface Case {
     riskAssessmentsRecalculated: boolean;
     lastRecalculationTimestamp: string | null;
   };
+  // Store original content for diff comparison
+  originalContent: {
+    analysis: Analysis | null;
+    scenarios: Scenario[];
+    riskAssessments: RiskAssessment[];
+  };
 }
 
 interface NegotiationState {
@@ -159,6 +165,11 @@ export const negotiationSlice = createSlice({
             riskAssessmentsRecalculated: false,
             lastRecalculationTimestamp: null,
           },
+          originalContent: {
+            analysis: null,
+            scenarios: [],
+            riskAssessments: [],
+          },
         };
       } else {
         state.currentCase.content = action.payload.content;
@@ -180,6 +191,12 @@ export const negotiationSlice = createSlice({
     setAnalysis: (state, action: PayloadAction<Analysis>) => {
       if (state.currentCase) {
         state.currentCase.analysis = action.payload;
+        
+        // Store the original analysis for diff comparison
+        if (!state.currentCase.originalContent.analysis) {
+          state.currentCase.originalContent.analysis = JSON.parse(JSON.stringify(action.payload));
+        }
+        
         saveStateToStorage(state);
       }
     },
@@ -229,7 +246,20 @@ export const negotiationSlice = createSlice({
         );
         
         // Add new scenarios
-        state.currentCase.scenarios = [...existingScenarios, ...action.payload];
+        const newScenarios = [...existingScenarios, ...action.payload];
+        state.currentCase.scenarios = newScenarios;
+        
+        // Store the original scenarios for diff comparison
+        const originalScenarios = state.currentCase.originalContent.scenarios;
+        const hasComponentScenarios = originalScenarios.some(s => s.componentId === componentId);
+        
+        if (!hasComponentScenarios) {
+          state.currentCase.originalContent.scenarios = [
+            ...originalScenarios,
+            ...action.payload.map(s => JSON.parse(JSON.stringify(s)))
+          ];
+        }
+        
         saveStateToStorage(state);
       }
     },
@@ -247,6 +277,12 @@ export const negotiationSlice = createSlice({
     setRiskAssessments: (state, action: PayloadAction<RiskAssessment[]>) => {
       if (state.currentCase) {
         state.currentCase.riskAssessments = action.payload;
+        
+        // Store the original risk assessments for diff comparison
+        if (state.currentCase.originalContent.riskAssessments.length === 0) {
+          state.currentCase.originalContent.riskAssessments = JSON.parse(JSON.stringify(action.payload));
+        }
+        
         saveStateToStorage(state);
       }
     },

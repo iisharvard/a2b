@@ -142,8 +142,15 @@ const NegotiationScenario = () => {
   };
 
   const handleSelectScenario = (scenario: any) => {
-    dispatch(selectScenario(scenario));
-    setShowRiskAssessment(false);
+    // If the same scenario is selected, toggle selection
+    if (selectedScenario && selectedScenario.id === scenario.id) {
+      dispatch(selectScenario(null as any));
+      setShowRiskAssessment(false);
+    } else {
+      // If a different scenario is selected, select it and hide the risk assessment
+      dispatch(selectScenario(scenario));
+      setShowRiskAssessment(false);
+    }
   };
 
   const handleGenerateScenarios = async () => {
@@ -179,6 +186,12 @@ const NegotiationScenario = () => {
   const handleGenerateRiskAssessment = async () => {
     if (!currentCase || !selectedScenario) {
       setError('Please select a scenario first.');
+      return;
+    }
+    
+    // If risk assessment is already showing, just toggle it off
+    if (showRiskAssessment) {
+      setShowRiskAssessment(false);
       return;
     }
     
@@ -271,9 +284,12 @@ const NegotiationScenario = () => {
       
       // Show success message
       setError('Scenarios have been successfully recalculated based on the updated analysis.');
+      
+      return newScenarios;
     } catch (err) {
       console.error('Error recalculating scenarios:', err);
       setError('Failed to recalculate scenarios. Please try again.');
+      throw err;
     } finally {
       setIsGenerating(false);
     }
@@ -311,6 +327,12 @@ const NegotiationScenario = () => {
           <RecalculationWarning 
             message="The negotiation analysis has been updated. The scenarios may not reflect the latest changes."
             onRecalculate={handleRecalculateScenarios}
+            showDiff={true}
+            diffTitle="Scenario Changes"
+            originalItems={currentCase.originalContent.scenarios.filter(s => s.componentId === selectedIssueId)}
+            updatedItems={scenarios}
+            idKey="id"
+            nameKey="description"
           />
         )}
         
@@ -426,68 +448,74 @@ const NegotiationScenario = () => {
                   party2Name={currentCase?.party2.name || 'Party 2'}
                   onSelectScenario={handleSelectScenario}
                   selectedScenarioId={selectedScenario?.id}
+                  riskAssessmentContent={
+                    selectedScenario ? (
+                      <Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                          <Typography variant="subtitle1" sx={{ fontSize: '0.95rem' }}>
+                            Risk Assessment
+                          </Typography>
+                          <Button
+                            variant="outlined"
+                            color="primary"
+                            onClick={handleGenerateRiskAssessment}
+                            disabled={isGeneratingRisk}
+                            startIcon={isGeneratingRisk ? <CircularProgress size={16} /> : null}
+                            sx={{ fontSize: '0.8rem' }}
+                            size="small"
+                          >
+                            {isGeneratingRisk 
+                              ? 'Generating...' 
+                              : showRiskAssessment 
+                                ? 'Hide Risk Assessment' 
+                                : 'Show Risk Assessment'
+                            }
+                          </Button>
+                        </Box>
+                        
+                        {showRiskAssessment && (
+                          <>
+                            <Accordion defaultExpanded>
+                              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                <Typography variant="subtitle1" sx={{ fontSize: '0.9rem' }}>Short-Term Risk Assessment</Typography>
+                              </AccordionSummary>
+                              <AccordionDetails>
+                                <Box sx={{ overflowX: 'auto' }}>
+                                  <RiskAssessmentTable
+                                    riskAssessment={currentCase.riskAssessments}
+                                    scenarioId={selectedScenario.id}
+                                    viewMode="short-term"
+                                    onAddAssessment={handleAddAssessment}
+                                    onUpdateAssessment={handleUpdateRiskAssessment}
+                                    onDeleteAssessment={handleDeleteAssessment}
+                                  />
+                                </Box>
+                              </AccordionDetails>
+                            </Accordion>
+                            
+                            <Accordion defaultExpanded sx={{ mt: 2 }}>
+                              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                <Typography variant="subtitle1" sx={{ fontSize: '0.9rem' }}>Long-Term Risk Assessment</Typography>
+                              </AccordionSummary>
+                              <AccordionDetails>
+                                <Box sx={{ overflowX: 'auto' }}>
+                                  <RiskAssessmentTable
+                                    riskAssessment={currentCase.riskAssessments}
+                                    scenarioId={selectedScenario.id}
+                                    viewMode="long-term"
+                                    onAddAssessment={handleAddAssessment}
+                                    onUpdateAssessment={handleUpdateRiskAssessment}
+                                    onDeleteAssessment={handleDeleteAssessment}
+                                  />
+                                </Box>
+                              </AccordionDetails>
+                            </Accordion>
+                          </>
+                        )}
+                      </Box>
+                    ) : null
+                  }
                 />
-                
-                {selectedScenario && (
-                  <Box sx={{ mt: 3 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                      <Typography variant="subtitle1" sx={{ fontSize: '0.95rem' }}>
-                        Risk Assessment
-                      </Typography>
-                      <Button
-                        variant="outlined"
-                        color="primary"
-                        onClick={handleGenerateRiskAssessment}
-                        disabled={isGeneratingRisk}
-                        startIcon={isGeneratingRisk ? <CircularProgress size={16} /> : null}
-                        sx={{ fontSize: '0.8rem' }}
-                        size="small"
-                      >
-                        {isGeneratingRisk ? 'Generating...' : 'Generate Risk Assessment'}
-                      </Button>
-                    </Box>
-                    
-                    {showRiskAssessment && (
-                      <Accordion defaultExpanded>
-                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                          <Typography variant="subtitle1" sx={{ fontSize: '0.9rem' }}>Short-Term Risk Assessment</Typography>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                          <Box sx={{ overflowX: 'auto' }}>
-                            <RiskAssessmentTable
-                              riskAssessment={currentCase.riskAssessments}
-                              scenarioId={selectedScenario.id}
-                              onAddAssessment={handleAddAssessment}
-                              onUpdateAssessment={handleUpdateRiskAssessment}
-                              onDeleteAssessment={handleDeleteAssessment}
-                              viewMode="short-term"
-                            />
-                          </Box>
-                        </AccordionDetails>
-                      </Accordion>
-                    )}
-                    
-                    {showRiskAssessment && (
-                      <Accordion defaultExpanded sx={{ mt: 2 }}>
-                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                          <Typography variant="subtitle1" sx={{ fontSize: '0.9rem' }}>Long-Term Risk Assessment</Typography>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                          <Box sx={{ overflowX: 'auto' }}>
-                            <RiskAssessmentTable
-                              riskAssessment={currentCase.riskAssessments}
-                              scenarioId={selectedScenario.id}
-                              onAddAssessment={handleAddAssessment}
-                              onUpdateAssessment={handleUpdateRiskAssessment}
-                              onDeleteAssessment={handleDeleteAssessment}
-                              viewMode="long-term"
-                            />
-                          </Box>
-                        </AccordionDetails>
-                      </Accordion>
-                    )}
-                  </Box>
-                )}
               </>
             ) : (
               <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>

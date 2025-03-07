@@ -273,9 +273,12 @@ const RedlineBottomline = () => {
       
       // Show success message
       setError('Analysis has been successfully recalculated.');
+      
+      return updatedComponents;
     } catch (err) {
       console.error('Error recalculating analysis:', err);
       setError('Failed to recalculate analysis. Please try again.');
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -310,6 +313,12 @@ const RedlineBottomline = () => {
           <RecalculationWarning 
             message="The case content has been updated. The analysis may not reflect the latest changes."
             onRecalculate={handleRecalculateAnalysis}
+            showDiff={true}
+            diffTitle="Analysis Changes"
+            originalItems={currentCase.originalContent.analysis?.components || []}
+            updatedItems={currentCase.analysis?.components || []}
+            idKey="id"
+            nameKey="name"
           />
         )}
         
