@@ -295,7 +295,7 @@ const NegotiationScenario = () => {
   return (
     <Container maxWidth="xl">
       <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom align="center">
+        <Typography variant="h5" component="h1" gutterBottom align="center">
           Negotiation Scenarios
         </Typography>
         
@@ -316,8 +316,8 @@ const NegotiationScenario = () => {
         
         <Grid container spacing={4}>
           {/* Left panel for issue selection */}
-          <Grid item xs={12} md={4} sx={{ flexGrow: 1 }}>
-            <Typography variant="h6" gutterBottom>
+          <Grid item xs={12} md={3} sx={{ flexGrow: 0 }}>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontSize: '0.95rem' }}>
               Negotiation Issues
             </Typography>
             
@@ -341,10 +341,11 @@ const NegotiationScenario = () => {
                         variant: 'body2',
                         fontWeight: selectedIssueId === component.id ? 'bold' : 'normal',
                         sx: { 
-                          minWidth: '200px',
+                          minWidth: '150px',
                           whiteSpace: 'normal',
                           wordWrap: 'break-word',
-                          lineHeight: 1.4
+                          lineHeight: 1.4,
+                          fontSize: '0.8rem'
                         }
                       }}
                     />
@@ -355,23 +356,23 @@ const NegotiationScenario = () => {
             
             {selectedIssue && (
               <Box sx={{ mt: 3 }}>
-                <Typography variant="subtitle1" gutterBottom>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontSize: '0.95rem' }}>
                   Selected Issue Details
                 </Typography>
                 <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
+                  <Typography variant="body2" sx={{ mb: 1, fontSize: '0.8rem' }}>
                     <strong>Description:</strong> {selectedIssue?.description}
                   </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
+                  <Typography variant="body2" sx={{ mb: 1, fontSize: '0.8rem' }}>
                     <strong>{currentCase?.party1.name} Redline:</strong> {selectedIssue?.redlineParty1}
                   </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
+                  <Typography variant="body2" sx={{ mb: 1, fontSize: '0.8rem' }}>
                     <strong>{currentCase?.party1.name} Bottomline:</strong> {selectedIssue?.bottomlineParty1}
                   </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
+                  <Typography variant="body2" sx={{ mb: 1, fontSize: '0.8rem' }}>
                     <strong>{currentCase?.party2.name} Redline:</strong> {selectedIssue?.redlineParty2}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                     <strong>{currentCase?.party2.name} Bottomline:</strong> {selectedIssue?.bottomlineParty2}
                   </Typography>
                 </Paper>
@@ -380,9 +381,9 @@ const NegotiationScenario = () => {
           </Grid>
           
           {/* Right panel for scenarios and risk assessment */}
-          <Grid item xs={12} md={8}>
+          <Grid item xs={12} md={9}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6">
+              <Typography variant="subtitle1" sx={{ fontSize: '0.95rem' }}>
                 Scenarios
               </Typography>
               <Box>
@@ -398,7 +399,8 @@ const NegotiationScenario = () => {
                     }
                   }}
                   disabled={loading || isGenerating || !scenarios.length}
-                  sx={{ mr: 1 }}
+                  sx={{ mr: 1, fontSize: '0.8rem' }}
+                  size="small"
                 >
                   Clear All Scenarios
                 </Button>
@@ -408,6 +410,8 @@ const NegotiationScenario = () => {
                   onClick={handleGenerateScenarios}
                   disabled={loading || !selectedIssueId || isGenerating}
                   startIcon={isGenerating ? <CircularProgress size={16} /> : null}
+                  sx={{ fontSize: '0.8rem' }}
+                  size="small"
                 >
                   {isGenerating ? 'Generating...' : 'Generate Scenarios'}
                 </Button>
@@ -427,7 +431,7 @@ const NegotiationScenario = () => {
                 {selectedScenario && (
                   <Box sx={{ mt: 3 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                      <Typography variant="h6">
+                      <Typography variant="subtitle1" sx={{ fontSize: '0.95rem' }}>
                         Risk Assessment
                       </Typography>
                       <Button
@@ -436,6 +440,8 @@ const NegotiationScenario = () => {
                         onClick={handleGenerateRiskAssessment}
                         disabled={isGeneratingRisk}
                         startIcon={isGeneratingRisk ? <CircularProgress size={16} /> : null}
+                        sx={{ fontSize: '0.8rem' }}
+                        size="small"
                       >
                         {isGeneratingRisk ? 'Generating...' : 'Generate Risk Assessment'}
                       </Button>
@@ -444,7 +450,7 @@ const NegotiationScenario = () => {
                     {showRiskAssessment && (
                       <Accordion defaultExpanded>
                         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                          <Typography variant="subtitle1">Short-Term Risk Assessment</Typography>
+                          <Typography variant="subtitle1" sx={{ fontSize: '0.9rem' }}>Short-Term Risk Assessment</Typography>
                         </AccordionSummary>
                         <AccordionDetails>
                           <Box sx={{ overflowX: 'auto' }}>
@@ -464,7 +470,7 @@ const NegotiationScenario = () => {
                     {showRiskAssessment && (
                       <Accordion defaultExpanded sx={{ mt: 2 }}>
                         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                          <Typography variant="subtitle1">Long-Term Risk Assessment</Typography>
+                          <Typography variant="subtitle1" sx={{ fontSize: '0.9rem' }}>Long-Term Risk Assessment</Typography>
                         </AccordionSummary>
                         <AccordionDetails>
                           <Box sx={{ overflowX: 'auto' }}>
@@ -485,7 +491,7 @@ const NegotiationScenario = () => {
               </>
             ) : (
               <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
-                <Typography variant="body1" color="text.secondary">
+                <Typography variant="body1" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
                   No scenarios generated yet. Select an issue and click "Generate Scenarios".
                 </Typography>
               </Paper>
@@ -498,7 +504,8 @@ const NegotiationScenario = () => {
               color="primary"
               onClick={handleNext}
               disabled={loading}
-              size="large"
+              size="medium"
+              sx={{ fontSize: '0.85rem' }}
             >
               Finish
             </Button>

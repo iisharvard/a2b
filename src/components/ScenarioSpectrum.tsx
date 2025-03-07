@@ -75,7 +75,7 @@ const ScenarioSpectrum = ({
       .attr("stroke-width", 3);
     
     // Draw the scenario points
-    g.selectAll("circle")
+    const circles = g.selectAll("circle")
       .data(scenarios)
       .enter()
       .append("circle")
@@ -85,6 +85,7 @@ const ScenarioSpectrum = ({
       .attr("fill", d => getColorForType(d.type))
       .attr("stroke", d => selectedScenarioId === d.id ? "#000" : "none")
       .attr("stroke-width", 2)
+      .attr("class", d => `scenario-point-${d.id}`) // Add class for connecting lines
       .style("cursor", "pointer")
       .on("click", (event, d) => {
         onSelectScenario(d);
@@ -100,7 +101,7 @@ const ScenarioSpectrum = ({
       .attr("y", 10)
       .attr("text-anchor", "middle")
       .attr("fill", "#000")
-      .style("font-size", "10px")
+      .style("font-size", "9px") // Decreased font size
       .text((d, i) => i + 1);
     
   }, [scenarios, selectedScenarioId, party1Name, party2Name]);
@@ -109,26 +110,31 @@ const ScenarioSpectrum = ({
     <Box>
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
         {/* Legend */}
-        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2, flexWrap: 'wrap' }}>
           <Chip 
             label={`${party1Name} Redline Violated`} 
-            sx={{ bgcolor: "#ff5252", color: "white", mr: 1 }} 
+            sx={{ bgcolor: "#ff5252", color: "white", mr: 1, mb: 1, fontSize: '0.75rem' }} 
+            size="small"
           />
           <Chip 
             label={`${party1Name} Bottomline Violated`} 
-            sx={{ bgcolor: "#ff9800", color: "white", mr: 1 }} 
+            sx={{ bgcolor: "#ff9800", color: "white", mr: 1, mb: 1, fontSize: '0.75rem' }} 
+            size="small"
           />
           <Chip 
             label="Agreement Area" 
-            sx={{ bgcolor: "#4caf50", color: "white", mr: 1 }} 
+            sx={{ bgcolor: "#4caf50", color: "white", mr: 1, mb: 1, fontSize: '0.75rem' }} 
+            size="small"
           />
           <Chip 
             label={`${party2Name} Bottomline Violated`} 
-            sx={{ bgcolor: "#ff9800", color: "white", mr: 1 }} 
+            sx={{ bgcolor: "#ff9800", color: "white", mr: 1, mb: 1, fontSize: '0.75rem' }} 
+            size="small"
           />
           <Chip 
             label={`${party2Name} Redline Violated`} 
-            sx={{ bgcolor: "#ff5252", color: "white" }} 
+            sx={{ bgcolor: "#ff5252", color: "white", mb: 1, fontSize: '0.75rem' }} 
+            size="small"
           />
         </Box>
         
@@ -136,35 +142,58 @@ const ScenarioSpectrum = ({
         <svg ref={svgRef} width="100%" height="80"></svg>
       </Paper>
       
-      {/* Scenario boxes */}
-      <Grid container spacing={2}>
-        {scenarios.map((scenario, index) => (
-          <Grid item xs={12} sm={6} md={4} lg={2.4} key={scenario.id}>
+      {/* Scenario boxes - now vertically stacked */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {scenarios.map((scenario, index) => {
+          const isSelected = selectedScenarioId === scenario.id;
+          
+          return (
             <Paper 
+              key={scenario.id}
               variant="outlined" 
               sx={{ 
-                p: 2, 
-                height: '100%',
+                p: 2,
                 cursor: 'pointer',
-                borderColor: selectedScenarioId === scenario.id ? 'primary.main' : 'divider',
-                borderWidth: selectedScenarioId === scenario.id ? 2 : 1,
-                bgcolor: selectedScenarioId === scenario.id ? 'action.selected' : 'background.paper'
+                borderColor: isSelected ? 'primary.main' : 'divider',
+                borderWidth: isSelected ? 2 : 1,
+                bgcolor: isSelected ? 'action.selected' : 'background.paper',
+                opacity: selectedScenarioId && !isSelected ? 0.6 : 1,
+                transition: 'opacity 0.3s, border-color 0.3s, background-color 0.3s',
+                position: 'relative',
+                '&:hover': {
+                  opacity: 1,
+                  borderColor: 'primary.light'
+                }
               }}
               onClick={() => onSelectScenario(scenario)}
+              id={`scenario-box-${scenario.id}`}
             >
-              <Typography variant="subtitle2" gutterBottom sx={{ 
-                color: getColorForType(scenario.type),
-                fontWeight: 'bold'
-              }}>
-                Scenario {index + 1}
-              </Typography>
-              <Typography variant="body2">
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Box 
+                  sx={{ 
+                    width: 16, 
+                    height: 16, 
+                    borderRadius: '50%', 
+                    bgcolor: getColorForType(scenario.type),
+                    mr: 1,
+                    border: isSelected ? '2px solid black' : 'none'
+                  }} 
+                />
+                <Typography variant="subtitle2" sx={{ 
+                  color: getColorForType(scenario.type),
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem' // Decreased font size
+                }}>
+                  Scenario {index + 1}
+                </Typography>
+              </Box>
+              <Typography variant="body2" sx={{ fontSize: '0.8rem' }}> {/* Decreased font size */}
                 {scenario.description}
               </Typography>
             </Paper>
-          </Grid>
-        ))}
-      </Grid>
+          );
+        })}
+      </Box>
     </Box>
   );
 };
