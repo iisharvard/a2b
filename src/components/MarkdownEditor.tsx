@@ -9,9 +9,16 @@ interface MarkdownEditorProps {
   onChange: (value: string) => void;
   label?: string;
   height?: string;
+  placeholder?: string;
 }
 
-const MarkdownEditor = ({ value, onChange, label, height = '300px' }: MarkdownEditorProps) => {
+const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
+  value,
+  onChange,
+  label,
+  height = '300px',
+  placeholder = '',
+}) => {
   const [tab, setTab] = useState(0);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -40,6 +47,7 @@ const MarkdownEditor = ({ value, onChange, label, height = '300px' }: MarkdownEd
                 lineNumbers: true,
                 highlightActiveLine: true,
               }}
+              placeholder={placeholder}
             />
           ) : (
             <Box sx={{ p: 2 }}>

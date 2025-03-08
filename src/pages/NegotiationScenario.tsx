@@ -35,9 +35,13 @@ import {
   addRiskAssessment, 
   updateRiskAssessment, 
   setRiskAssessments,
-  setScenariosRecalculated,
-  setRiskAssessmentsRecalculated
+  Scenario,
+  RiskAssessment
 } from '../store/negotiationSlice';
+import { 
+  setScenariosRecalculated,
+  setRiskAssessmentsRecalculated 
+} from '../store/recalculationSlice';
 import { api } from '../services/api';
 import LoadingOverlay from '../components/LoadingOverlay';
 import ScenarioSpectrum from '../components/ScenarioSpectrum';
@@ -51,11 +55,12 @@ const NegotiationScenario = () => {
   const { currentCase, selectedScenario } = useSelector(
     (state: RootState) => state.negotiation
   );
+  const recalculationStatus = useSelector((state: RootState) => state.recalculation);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedIssueId, setSelectedIssueId] = useState<string>('');
-  const [scenarios, setLocalScenarios] = useState<any[]>([]);
+  const [scenarios, setLocalScenarios] = useState<Scenario[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingRisk, setIsGeneratingRisk] = useState(false);
   const generationInProgress = useRef(false);
@@ -63,9 +68,8 @@ const NegotiationScenario = () => {
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   
   // Check if analysis has been recalculated but scenarios haven't been updated
-  const needsRecalculation = currentCase?.recalculationStatus && 
-    !currentCase.recalculationStatus.scenariosRecalculated && 
-    currentCase.recalculationStatus.analysisRecalculated;
+  const needsRecalculation = !recalculationStatus.scenariosRecalculated && 
+    recalculationStatus.analysisRecalculated;
   
   useEffect(() => {
     if (!currentCase || !currentCase.analysis) {
@@ -93,9 +97,7 @@ const NegotiationScenario = () => {
       );
       
       // If we have scenarios and they don't need recalculation, use them
-      if (existingScenarios.length > 0 && 
-          (!currentCase.recalculationStatus || 
-           currentCase.recalculationStatus.scenariosRecalculated)) {
+      if (existingScenarios.length > 0 && recalculationStatus.scenariosRecalculated) {
         console.log(`Using existing scenarios for issue: ${selectedIssueId}`);
         setLocalScenarios(existingScenarios);
         return;
@@ -121,7 +123,7 @@ const NegotiationScenario = () => {
         dispatch(setScenarios(scenariosArray));
         
         // Mark scenarios as recalculated if they were generated due to analysis changes
-        if (currentCase.recalculationStatus && !currentCase.recalculationStatus.scenariosRecalculated) {
+        if (!recalculationStatus.scenariosRecalculated) {
           dispatch(setScenariosRecalculated(true));
         }
       } catch (err: any) {
@@ -140,7 +142,7 @@ const NegotiationScenario = () => {
     };
 
     fetchScenarios();
-  }, [selectedIssueId, currentCase, dispatch]);
+  }, [selectedIssueId, currentCase, dispatch, recalculationStatus.scenariosRecalculated]);
 
   const handleIssueChange = (issueId: string) => {
     if (isGenerating) {
@@ -149,17 +151,15 @@ const NegotiationScenario = () => {
     }
     setSelectedIssueId(issueId);
     // Reset selected scenario when changing issues
-    dispatch(selectScenario(null as any));
+    dispatch(selectScenario(null));
     setShowRiskAssessment(false);
   };
 
-  const handleSelectScenario = (scenario: any) => {
-    // If the same scenario is selected, toggle selection
+  const handleSelectScenario = (scenario: Scenario) => {
     if (selectedScenario && selectedScenario.id === scenario.id) {
-      dispatch(selectScenario(null as any));
+      dispatch(selectScenario(null));
       setShowRiskAssessment(false);
     } else {
-      // If a different scenario is selected, select it and hide the risk assessment
       dispatch(selectScenario(scenario));
       setShowRiskAssessment(false);
     }
@@ -218,7 +218,7 @@ const NegotiationScenario = () => {
       
       if (existingRiskAssessment) {
         // If risk assessment exists and scenarios have been recalculated, update it
-        if (!currentCase.recalculationStatus.riskAssessmentsRecalculated) {
+        if (!recalculationStatus.riskAssessmentsRecalculated) {
           // Generate risk assessment
           const riskAssessment = await api.generateRiskAssessment(selectedScenario.id);
           
@@ -252,11 +252,11 @@ const NegotiationScenario = () => {
     }
   };
 
-  const handleAddAssessment = (assessment: any) => {
+  const handleAddAssessment = (assessment: RiskAssessment) => {
     dispatch(addRiskAssessment(assessment));
   };
 
-  const handleUpdateRiskAssessment = (assessment: any) => {
+  const handleUpdateRiskAssessment = (assessment: RiskAssessment) => {
     dispatch(updateRiskAssessment(assessment));
   };
 
@@ -276,34 +276,31 @@ const NegotiationScenario = () => {
 
   // Function to handle recalculation of scenarios
   const handleRecalculateScenarios = async () => {
-    if (!currentCase || !currentCase.analysis || !selectedIssueId) return;
+    if (!currentCase || !selectedIssueId) return;
     
     try {
-      setIsGenerating(true);
+      setLoading(true);
       setError(null);
       
-      // Generate new scenarios based on the updated analysis
-      const newScenarios = await api.generateScenarios(selectedIssueId);
+      // Force regenerate scenarios for the selected issue
+      const generatedScenarios = await api.forceGenerateScenarios(selectedIssueId);
       
       // Update Redux store with new scenarios
-      dispatch(setScenarios(newScenarios));
+      dispatch(setScenarios(generatedScenarios));
       
       // Mark scenarios as recalculated
       dispatch(setScenariosRecalculated(true));
       
-      // Update local state
-      setLocalScenarios(newScenarios);
-      
       // Show success message
-      setError('Scenarios have been successfully recalculated based on the updated analysis.');
+      setError('Scenarios have been successfully recalculated.');
       
-      return newScenarios;
+      return generatedScenarios;
     } catch (err) {
       console.error('Error recalculating scenarios:', err);
       setError('Failed to recalculate scenarios. Please try again.');
       throw err;
     } finally {
-      setIsGenerating(false);
+      setLoading(false);
     }
   };
 
@@ -320,6 +317,10 @@ const NegotiationScenario = () => {
     ? currentCase.riskAssessments.filter(ra => ra.scenarioId === selectedScenario.id)
     : [];
 
+  // Get party names for display
+  const party1Name = currentCase?.suggestedParties[0]?.name || 'Party 1';
+  const party2Name = currentCase?.suggestedParties[1]?.name || 'Party 2';
+
   return (
     <Container maxWidth="xl">
       <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
@@ -335,206 +336,87 @@ const NegotiationScenario = () => {
           </Alert>
         )}
         
-        {currentCase?.recalculationStatus && !currentCase.recalculationStatus.scenariosRecalculated && (
-          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              variant="outlined"
-              color="primary"
-              onClick={handleRecalculateScenarios}
-              disabled={loading || isGenerating}
-              startIcon={isGenerating ? <CircularProgress size={16} /> : null}
-              sx={{ fontSize: '0.8rem' }}
-              size="small"
-            >
-              Recalculate Scenarios
-            </Button>
-          </Box>
+        {needsRecalculation && (
+          <RecalculationWarning
+            message="The analysis has been modified. The scenarios may not reflect the latest changes."
+            onRecalculate={handleRecalculateScenarios}
+          />
         )}
         
         <Grid container spacing={4}>
-          {/* Left panel for issue selection */}
-          <Grid item xs={12} md={3} sx={{ flexGrow: 0 }}>
-            <Typography variant="subtitle1" gutterBottom sx={{ fontSize: '0.95rem' }}>
-              Negotiation Issues
-            </Typography>
-            
-            <List dense sx={{ bgcolor: 'background.paper', border: '1px solid #eee', borderRadius: 1 }}>
-              {currentCase?.analysis?.components.map((component, index) => (
-                <ListItem 
-                  key={component.id}
-                  sx={{ 
-                    borderBottom: index < (currentCase.analysis?.components.length || 0) - 1 ? '1px solid #eee' : 'none',
-                    bgcolor: selectedIssueId === component.id ? 'action.selected' : 'inherit',
-                    py: 1,
-                    pr: 2
-                  }}
-                  button
-                  onClick={() => handleIssueChange(component.id)}
-                >
-                  <Tooltip title={component.name} placement="top" arrow>
-                    <ListItemText 
-                      primary={component.name} 
-                      primaryTypographyProps={{ 
+          <Grid item xs={12} md={4}>
+            <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
+              <Typography variant="h6" gutterBottom>
+                Select Issue
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Choose an issue to view its potential scenarios
+              </Typography>
+              
+              <List dense sx={{ bgcolor: 'background.paper', border: '1px solid #eee', borderRadius: 1 }}>
+                {currentCase.analysis.components.map((component) => (
+                  <ListItem
+                    key={component.id}
+                    button
+                    selected={selectedIssueId === component.id}
+                    onClick={() => handleIssueChange(component.id)}
+                  >
+                    <ListItemText
+                      primary={component.name}
+                      primaryTypographyProps={{
                         variant: 'body2',
-                        fontWeight: selectedIssueId === component.id ? 'bold' : 'normal',
-                        sx: { 
-                          minWidth: '150px',
-                          whiteSpace: 'normal',
-                          wordWrap: 'break-word',
-                          lineHeight: 1.4,
-                          fontSize: '0.8rem'
-                        }
+                        fontWeight: selectedIssueId === component.id ? 'bold' : 'normal'
                       }}
                     />
-                  </Tooltip>
-                </ListItem>
-              ))}
-            </List>
-            
-            {selectedIssue && (
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="subtitle1" gutterBottom sx={{ fontSize: '0.95rem' }}>
-                  Selected Issue Details
-                </Typography>
-                <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="body2" sx={{ mb: 1, fontSize: '0.8rem' }}>
-                    <strong>Description:</strong> {selectedIssue?.description}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1, fontSize: '0.8rem' }}>
-                    <strong>{currentCase?.party1.name} Redline:</strong> {selectedIssue?.redlineParty1}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1, fontSize: '0.8rem' }}>
-                    <strong>{currentCase?.party1.name} Bottomline:</strong> {selectedIssue?.bottomlineParty1}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1, fontSize: '0.8rem' }}>
-                    <strong>{currentCase?.party2.name} Redline:</strong> {selectedIssue?.redlineParty2}
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                    <strong>{currentCase?.party2.name} Bottomline:</strong> {selectedIssue?.bottomlineParty2}
-                  </Typography>
-                </Paper>
-              </Box>
-            )}
+                  </ListItem>
+                ))}
+              </List>
+            </Paper>
           </Grid>
           
-          {/* Right panel for scenarios and risk assessment */}
-          <Grid item xs={12} md={9}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="subtitle1" sx={{ fontSize: '0.95rem' }}>
-                Scenarios
-              </Typography>
-              <Box>
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  onClick={handleGenerateScenarios}
-                  disabled={loading || !selectedIssueId || isGenerating}
-                  startIcon={isGenerating ? <CircularProgress size={16} /> : null}
-                  sx={{ fontSize: '0.8rem' }}
-                  size="small"
-                >
-                  {isGenerating ? 'Generating...' : 'Generate Scenarios'}
-                </Button>
-              </Box>
-            </Box>
-            
-            {scenarios.length > 0 ? (
+          <Grid item xs={12} md={8}>
+            {selectedIssueId ? (
               <>
-                <ScenarioSpectrum
-                  scenarios={scenarios}
-                  party1Name={currentCase?.party1.name || 'Party 1'}
-                  party2Name={currentCase?.party2.name || 'Party 2'}
-                  onSelectScenario={handleSelectScenario}
-                  selectedScenarioId={selectedScenario?.id}
-                  riskAssessmentContent={
-                    selectedScenario ? (
-                      <Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                          <Typography variant="subtitle1" sx={{ fontSize: '0.95rem' }}>
-                            Risk Assessment
-                          </Typography>
-                          <Button
-                            variant="outlined"
-                            color="primary"
-                            onClick={handleGenerateRiskAssessment}
-                            disabled={isGeneratingRisk}
-                            startIcon={isGeneratingRisk ? <CircularProgress size={16} /> : null}
-                            sx={{ fontSize: '0.8rem' }}
-                            size="small"
-                          >
-                            {isGeneratingRisk 
-                              ? 'Generating...' 
-                              : showRiskAssessment 
-                                ? 'Hide Risk Assessment' 
-                                : 'Show Risk Assessment'
-                            }
-                          </Button>
-                        </Box>
-                        
-                        {showRiskAssessment && (
-                          <>
-                            <Accordion defaultExpanded>
-                              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                <Typography variant="subtitle1" sx={{ fontSize: '0.9rem' }}>Short-Term Risk Assessment</Typography>
-                              </AccordionSummary>
-                              <AccordionDetails>
-                                <Box sx={{ overflowX: 'auto' }}>
-                                  <RiskAssessmentTable
-                                    riskAssessment={currentCase.riskAssessments}
-                                    scenarioId={selectedScenario.id}
-                                    viewMode="short-term"
-                                    onAddAssessment={handleAddAssessment}
-                                    onUpdateAssessment={handleUpdateRiskAssessment}
-                                    onDeleteAssessment={handleDeleteAssessment}
-                                  />
-                                </Box>
-                              </AccordionDetails>
-                            </Accordion>
-                            
-                            <Accordion defaultExpanded sx={{ mt: 2 }}>
-                              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                <Typography variant="subtitle1" sx={{ fontSize: '0.9rem' }}>Long-Term Risk Assessment</Typography>
-                              </AccordionSummary>
-                              <AccordionDetails>
-                                <Box sx={{ overflowX: 'auto' }}>
-                                  <RiskAssessmentTable
-                                    riskAssessment={currentCase.riskAssessments}
-                                    scenarioId={selectedScenario.id}
-                                    viewMode="long-term"
-                                    onAddAssessment={handleAddAssessment}
-                                    onUpdateAssessment={handleUpdateRiskAssessment}
-                                    onDeleteAssessment={handleDeleteAssessment}
-                                  />
-                                </Box>
-                              </AccordionDetails>
-                            </Accordion>
-                          </>
-                        )}
-                      </Box>
-                    ) : null
-                  }
-                />
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Scenario Spectrum
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Click on a scenario to view its risk assessment
+                  </Typography>
+                  
+                  <ScenarioSpectrum
+                    scenarios={scenarios}
+                    party1Name={party1Name}
+                    party2Name={party2Name}
+                    onSelectScenario={handleSelectScenario}
+                    selectedScenarioId={selectedScenario?.id}
+                  />
+                </Box>
+                
+                {showRiskAssessment && selectedScenario && (
+                  <Box sx={{ mt: 4 }}>
+                    <Typography variant="h6" gutterBottom>
+                      Risk Assessment
+                    </Typography>
+                    <RiskAssessmentTable
+                      assessments={currentCase.riskAssessments}
+                      scenarioId={selectedScenario.id}
+                      viewMode="edit"
+                      onAddAssessment={handleAddAssessment}
+                      onUpdateAssessment={handleUpdateRiskAssessment}
+                      onDeleteAssessment={handleDeleteAssessment}
+                    />
+                  </Box>
+                )}
               </>
             ) : (
-              <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
-                <Typography variant="body1" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
-                  No scenarios generated yet. Select an issue and click "Generate Scenarios".
+              <Paper elevation={0} sx={{ p: 3, textAlign: 'center', bgcolor: '#f5f5f5' }}>
+                <Typography variant="body1" color="text.secondary">
+                  Select an issue from the list to view its scenarios
                 </Typography>
               </Paper>
             )}
-          </Grid>
-          
-          <Grid item xs={12} sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleNext}
-              disabled={loading}
-              size="medium"
-              sx={{ fontSize: '0.85rem' }}
-            >
-              Finish
-            </Button>
           </Grid>
         </Grid>
       </Paper>

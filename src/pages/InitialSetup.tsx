@@ -24,7 +24,7 @@ import {
   DialogContentText,
   DialogActions,
 } from '@mui/material';
-import { setCaseContent, setParties, clearState, setCaseProcessed } from '../store/negotiationSlice';
+import { setCase, setParties, clearState, setCaseProcessed } from '../store/negotiationSlice';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { api } from '../services/api';
 
@@ -192,8 +192,22 @@ const InitialSetup = () => {
       };
       
       // Update Redux state
-      dispatch(setCaseContent({ content: caseContent }));
-      dispatch(setParties(parties));
+      dispatch(setCase({ 
+        id: Date.now().toString(), 
+        content: caseContent 
+      }));
+      dispatch(setParties([
+        {
+          name: party1Name,
+          description: party1Description || `${party1Name} is one of the parties in this negotiation.`,
+          isPrimary: true
+        },
+        {
+          name: party2Name,
+          description: party2Description || `${party2Name} is one of the parties in this negotiation.`,
+          isPrimary: true
+        }
+      ]));
       
       // If we haven't processed the content yet, just mark it as processed without identifying parties
       if (!currentCase?.processed) {

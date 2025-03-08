@@ -51,10 +51,9 @@ import {
   updateIoA, 
   updateIceberg, 
   updateComponent, 
-  setCaseContent, 
-  Component,
-  setAnalysisRecalculated
+  Component
 } from '../store/negotiationSlice';
+import { setAnalysisRecalculated } from '../store/recalculationSlice';
 import { api } from '../services/api';
 import LoadingOverlay from '../components/LoadingOverlay';
 import NegotiationIssueCard from '../components/NegotiationIssueCard';
@@ -102,6 +101,7 @@ const RedlineBottomline = () => {
   const dispatch = useDispatch();
   
   const { currentCase } = useSelector((state: RootState) => state.negotiation);
+  const recalculationStatus = useSelector((state: RootState) => state.recalculation);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,8 +111,8 @@ const RedlineBottomline = () => {
   const [tabValue, setTabValue] = useState(0);
 
   // Get party names for display
-  const party1Name = currentCase?.party1?.name || 'Party 1';
-  const party2Name = currentCase?.party2?.name || 'Party 2';
+  const party1Name = currentCase?.suggestedParties[0]?.name || 'Party 1';
+  const party2Name = currentCase?.suggestedParties[1]?.name || 'Party 2';
 
   useEffect(() => {
     if (!currentCase) {
@@ -297,28 +297,21 @@ const RedlineBottomline = () => {
     <Container maxWidth="xl">
       <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom align="center">
-          Redline & Bottomline Boundaries
+          Redlines and Bottomlines
         </Typography>
         
         <Divider sx={{ mb: 4 }} />
         
         {error && (
-          <Alert severity={error.includes('successfully') ? 'success' : 'error'} sx={{ mb: 3 }}>
+          <Alert severity="error" sx={{ mb: 3 }}>
             {error}
           </Alert>
         )}
         
-        {/* Show recalculation warning if case content has been updated */}
-        {currentCase?.recalculationStatus && !currentCase.recalculationStatus.analysisRecalculated && (
-          <RecalculationWarning 
-            message="The case content has been updated. The analysis may not reflect the latest changes."
+        {!recalculationStatus.analysisRecalculated && (
+          <RecalculationWarning
+            message="The analysis has been modified. You may want to recalculate the boundaries."
             onRecalculate={handleRecalculateAnalysis}
-            showDiff={true}
-            diffTitle="Analysis Changes"
-            originalItems={currentCase.originalContent.analysis?.components || []}
-            updatedItems={currentCase.analysis?.components || []}
-            idKey="id"
-            nameKey="name"
           />
         )}
         
@@ -422,7 +415,7 @@ const RedlineBottomline = () => {
                     {/* Party 1 Boundaries */}
                     <Box sx={{ mb: 3 }}>
                       <Typography variant="subtitle1" sx={{ mb: 1, color: 'primary.main', fontWeight: 'bold' }}>
-                        {currentCase.party1.name} Boundaries
+                        {party1Name} Boundaries
                       </Typography>
                       
                       <Grid container spacing={2}>
@@ -468,7 +461,7 @@ const RedlineBottomline = () => {
                     {/* Party 2 Boundaries */}
                     <Box>
                       <Typography variant="subtitle1" sx={{ mb: 1, color: 'secondary.main', fontWeight: 'bold' }}>
-                        {currentCase.party2.name} Boundaries
+                        {party2Name} Boundaries
                       </Typography>
                       
                       <Grid container spacing={2}>

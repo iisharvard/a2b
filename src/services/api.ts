@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { Analysis, Component, Party, RiskAssessment, Scenario } from '../store/negotiationSlice';
 import { store } from '../store';
+import { ApiResponse, AnalysisResponse } from '../types/api';
 
 // OpenAI API configuration
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
@@ -245,116 +246,56 @@ let analysisInProgress: string | null = null;
 
 export const api = {
   async analyzeCase(
-    caseContent: string, 
-    party1: Party, 
+    content: string,
+    party1: Party,
     party2: Party,
     onProgress?: (step: number, message: string, substep: number) => void
-  ): Promise<Analysis | { rateLimited: true }> {
+  ): Promise<ApiResponse<AnalysisResponse>> {
     const requestId = Date.now().toString();
     
-    // Check if analysis is already in progress
-    if (analysisInProgress) {
-      console.log(`Analysis already in progress (${analysisInProgress}), skipping new request ${requestId}`);
-      return { rateLimited: true };
-    }
-    
-    analysisInProgress = requestId;
-    console.log(`[${requestId}] Starting case analysis...`);
-    
     try {
-      // Call the language model for Island of Agreements
-      console.log(`[${requestId}] Step 1: Island of Agreements analysis`);
       onProgress?.(1, 'Analyzing Island of Agreements...', 33);
       const ioaResponse = await callLanguageModel('islandOfAgreement.txt', {
-        caseContent,
+        caseContent: content,
         party1Name: party1.name,
         party2Name: party2.name
       });
       
-      // Check if we hit a rate limit
-      if ('rateLimited' in ioaResponse && ioaResponse.rateLimited) {
-        console.log(`[${requestId}] Rate limit hit during IoA analysis`);
-        return { rateLimited: true };
-      }
-      
-      // Call the language model for Iceberg Analysis
-      console.log(`[${requestId}] Step 2: Iceberg analysis`);
       onProgress?.(2, 'Performing Iceberg Analysis...', 66);
       const icebergResponse = await callLanguageModel('iceberg.txt', {
-        caseContent,
+        caseContent: content,
         party1Name: party1.name,
         party2Name: party2.name
       });
       
-      // Check if we hit a rate limit
-      if ('rateLimited' in icebergResponse && icebergResponse.rateLimited) {
-        console.log(`[${requestId}] Rate limit hit during Iceberg analysis`);
-        return { rateLimited: true };
-      }
-      
-      // Call the language model for Components and Redline/Bottomline
-      console.log(`[${requestId}] Step 3: Components analysis`);
       onProgress?.(3, 'Identifying Components and Boundaries...', 90);
       const componentsResponse = await callLanguageModel('redlinebottomlineRequirements.txt', {
-        caseContent,
+        caseContent: content,
         party1Name: party1.name,
         party2Name: party2.name,
-        ioa: ioaResponse.ioa || ioaResponse.rawContent || "",
-        iceberg: icebergResponse.iceberg || icebergResponse.rawContent || ""
+        ioa: ioaResponse.ioa,
+        iceberg: icebergResponse.iceberg
       });
       
-      // Check if we hit a rate limit
-      if ('rateLimited' in componentsResponse && componentsResponse.rateLimited) {
-        console.log(`[${requestId}] Rate limit hit during Components analysis`);
+      const analysis: AnalysisResponse = {
+        id: requestId,
+        ioa: ioaResponse.ioa,
+        iceberg: icebergResponse.iceberg,
+        components: componentsResponse.components,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      return analysis;
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('rate limit')) {
         return { rateLimited: true };
       }
-      
-      console.log(`[${requestId}] Analysis complete`);
-      onProgress?.(3, 'Analysis complete!', 100);
-      
-      // Parse the responses
-      return {
-        id: Date.now().toString(),
-        ioa: ioaResponse.ioa || ioaResponse.rawContent || "# Island of Agreements\n\nNo islands of agreement identified yet.",
-        iceberg: icebergResponse.iceberg || icebergResponse.rawContent || `# Iceberg Analysis\n\n## Party 1 (${party1.name})\n\n### Position (What)\n\n### Reasoning (How)\n\n### Motives (Why)\n\n## Party 2 (${party2.name})\n\n### Position (What)\n\n### Reasoning (How)\n\n### Motives (Why)`,
-        components: componentsResponse.components || [],
-        createdAt: new Date().toISOString(),
-        version: 1
-      };
-    } catch (error) {
-      console.error(`[${requestId}] Error analyzing case:`, error);
-      
-      // Fallback to basic structure if API call fails
-      return {
-        id: Date.now().toString(),
-        ioa: `# Island of Agreements\n\n## Agreed Facts\n- Both parties acknowledge the need for discussion\n\n## Contested Facts\n- Details to be determined\n\n## Convergent Norms\n- Professional negotiation standards\n\n## Divergent Norms\n- Specific priorities of each party`,
-        iceberg: `# Iceberg Analysis\n\n## Party 1 (${party1.name})\n\n### Position (What)\n- Initial position to be determined\n\n### Reasoning (How)\n- Reasoning to be analyzed\n\n### Motives (Why)\n- Underlying motives to be explored\n\n## Party 2 (${party2.name})\n\n### Position (What)\n- Initial position to be determined\n\n### Reasoning (How)\n- Reasoning to be analyzed\n\n### Motives (Why)\n- Underlying motives to be explored`,
-        components: [
-          {
-            id: '1',
-            name: 'Component 1',
-            description: 'First negotiation component',
-            redlineParty1: 'Party 1 redline',
-            bottomlineParty1: 'Party 1 bottomline',
-            redlineParty2: 'Party 2 redline',
-            bottomlineParty2: 'Party 2 bottomline',
-            priority: 1
-          }
-        ],
-        createdAt: new Date().toISOString(),
-        version: 1
-      };
-    } finally {
-      // Clear the analysis lock
-      if (analysisInProgress === requestId) {
-        analysisInProgress = null;
-      }
+      throw error;
     }
   },
   
   async generateScenarios(componentId: string): Promise<Scenario[]> {
-    console.log('Generating scenarios for component:', componentId);
-    
     try {
       // Check cache first
       const cachedScenarios = apiCache.scenarios.get(componentId);
@@ -365,17 +306,18 @@ export const api = {
       
       // Get the component details from the store
       const state = store.getState();
-      const component = state.negotiation.currentCase?.analysis?.components.find(
+      const currentCase = state.negotiation.currentCase;
+      const component = currentCase?.analysis?.components.find(
         c => c.id === componentId
       );
       
-      if (!component) {
-        throw new Error(`Component with ID ${componentId} not found`);
+      if (!component || !currentCase?.suggestedParties.length) {
+        throw new Error(`Component with ID ${componentId} not found or party information missing`);
       }
       
       // Get party names
-      const party1Name = state.negotiation.currentCase?.party1?.name || 'Party 1';
-      const party2Name = state.negotiation.currentCase?.party2?.name || 'Party 2';
+      const party1Name = currentCase.suggestedParties[0].name;
+      const party2Name = currentCase.suggestedParties[1].name;
       
       // Call the language model with the scenarios prompt and component details
       const result = await callLanguageModel('scenarios.txt', {
@@ -390,26 +332,17 @@ export const api = {
         party2Name
       });
       
-      // Check if we hit a rate limit
-      if ('rateLimited' in result && result.rateLimited) {
-        const error = new Error('Rate limit exceeded');
-        error.message = 'rate limit exceeded';
-        throw error;
+      if ('rateLimited' in result) {
+        throw new Error('Rate limit exceeded');
       }
       
-      // Parse the response and log it
-      console.log('Received scenario response:', JSON.stringify(result, null, 2));
       const scenarios = result.scenarios || [];
-      
-      // Cache the result
       apiCache.scenarios.set(componentId, scenarios);
-      
       return scenarios;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error generating scenarios:', error);
       
-      // If it's a rate limit error, propagate it
-      if (error.message?.includes('rate limit')) {
+      if (error instanceof Error && error.message.includes('rate limit')) {
         throw error;
       }
       
@@ -447,9 +380,7 @@ export const api = {
         }
       ];
       
-      // Cache the fallback result
       apiCache.scenarios.set(componentId, fallbackScenarios);
-      
       return fallbackScenarios;
     }
   },
@@ -507,53 +438,50 @@ export const api = {
   },
   
   async recalculateBoundaries(analysis: Analysis): Promise<Component[]> {
-    console.log('Recalculating boundaries with LLM...');
-    
     try {
-      // Call the language model with the recalculate boundaries prompt
+      const currentCase = store.getState().negotiation.currentCase;
+      if (!currentCase || currentCase.suggestedParties.length < 2) {
+        throw new Error('Case or party information missing');
+      }
+
       const result = await callLanguageModel('redlinebottomline.txt', {
         ioa: analysis.ioa,
         iceberg: analysis.iceberg,
-        components: JSON.stringify(analysis.components)
+        components: JSON.stringify(analysis.components),
+        party1Name: currentCase.suggestedParties[0].name,
+        party2Name: currentCase.suggestedParties[1].name
       });
       
-      // Parse the response
       return result.components || analysis.components;
     } catch (error) {
       console.error('Error recalculating boundaries:', error);
-      
-      // Return slightly modified components to simulate recalculation if API call fails
-      return analysis.components.map(component => ({
-        ...component,
-        redlineParty1: `${component.redlineParty1} (recalculated)`,
-        bottomlineParty1: `${component.bottomlineParty1} (recalculated)`,
-        redlineParty2: `${component.redlineParty2} (recalculated)`,
-        bottomlineParty2: `${component.bottomlineParty2} (recalculated)`,
-      }));
+      return analysis.components;
     }
   },
 
   async identifyParties(caseContent: string): Promise<Array<{name: string, description: string, isPrimary: boolean}>> {
-    console.log('Identifying parties from case content with LLM...');
-    
     try {
-      // Call the language model with the identify parties prompt
       const result = await callLanguageModel('identifyParties.txt', {
         caseContent
       });
-      
-      // The result should have a parties property containing the array
-      if (result && result.parties && Array.isArray(result.parties)) {
-        return result.parties;
-      } else {
-        console.warn('Unexpected response format from identifyParties:', result);
-        return [];
+
+      if ('rateLimited' in result) {
+        throw new Error('Rate limit reached');
       }
+
+      // Validate the response against the schema
+      if (!result.parties || !Array.isArray(result.parties)) {
+        throw new Error('Invalid response format');
+      }
+
+      return result.parties;
     } catch (error) {
       console.error('Error identifying parties:', error);
-      
-      // Return empty array if API call fails
-      return [];
+      // Return default parties if API call fails
+      return [
+        { name: 'Party 1', description: 'First party in the negotiation', isPrimary: true },
+        { name: 'Party 2', description: 'Second party in the negotiation', isPrimary: true }
+      ];
     }
   }
 }; 

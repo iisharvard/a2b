@@ -39,7 +39,8 @@ export interface Party {
   name: string;
   description: string;
   isUserSide: boolean;
-  idealOutcomes: string[];
+  isPrimary: boolean;
+  idealOutcomes?: string[];
 }
 
 export interface Component {
@@ -79,29 +80,18 @@ export interface Analysis {
   iceberg: string;
   components: Component[];
   createdAt: string;
-  version: number;
+  updatedAt: string;
 }
 
 export interface Case {
   id: string;
   title: string;
   content: string;
-  createdAt: string;
-  party1: Party;
-  party2: Party;
+  processed: boolean;
+  suggestedParties: Party[];
   analysis: Analysis | null;
   scenarios: Scenario[];
   riskAssessments: RiskAssessment[];
-  processed: boolean;
-  suggestedParties: Array<{name: string, description: string, isPrimary: boolean}>;
-  // Track recalculation status
-  recalculationStatus: {
-    analysisRecalculated: boolean;
-    scenariosRecalculated: boolean;
-    riskAssessmentsRecalculated: boolean;
-    lastRecalculationTimestamp: string | null;
-  };
-  // Store original content for diff comparison
   originalContent: {
     analysis: Analysis | null;
     scenarios: Scenario[];
@@ -109,11 +99,11 @@ export interface Case {
   };
 }
 
-interface NegotiationState {
+export interface NegotiationState {
   currentCase: Case | null;
+  selectedScenario: Scenario | null;
   loading: boolean;
   error: string | null;
-  selectedScenario: Scenario | null;
 }
 
 const initialState: NegotiationState = {
@@ -125,7 +115,7 @@ const initialState: NegotiationState = {
 
 export const negotiationSlice = createSlice({
   name: 'negotiation',
-  initialState: loadStateFromStorage(),
+  initialState,
   reducers: {
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
@@ -133,58 +123,34 @@ export const negotiationSlice = createSlice({
     setError: (state, action: PayloadAction<string | null>) => {
       state.error = action.payload;
     },
-    setCaseContent: (state, action: PayloadAction<{ content: string; title?: string }>) => {
-      if (!state.currentCase) {
-        state.currentCase = {
-          id: Date.now().toString(),
-          title: action.payload.title || 'Untitled Case',
-          content: action.payload.content,
-          createdAt: new Date().toISOString(),
-          party1: {
-            id: '1',
-            name: '',
-            description: '',
-            isUserSide: true,
-            idealOutcomes: [],
-          },
-          party2: {
-            id: '2',
-            name: '',
-            description: '',
-            isUserSide: false,
-            idealOutcomes: [],
-          },
+    setCase: (state, action: PayloadAction<{ id: string; title?: string; content: string }>) => {
+      state.currentCase = {
+        id: action.payload.id,
+        title: action.payload.title || 'Untitled Case',
+        content: action.payload.content,
+        processed: false,
+        suggestedParties: [],
+        analysis: null,
+        scenarios: [],
+        riskAssessments: [],
+        originalContent: {
           analysis: null,
           scenarios: [],
-          riskAssessments: [],
-          processed: false,
-          suggestedParties: [],
-          recalculationStatus: {
-            analysisRecalculated: false,
-            scenariosRecalculated: false,
-            riskAssessmentsRecalculated: false,
-            lastRecalculationTimestamp: null,
-          },
-          originalContent: {
-            analysis: null,
-            scenarios: [],
-            riskAssessments: [],
-          },
-        };
-      } else {
-        state.currentCase.content = action.payload.content;
-        if (action.payload.title) {
-          state.currentCase.title = action.payload.title;
+          riskAssessments: []
         }
-        state.currentCase.processed = false;
-        state.currentCase.suggestedParties = [];
-      }
+      };
       saveStateToStorage(state);
     },
-    setParties: (state, action: PayloadAction<{ party1: Party; party2: Party }>) => {
+    setParties: (state, action: PayloadAction<Array<{name: string; description: string; isPrimary: boolean}>>) => {
       if (state.currentCase) {
-        state.currentCase.party1 = action.payload.party1;
-        state.currentCase.party2 = action.payload.party2;
+        state.currentCase.suggestedParties = action.payload.map((party, index) => ({
+          id: `party-${index + 1}`,
+          name: party.name,
+          description: party.description,
+          isPrimary: party.isPrimary,
+          isUserSide: index === 0,
+          idealOutcomes: [],
+        } as Party));
         saveStateToStorage(state);
       }
     },
@@ -266,11 +232,18 @@ export const negotiationSlice = createSlice({
     setCaseProcessed: (state, action: PayloadAction<{processed: boolean, suggestedParties: Array<{name: string, description: string, isPrimary: boolean}>}>) => {
       if (state.currentCase) {
         state.currentCase.processed = action.payload.processed;
-        state.currentCase.suggestedParties = action.payload.suggestedParties;
+        state.currentCase.suggestedParties = action.payload.suggestedParties.map((party, index) => ({
+          id: `party-${index + 1}`,
+          name: party.name,
+          description: party.description,
+          isPrimary: party.isPrimary,
+          isUserSide: index === 0,
+          idealOutcomes: [],
+        }));
         saveStateToStorage(state);
       }
     },
-    selectScenario: (state, action: PayloadAction<Scenario>) => {
+    selectScenario: (state, action: PayloadAction<Scenario | null>) => {
       state.selectedScenario = action.payload;
       saveStateToStorage(state);
     },
@@ -318,87 +291,11 @@ export const negotiationSlice = createSlice({
       }
     },
     clearState: (state) => {
-      // Clear localStorage
       localStorage.removeItem(STORAGE_KEY_CURRENT_CASE);
-      
-      // Reset state
       state.currentCase = null;
       state.loading = false;
       state.error = null;
       state.selectedScenario = null;
-    },
-    setAnalysisRecalculated: (state, action: PayloadAction<boolean>) => {
-      if (state.currentCase) {
-        // Initialize recalculationStatus if it doesn't exist
-        if (!state.currentCase.recalculationStatus) {
-          state.currentCase.recalculationStatus = {
-            analysisRecalculated: false,
-            scenariosRecalculated: false,
-            riskAssessmentsRecalculated: false,
-            lastRecalculationTimestamp: null,
-          };
-        }
-        
-        state.currentCase.recalculationStatus.analysisRecalculated = action.payload;
-        if (action.payload) {
-          // If analysis is recalculated, mark scenarios and risk assessments as needing recalculation
-          state.currentCase.recalculationStatus.scenariosRecalculated = false;
-          state.currentCase.recalculationStatus.riskAssessmentsRecalculated = false;
-          state.currentCase.recalculationStatus.lastRecalculationTimestamp = new Date().toISOString();
-        }
-        saveStateToStorage(state);
-      }
-    },
-    setScenariosRecalculated: (state, action: PayloadAction<boolean>) => {
-      if (state.currentCase) {
-        // Initialize recalculationStatus if it doesn't exist
-        if (!state.currentCase.recalculationStatus) {
-          state.currentCase.recalculationStatus = {
-            analysisRecalculated: true,
-            scenariosRecalculated: false,
-            riskAssessmentsRecalculated: false,
-            lastRecalculationTimestamp: null,
-          };
-        }
-        
-        state.currentCase.recalculationStatus.scenariosRecalculated = action.payload;
-        if (action.payload) {
-          // If scenarios are recalculated, mark risk assessments as needing recalculation
-          state.currentCase.recalculationStatus.riskAssessmentsRecalculated = false;
-          state.currentCase.recalculationStatus.lastRecalculationTimestamp = new Date().toISOString();
-        }
-        saveStateToStorage(state);
-      }
-    },
-    setRiskAssessmentsRecalculated: (state, action: PayloadAction<boolean>) => {
-      if (state.currentCase) {
-        // Initialize recalculationStatus if it doesn't exist
-        if (!state.currentCase.recalculationStatus) {
-          state.currentCase.recalculationStatus = {
-            analysisRecalculated: true,
-            scenariosRecalculated: true,
-            riskAssessmentsRecalculated: false,
-            lastRecalculationTimestamp: null,
-          };
-        }
-        
-        state.currentCase.recalculationStatus.riskAssessmentsRecalculated = action.payload;
-        if (action.payload) {
-          state.currentCase.recalculationStatus.lastRecalculationTimestamp = new Date().toISOString();
-        }
-        saveStateToStorage(state);
-      }
-    },
-    resetRecalculationStatus: (state) => {
-      if (state.currentCase) {
-        state.currentCase.recalculationStatus = {
-          analysisRecalculated: true,
-          scenariosRecalculated: true,
-          riskAssessmentsRecalculated: true,
-          lastRecalculationTimestamp: new Date().toISOString(),
-        };
-        saveStateToStorage(state);
-      }
     },
   },
 });
@@ -406,7 +303,7 @@ export const negotiationSlice = createSlice({
 export const {
   setLoading,
   setError,
-  setCaseContent,
+  setCase,
   setParties,
   setAnalysis,
   updateIoA,
@@ -421,10 +318,6 @@ export const {
   updateRiskAssessment,
   deleteRiskAssessment,
   clearState,
-  setAnalysisRecalculated,
-  setScenariosRecalculated,
-  setRiskAssessmentsRecalculated,
-  resetRecalculationStatus,
 } = negotiationSlice.actions;
 
 export default negotiationSlice.reducer; 

@@ -24,9 +24,12 @@ import {
   Component,
   Party,
 } from '../store/negotiationSlice';
+import { setAnalysisRecalculated } from '../store/recalculationSlice';
 import { api } from '../services/api';
+import { ApiResponse, AnalysisResponse } from '../types/api';
 import LoadingOverlay from '../components/LoadingOverlay';
 import MarkdownEditor from '../components/MarkdownEditor';
+import { parseComponentsFromMarkdown, componentsToMarkdown } from '../utils/componentParser';
 
 const ReviewAndRevise = () => {
   const navigate = useNavigate();
@@ -36,6 +39,7 @@ const ReviewAndRevise = () => {
   const { currentCase, loading: stateLoading } = useSelector(
     (state: RootState) => state.negotiation
   );
+  const recalculationStatus = useSelector((state: RootState) => state.recalculation);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,19 +52,18 @@ const ReviewAndRevise = () => {
     substep: 0
   });
   
-  // Memoize the analysis function to prevent recreating it on every render
-  const analyzeWithProgress = useCallback(async (content: string, p1: Party, p2: Party) => {
-    return api.analyzeCase(
-      content,
-      p1,
-      p2,
-      (step: number, message: string, substep: number) => {
-        setAnalysisProgress({ step, message, substep });
-      }
-    );
-  }, []);
+  const analyzeWithProgress = useCallback(
+    async (
+      content: string,
+      p1: Party,
+      p2: Party,
+      onProgress?: (step: number, message: string, substep: number) => void
+    ): Promise<ApiResponse<AnalysisResponse>> => {
+      return api.analyzeCase(content, p1, p2, onProgress);
+    },
+    []
+  );
 
-  // Memoize the fetch analysis function
   const fetchAnalysis = useCallback(async () => {
     if (!currentCase || analysisInProgress.current) return;
     
@@ -83,27 +86,28 @@ const ReviewAndRevise = () => {
     setError(null);
     
     try {
+      if (!currentCase.suggestedParties || currentCase.suggestedParties.length < 2) {
+        throw new Error('Please set up party information before proceeding with analysis.');
+      }
+
       const analysisResult = await analyzeWithProgress(
         currentCase.content,
-        currentCase.party1,
-        currentCase.party2
+        currentCase.suggestedParties[0],
+        currentCase.suggestedParties[1]
       );
       
       // Check if we hit a rate limit
-      if ('rateLimited' in analysisResult && analysisResult.rateLimited) {
+      if ('rateLimited' in analysisResult) {
         console.log('Rate limit hit, keeping loading screen visible');
         return;
       }
       
-      // Now we know it's a valid Analysis object
-      const analysis = analysisResult as Analysis;
-      dispatch(setAnalysis(analysis));
+      dispatch(setAnalysis(analysisResult));
+      setIoa(analysisResult.ioa);
+      setIceberg(analysisResult.iceberg);
       
-      setIoa(analysis.ioa);
-      setIceberg(analysis.iceberg);
-      
-      const componentsText = analysis.components
-        .map((comp: Component) => `## ${comp.name}\n${comp.description}`)
+      const componentsText = analysisResult.components
+        .map((comp) => `## ${comp.name}\n${comp.description}`)
         .join('\n\n');
       
       setComponentsMarkdown(componentsText);
@@ -116,15 +120,21 @@ const ReviewAndRevise = () => {
     }
   }, [currentCase, dispatch, analyzeWithProgress]);
 
-  // Effect to handle initial load and navigation
   useEffect(() => {
     if (!currentCase) {
       navigate('/');
       return;
     }
 
+    // Check if parties are set up
+    if (!currentCase.suggestedParties || currentCase.suggestedParties.length < 2) {
+      setError('Please set up party information before proceeding with analysis.');
+      navigate('/parties');
+      return;
+    }
+
     fetchAnalysis();
-  }, [currentCase?.id, fetchAnalysis]); // Add fetchAnalysis to dependencies
+  }, [currentCase?.id, fetchAnalysis, navigate]);
 
   const handleIoaChange = (value: string) => {
     setIoa(value);
@@ -139,60 +149,23 @@ const ReviewAndRevise = () => {
   const handleComponentsChange = (value: string) => {
     setComponentsMarkdown(value);
     
-    // This is a simplified parser for demonstration
-    // In a real app, you'd want more robust parsing
-    try {
-      const sections = value.split('##').filter(Boolean);
-      const components = sections.map((section) => {
-        const lines = section.trim().split('\n');
-        const name = lines[0].trim();
-        
-        const descriptionLines = [];
-        let i = 1;
-        while (i < lines.length && !lines[i].startsWith('###')) {
-          descriptionLines.push(lines[i]);
-          i++;
-        }
-        const description = descriptionLines.join('\n').trim();
-        
-        // Preserve existing RLBL values if they exist, otherwise use empty strings
-        const existingComponent = currentCase?.analysis?.components.find((c) => c.name === name);
-        
-        return {
-          id: existingComponent?.id || Date.now().toString(),
-          name,
-          description,
-          redlineParty1: existingComponent?.redlineParty1 || '',
-          bottomlineParty1: existingComponent?.bottomlineParty1 || '',
-          redlineParty2: existingComponent?.redlineParty2 || '',
-          bottomlineParty2: existingComponent?.bottomlineParty2 || '',
-          priority: existingComponent?.priority || 1,
-        };
-      });
-      
-      dispatch(updateComponents(components));
-    } catch (err) {
-      console.error('Error parsing components:', err);
-      // We don't set an error state here to avoid disrupting the user
-      // The components will be validated before proceeding
-    }
+    const parsedComponents = parseComponentsFromMarkdown(
+      value,
+      currentCase?.analysis?.components || []
+    );
+    
+    dispatch(updateComponents(parsedComponents));
   };
 
   const handleNext = () => {
-    // Save the current state to Redux
     dispatch(updateIoA(ioa));
     dispatch(updateIceberg(iceberg));
     
-    // The components are already being updated in handleComponentsChange
-    // No need to parse them again here
-    
-    // Navigate to the next tab
     navigate('/boundaries');
   };
 
-  // Add recalculate function with progress tracking
   const handleRecalculate = async () => {
-    if (!currentCase) return;
+    if (!currentCase || !currentCase.suggestedParties.length) return;
     
     try {
       setLoading(true);
@@ -200,30 +173,25 @@ const ReviewAndRevise = () => {
       
       const analysisResult = await analyzeWithProgress(
         currentCase.content,
-        currentCase.party1,
-        currentCase.party2
+        currentCase.suggestedParties[0],
+        currentCase.suggestedParties[1]
       );
       
-      // Check if we hit a rate limit
-      if ('rateLimited' in analysisResult && analysisResult.rateLimited) {
+      if ('rateLimited' in analysisResult) {
         setError('Rate limit reached. Please try again in a few moments.');
         return;
       }
       
-      // Now we know it's a valid Analysis object
-      const analysis = analysisResult as Analysis;
-      dispatch(setAnalysis(analysis));
+      dispatch(setAnalysis(analysisResult));
+      setIoa(analysisResult.ioa);
+      setIceberg(analysisResult.iceberg);
       
-      setIoa(analysis.ioa);
-      setIceberg(analysis.iceberg);
-      
-      const componentsText = analysis.components
-        .map((comp: Component) => `## ${comp.name}\n${comp.description}`)
+      const componentsText = analysisResult.components
+        .map((comp) => `## ${comp.name}\n${comp.description}`)
         .join('\n\n');
       
       setComponentsMarkdown(componentsText);
       setError('Analysis has been successfully recalculated.');
-      
     } catch (err) {
       console.error(err);
       setError('Failed to recalculate analysis. Please try again.');
@@ -232,8 +200,42 @@ const ReviewAndRevise = () => {
     }
   };
 
+  const handleAnalyze = async () => {
+    if (!currentCase || analysisInProgress.current || !currentCase.suggestedParties.length) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      analysisInProgress.current = true;
+
+      const analysisResult = await analyzeWithProgress(
+        currentCase.content,
+        currentCase.suggestedParties[0],
+        currentCase.suggestedParties[1],
+        (step, message, substep) => {
+          setAnalysisProgress({ step, message, substep });
+        }
+      );
+
+      if ('rateLimited' in analysisResult) {
+        setError('Rate limit reached. Please try again in a few moments.');
+        return;
+      }
+
+      dispatch(setAnalysis(analysisResult));
+      dispatch(setAnalysisRecalculated(true));
+      setError('Analysis completed successfully.');
+    } catch (err) {
+      setError('Failed to analyze case. Please try again.');
+      console.error('Analysis error:', err);
+    } finally {
+      setLoading(false);
+      analysisInProgress.current = false;
+    }
+  };
+
   if (!currentCase) {
-    return null; // Will redirect in useEffect
+    return null;
   }
 
   return (
@@ -251,22 +253,30 @@ const ReviewAndRevise = () => {
           </Alert>
         )}
         
-        {/* Replace recalculation warning with a simple button */}
-        {currentCase?.recalculationStatus && !currentCase.recalculationStatus.analysisRecalculated && (
-          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              variant="outlined"
-              color="primary"
-              onClick={handleRecalculate}
-              disabled={loading}
-              startIcon={loading ? <CircularProgress size={16} /> : null}
-              sx={{ fontSize: '0.8rem' }}
-              size="small"
-            >
-              Recalculate Analysis
-            </Button>
-          </Box>
-        )}
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={handleAnalyze}
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={16} /> : null}
+            sx={{ fontSize: '0.8rem' }}
+            size="small"
+          >
+            Reevaluate
+          </Button>
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={handleRecalculate}
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={16} /> : null}
+            sx={{ fontSize: '0.8rem' }}
+            size="small"
+          >
+            Recalculate Analysis
+          </Button>
+        </Box>
         
         {loading && (
           <Box sx={{ width: '100%', mb: 4 }}>
@@ -326,7 +336,9 @@ const ReviewAndRevise = () => {
             <MarkdownEditor
               value={componentsMarkdown}
               onChange={handleComponentsChange}
-              height="300px"
+              placeholder="## Component Name
+
+Component description and details..."
             />
           </Grid>
           
