@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState, ReactNode } from 'react';
-import { Box, Typography, Paper, Tooltip, Collapse } from '@mui/material';
+import { Box, Typography, Paper, Tooltip, Collapse, TextField, IconButton } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
+import SaveIcon from '@mui/icons-material/Save';
+import CancelIcon from '@mui/icons-material/Cancel';
 import * as d3 from 'd3';
 import { Scenario } from '../store/negotiationSlice';
 
 interface ScenarioSpectrumProps {
   scenarios: Scenario[];
   onSelectScenario: (scenario: Scenario) => void;
+  onUpdateScenario?: (scenario: Scenario) => void;
   selectedScenarioId?: string;
   party1Name?: string;
   party2Name?: string;
@@ -42,6 +46,7 @@ const getColorForType = (type: string) => {
 const ScenarioSpectrum = ({ 
   scenarios, 
   onSelectScenario, 
+  onUpdateScenario,
   selectedScenarioId,
   party1Name = 'Party 1',
   party2Name = 'Party 2',
@@ -51,6 +56,8 @@ const ScenarioSpectrum = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [scenarioPositions, setScenarioPositions] = useState<{[key: string]: {x: number, y: number}}>({}); 
   const [hoveredScenario, setHoveredScenario] = useState<string | null>(null);
+  const [editingScenario, setEditingScenario] = useState<string | null>(null);
+  const [editedDescription, setEditedDescription] = useState<string>('');
   
   // Get scenario type names with current party names
   const scenarioTypeNames = getScenarioTypeNames(party1Name, party2Name);
@@ -58,6 +65,30 @@ const ScenarioSpectrum = ({
   // Get scenario name based on type
   const getScenarioName = (type: string, index: number) => {
     return `Scenario ${index + 1}: ${scenarioTypeNames[type as keyof typeof scenarioTypeNames] || type}`;
+  };
+
+  // Handle edit button click
+  const handleEditClick = (scenario: Scenario) => {
+    setEditingScenario(scenario.id);
+    setEditedDescription(scenario.description);
+  };
+
+  // Handle save button click
+  const handleSaveClick = (scenario: Scenario) => {
+    if (onUpdateScenario && editedDescription.trim()) {
+      onUpdateScenario({
+        ...scenario,
+        description: editedDescription.trim()
+      });
+    }
+    setEditingScenario(null);
+    setEditedDescription('');
+  };
+
+  // Handle cancel button click
+  const handleCancelClick = () => {
+    setEditingScenario(null);
+    setEditedDescription('');
   };
 
   useEffect(() => {
@@ -209,6 +240,7 @@ const ScenarioSpectrum = ({
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {scenarios.map((scenario, index) => {  {/* Removed reverse() */}
           const isSelected = selectedScenarioId === scenario.id;
+          const isEditing = editingScenario === scenario.id;
           
           return (
             <Box key={scenario.id}>
@@ -218,7 +250,7 @@ const ScenarioSpectrum = ({
                     variant="outlined" 
                     sx={{ 
                       p: 2,
-                      cursor: 'pointer',
+                      cursor: isEditing ? 'default' : 'pointer',
                       borderColor: isSelected ? 'primary.main' : 'divider',
                       borderWidth: isSelected ? 2 : 1,
                       bgcolor: 'background.paper',
@@ -231,27 +263,77 @@ const ScenarioSpectrum = ({
                         bgcolor: 'background.paper',
                       }
                     }}
-                    onClick={() => onSelectScenario(scenario)}
-                    id={`scenario-box-${scenario.id}`}
+                    onClick={() => !isEditing && onSelectScenario(scenario)}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <Box 
-                        sx={{ 
-                          width: 16, 
-                          height: 16, 
-                          borderRadius: '50%', 
-                          bgcolor: getColorForType(scenario.type),
-                          mr: 2 
-                        }} 
-                      />
-                      <Typography variant="subtitle1">
-                        {getScenarioName(scenario.type, index)}
-                      </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Box 
+                          sx={{ 
+                            width: 16, 
+                            height: 16, 
+                            borderRadius: '50%', 
+                            bgcolor: getColorForType(scenario.type),
+                            mr: 2 
+                          }} 
+                        />
+                        <Typography variant="subtitle1">
+                          {getScenarioName(scenario.type, index)}
+                        </Typography>
+                      </Box>
+                      {onUpdateScenario && !isEditing && (
+                        <IconButton 
+                          size="small" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditClick(scenario);
+                          }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                      {isEditing && (
+                        <Box>
+                          <IconButton 
+                            size="small" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSaveClick(scenario);
+                            }}
+                            color="primary"
+                          >
+                            <SaveIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCancelClick();
+                            }}
+                            color="error"
+                          >
+                            <CancelIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      )}
                     </Box>
                     
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      {scenario.description}
-                    </Typography>
+                    {isEditing ? (
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={3}
+                        value={editedDescription}
+                        onChange={(e) => setEditedDescription(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        variant="outlined"
+                        size="small"
+                        sx={{ mb: 2 }}
+                      />
+                    ) : (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        {scenario.description}
+                      </Typography>
+                    )}
 
                     {/* Show risk assessment content if this scenario is selected */}
                     <Collapse in={isSelected} timeout="auto" unmountOnExit>

@@ -297,16 +297,19 @@ export const api = {
   
   async generateScenarios(componentId: string): Promise<Scenario[]> {
     try {
-      // Check cache first
+      // Get the current state
+      const state = store.getState();
+      const currentCase = state.negotiation.currentCase;
+      const recalculationStatus = state.recalculation;
+
+      // Only use cache if scenarios haven't been marked for recalculation
       const cachedScenarios = apiCache.scenarios.get(componentId);
-      if (cachedScenarios) {
+      if (cachedScenarios && recalculationStatus.scenariosRecalculated) {
         console.log('Using cached scenarios for component:', componentId);
         return cachedScenarios;
       }
       
       // Get the component details from the store
-      const state = store.getState();
-      const currentCase = state.negotiation.currentCase;
       const component = currentCase?.analysis?.components.find(
         c => c.id === componentId
       );
@@ -406,34 +409,32 @@ export const api = {
       });
       
       // Parse the response
-      return {
+      const riskAssessment: RiskAssessment = {
         id: Date.now().toString(),
         scenarioId,
-        category: result.category || 'Security of Field Teams',
-        shortTermImpact: result.shortTermImpact || 'Increased exposure to checkpoints increases security risks for staff',
-        shortTermMitigation: result.shortTermMitigation || 'Enhanced security protocols, reduced team size, increased communication',
-        shortTermRiskAfter: result.shortTermRiskAfter || 'Medium',
-        longTermImpact: result.longTermImpact || 'Potential for security incidents increases over time with repeated exposure',
-        longTermMitigation: result.longTermMitigation || 'Rotation of staff, regular security assessments, contingency planning',
-        longTermRiskAfter: result.longTermRiskAfter || 'Medium-High',
-        overallAssessment: result.overallAssessment || 'The scenario presents significant but manageable security risks that require constant monitoring and adaptation',
+        type: 'short_term',
+        description: 'Security Risk',
+        likelihood: 3,
+        impact: 3,
+        mitigation: ''
       };
+      
+      return riskAssessment;
     } catch (error) {
       console.error('Error generating risk assessment:', error);
       
       // Fallback to basic risk assessment if API call fails
-      return {
+      const riskAssessment: RiskAssessment = {
         id: Date.now().toString(),
         scenarioId,
-        category: 'Security of Field Teams',
-        shortTermImpact: 'Increased exposure to checkpoints increases security risks for staff',
-        shortTermMitigation: 'Enhanced security protocols, reduced team size, increased communication',
-        shortTermRiskAfter: 'Medium',
-        longTermImpact: 'Potential for security incidents increases over time with repeated exposure',
-        longTermMitigation: 'Rotation of staff, regular security assessments, contingency planning',
-        longTermRiskAfter: 'Medium-High',
-        overallAssessment: 'The scenario presents significant but manageable security risks that require constant monitoring and adaptation',
+        type: 'short_term',
+        description: 'Security Risk',
+        likelihood: 3,
+        impact: 3,
+        mitigation: ''
       };
+      
+      return riskAssessment;
     }
   },
   
@@ -451,6 +452,9 @@ export const api = {
         party1Name: currentCase.suggestedParties[0].name,
         party2Name: currentCase.suggestedParties[1].name
       });
+      
+      // Clear scenarios cache when boundaries are updated
+      apiCache.scenarios.clear();
       
       return result.components || analysis.components;
     } catch (error) {

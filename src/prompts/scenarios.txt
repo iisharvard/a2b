@@ -1,9 +1,66 @@
-Given the redline and bottomline, show me the 5 scenarios where:
+You are a negotiation scenario generator. Your task is to create 5 specific, detailed scenarios for a negotiation issue based on the provided information.
 
-1. When the redline of the party 1 is violated
-2. When the bottomline of the party 1 are crossed. Area of potential agreement favoring mostly the Party 2 but requiring the Party 1's negotiator to refer back to their hierarchy.
-3. When none of the redlines or bottomlines are violated. Area of potential agreement favoring both sides within the limits of the respective bottom lines.
-4. When the bottomlines of the party 2 are crossed. Area of potential agreement favoring mostly the Party 1 but requiring the Party 2's negotiator to refer back to their hierarchy.
-5. When the redlines of the party 2 are violated. 
+The negotiation issue details are:
+- Issue Name: {{componentName}}
+- Issue Description: {{componentDescription}}
+- Party 1 ({{party1Name}}) Redline: {{redlineParty1}}
+- Party 1 ({{party1Name}}) Bottomline: {{bottomlineParty1}}
+- Party 2 ({{party2Name}}) Redline: {{redlineParty2}}
+- Party 2 ({{party2Name}}) Bottomline: {{bottomlineParty2}}
 
-List these scenarios for each of the issues. 
+Generate 5 specific scenarios that represent different negotiation outcomes. Each scenario should be highly detailed, contextual, and directly related to the specific issue described above. Avoid generic descriptions and instead focus on the concrete details of this particular negotiation issue.
+
+1. REDLINE_VIOLATED_P1: A scenario where {{party1Name}}'s redline is violated. This means that proceeding with the negotiation is impossible because it would breach fundamental requirements, laws, or institutional policies. The violation would create severe consequences and damage the legitimacy of the negotiator. Describe specifically how the redline ({{redlineParty1}}) is violated and what consequences this would have.
+
+2. BOTTOMLINE_VIOLATED_P1: A scenario where {{party1Name}}'s bottomline is violated but not their redline. The terms fall below the minimum acceptable threshold ({{bottomlineParty1}}) but do not breach fundamental requirements. The negotiator must consult with their hierarchy as the risks and diminishing benefits require higher-level approval. Describe the specific compromises and their impacts.
+
+3. AGREEMENT_AREA: A scenario where both parties operate within their acceptable ranges. The terms respect {{party1Name}}'s bottomline ({{bottomlineParty1}}) and {{party2Name}}'s bottomline ({{bottomlineParty2}}), creating a viable agreement that satisfies each party's minimum requirements while finding mutual benefits. Describe the specific terms of this agreement and why it works for both parties.
+
+4. BOTTOMLINE_VIOLATED_P2: A scenario where {{party2Name}}'s bottomline is violated but not their redline. The terms fall below their minimum acceptable threshold ({{bottomlineParty2}}) but do not breach fundamental requirements. Their negotiator must consult with their hierarchy as the risks and diminishing benefits require higher-level approval. Describe the specific compromises and their impacts.
+
+5. REDLINE_VIOLATED_P2: A scenario where {{party2Name}}'s redline is violated. This means that proceeding with the negotiation is impossible because it would breach their fundamental requirements, laws, or institutional policies. The violation would create severe consequences and damage their legitimacy. Describe specifically how the redline ({{redlineParty2}}) is violated and what consequences this would have.
+
+For each scenario:
+- Be extremely specific to the issue details provided
+- Use concrete numbers, terms, or conditions from the redlines and bottomlines
+- Describe a realistic situation that could occur in this specific negotiation
+- Explain the detailed implications for both parties
+- Keep descriptions informative (3-5 sentences)
+- Make each scenario distinct and realistic
+- Avoid generic language - instead, describe specifically how violations occur and what their consequences are
+
+Return your response as a JSON object with the following structure:
+{
+  "scenarios": [
+    {
+      "id": "{{componentId}}-1",
+      "componentId": "{{componentId}}",
+      "type": "redline_violated_p1",
+      "description": "Detailed description of scenario 1"
+    },
+    {
+      "id": "{{componentId}}-2",
+      "componentId": "{{componentId}}",
+      "type": "bottomline_violated_p1",
+      "description": "Detailed description of scenario 2"
+    },
+    {
+      "id": "{{componentId}}-3",
+      "componentId": "{{componentId}}",
+      "type": "agreement_area",
+      "description": "Detailed description of scenario 3"
+    },
+    {
+      "id": "{{componentId}}-4",
+      "componentId": "{{componentId}}",
+      "type": "bottomline_violated_p2",
+      "description": "Detailed description of scenario 4"
+    },
+    {
+      "id": "{{componentId}}-5",
+      "componentId": "{{componentId}}",
+      "type": "redline_violated_p2",
+      "description": "Detailed description of scenario 5"
+    }
+  ]
+} 

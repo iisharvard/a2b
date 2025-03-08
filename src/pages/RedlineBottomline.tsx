@@ -33,6 +33,7 @@ import {
   AccordionDetails,
   Tooltip,
   CircularProgress,
+  Stack,
 } from '@mui/material';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -46,6 +47,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ReorderIcon from '@mui/icons-material/Reorder';
+import DownloadIcon from '@mui/icons-material/Download';
 import { RootState } from '../store';
 import { 
   updateComponents, 
@@ -54,7 +56,7 @@ import {
   updateComponent, 
   Component
 } from '../store/negotiationSlice';
-import { setAnalysisRecalculated } from '../store/recalculationSlice';
+import { setAnalysisRecalculated, setScenariosRecalculated } from '../store/recalculationSlice';
 import { api } from '../services/api';
 import LoadingOverlay from '../components/LoadingOverlay';
 import NegotiationIssueCard from '../components/NegotiationIssueCard';
@@ -269,11 +271,12 @@ const RedlineBottomline = () => {
       // Update Redux store with new components
       dispatch(updateComponents(updatedComponents));
       
-      // Mark analysis as recalculated
+      // Mark analysis as recalculated and scenarios as needing recalculation
       dispatch(setAnalysisRecalculated(true));
+      dispatch(setScenariosRecalculated(false));
       
       // Show success message
-      setError('Analysis has been successfully recalculated.');
+      setError('Analysis has been successfully recalculated. Scenarios will be regenerated.');
       
       return updatedComponents;
     } catch (err) {
@@ -316,6 +319,71 @@ const RedlineBottomline = () => {
     }
   };
 
+  const handleDownloadContent = () => {
+    if (!currentCase || !currentCase.analysis) return;
+
+    const formatDate = (date: string) => {
+      return new Date(date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    };
+
+    const content = `NEGOTIATION ANALYSIS REPORT
+Generated on: ${formatDate(new Date().toISOString())}
+=======================================================
+
+CASE CONTENT
+-----------
+${currentCase.content}
+
+PARTIES INVOLVED
+---------------
+1. ${currentCase.suggestedParties[0].name}
+   ${currentCase.suggestedParties[0].description}
+
+2. ${currentCase.suggestedParties[1].name}
+   ${currentCase.suggestedParties[1].description}
+
+ISLAND OF AGREEMENTS ANALYSIS
+---------------------------
+${currentCase.analysis.ioa}
+
+ICEBERG ANALYSIS
+---------------
+${currentCase.analysis.iceberg}
+
+NEGOTIATION COMPONENTS
+--------------------
+${currentCase.analysis.components.map((comp, index) => `
+${index + 1}. ${comp.name.toUpperCase()}
+   Priority: ${comp.priority}
+   Description: ${comp.description}
+
+   ${currentCase.suggestedParties[0].name}'s Position:
+   - Redline (Non-negotiable): ${comp.redlineParty1}
+   - Bottomline (Minimum acceptable): ${comp.bottomlineParty1}
+
+   ${currentCase.suggestedParties[1].name}'s Position:
+   - Redline (Non-negotiable): ${comp.redlineParty2}
+   - Bottomline (Minimum acceptable): ${comp.bottomlineParty2}
+`).join('\n')}
+`;
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `negotiation-analysis-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   if (!currentCase || !currentCase.analysis) {
     return null; // Will redirect in useEffect
   }
@@ -347,7 +415,17 @@ const RedlineBottomline = () => {
           />
         )}
         
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={handleDownloadContent}
+            startIcon={<DownloadIcon />}
+            sx={{ fontSize: '0.8rem' }}
+            size="small"
+          >
+            Download Analysis
+          </Button>
           <Button
             variant="outlined"
             color="primary"

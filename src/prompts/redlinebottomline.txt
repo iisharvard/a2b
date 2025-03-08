@@ -1,26 +1,40 @@
-Red Lines
+Red Lines (Non-Negotiable Limits)
 
-	•	Definition: Fixed limits of possible agreement areas in negotiations.
-	•	Basis: Established by laws and institutional policies.
-	•	Characteristics:
-	•	Specified in the negotiator’s mandate.
-	•	Cannot be crossed without severe consequences.
-	•	Breach may invalidate agreements and involve legal liabilities.
-	•	Breaching red lines impacts the negotiator’s legitimacy and the organization’s reputation.
-	•	Control: Not revisable by the negotiator.
-	•	Examples:
-	•	ICRC Policy: Prohibition of military escorts, regardless of potential benefits to humanitarian access.
-	•	Counter-Terrorism Legislation: Not negotiating with entities listed as terrorist organizations, even if it could lead to immediate humanitarian gains.
+A red line is an absolute constraint that a negotiator cannot violate under any circumstances. Crossing a red line results in the breakdown of negotiations or severe consequences for the organization.
 
-Bottom Lines
+Characteristics:
+	•	Legally or institutionally binding: Defined by laws, policies, or official mandates.
+	•	Non-negotiable: Fixed by the organization’s leadership and beyond the negotiator’s discretion.
+	•	Strict enforcement: A breach could lead to:
+	•	Nullification of the agreement
+	•	Legal or financial liabilities
+	•	Reputational damage
+	•	Loss of legitimacy or authority in future negotiations
+	•	Requires higher authority approval to revise: Cannot be altered during negotiation without explicit approval.
 
-	•	Definition: Tactical limits set by the negotiator based on rising risks and diminishing benefits.
-	•	Purpose: To suspend or postpone consideration of further options below a threshold.
-	•	Flexibility:
-	•	Adjustable after consulting with hierarchy or stakeholders.
-	•	Scenarios may shift based on the outcome of these consultations.
-	•	Control: Under the negotiator’s discretion, allowing for dynamic responses during negotiations.
-	•	Consultation: Negotiators may re-evaluate bottom lines through consultation with their hierarchy or stakeholders, ensuring alignment with broader strategic objectives.
-	•	Examples:
-	•	Humanitarian Access: Deciding not to proceed with a negotiation if entering a conflict zone with minimal security poses excessive risk to personnel.
-	•	Aid Distribution: Halting talks if the risk to organizational integrity outweighs the potential benefit of reaching a smaller, less impactful population.
+Examples:
+	•	A humanitarian organization cannot accept armed escorts, even if it means losing access to a conflict zone.
+	•	A multinational corporation cannot negotiate contracts with sanctioned entities, even if the deal is financially attractive.
+	•	A government delegation cannot agree to terms that violate its constitution or international treaties.
+
+⸻
+
+Bottom Lines (Minimum Acceptable Terms)
+
+A bottom line is the lowest acceptable outcome a negotiator can agree to while still achieving core objectives. It allows for strategic flexibility but ensures negotiations remain within an acceptable range.
+
+Characteristics:
+	•	Risk vs. benefit trade-off: Defined based on operational feasibility, financial constraints, and strategic priorities.
+	•	Negotiable within limits: Can be adjusted through:
+	•	Consultation with stakeholders or leadership
+	•	Evolving negotiation dynamics
+	•	New information or external pressures
+	•	Tactical function:
+	•	Helps assess walk-away points
+	•	Maintains leverage and prevents disadvantageous agreements
+	•	Ensures alignment with organizational priorities
+
+Examples:
+	•	A government negotiator aims for full fossil fuel phase-out but can accept a legally binding phase-out over a defined period.
+	•	A development agency requires at least 30% of funds allocated for renewable energy projects to proceed with a funding agreement.
+	•	A tech company negotiating a merger must retain majority control of its intellectual property but is willing to adjust revenue-sharing terms.

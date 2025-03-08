@@ -156,11 +156,38 @@ const InitialSetup = () => {
     }
   };
 
+  const validateParties = () => {
+    // Check if both party names are provided
+    if (!party1Name.trim() || !party2Name.trim()) {
+      setError('Please provide names for both parties');
+      return false;
+    }
+
+    // Check if party names are unique
+    if (party1Name.trim().toLowerCase() === party2Name.trim().toLowerCase()) {
+      setError('Party names must be different');
+      return false;
+    }
+
+    // Check if party names are meaningful (not just numbers or special characters)
+    const meaningfulNameRegex = /^[a-zA-Z].*$/;
+    if (!meaningfulNameRegex.test(party1Name.trim()) || !meaningfulNameRegex.test(party2Name.trim())) {
+      setError('Party names must start with a letter and be meaningful');
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!caseContent.trim() || !party1Name.trim() || !party2Name.trim()) {
-      setError('Please fill in all fields');
+    if (!caseContent.trim()) {
+      setError('Please provide case content');
+      return;
+    }
+
+    if (!validateParties()) {
       return;
     }
     
@@ -177,15 +204,15 @@ const InitialSetup = () => {
       const parties = {
         party1: {
           id: '1',
-          name: party1Name,
-          description: party1Description || `${party1Name} is one of the parties in this negotiation.`,
+          name: party1Name.trim(),
+          description: party1Description || `${party1Name.trim()} is one of the parties in this negotiation.`,
           isUserSide: true,
           idealOutcomes: []
         },
         party2: {
           id: '2',
-          name: party2Name,
-          description: party2Description || `${party2Name} is one of the parties in this negotiation.`,
+          name: party2Name.trim(),
+          description: party2Description || `${party2Name.trim()} is one of the parties in this negotiation.`,
           isUserSide: false,
           idealOutcomes: []
         }
@@ -198,13 +225,13 @@ const InitialSetup = () => {
       }));
       dispatch(setParties([
         {
-          name: party1Name,
-          description: party1Description || `${party1Name} is one of the parties in this negotiation.`,
+          name: party1Name.trim(),
+          description: party1Description || `${party1Name.trim()} is one of the parties in this negotiation.`,
           isPrimary: true
         },
         {
-          name: party2Name,
-          description: party2Description || `${party2Name} is one of the parties in this negotiation.`,
+          name: party2Name.trim(),
+          description: party2Description || `${party2Name.trim()} is one of the parties in this negotiation.`,
           isPrimary: true
         }
       ]));
@@ -316,7 +343,7 @@ const InitialSetup = () => {
                   Party 1 (Your Side)
                 </Typography>
                 {suggestedParties.length > 0 ? (
-                  <FormControl fullWidth>
+                  <FormControl fullWidth error={!!error && error.includes('Party names')}>
                     <InputLabel id="party1-select-label">Select Party 1</InputLabel>
                     <Select
                       labelId="party1-select-label"
@@ -326,7 +353,11 @@ const InitialSetup = () => {
                       required
                     >
                       {suggestedParties.map((party) => (
-                        <MenuItem key={party.name} value={party.name}>
+                        <MenuItem 
+                          key={party.name} 
+                          value={party.name}
+                          disabled={party.name === party2Name} // Disable if already selected by Party 2
+                        >
                           {party.name} {party.isPrimary ? "(Primary)" : ""}
                         </MenuItem>
                       ))}
@@ -341,7 +372,8 @@ const InitialSetup = () => {
                     onChange={(e) => setParty1Name(e.target.value)}
                     variant="outlined"
                     required
-                    helperText="This is your side in the negotiation"
+                    error={!!error && error.includes('Party names')}
+                    helperText={error && error.includes('Party names') ? error : "This is your side in the negotiation"}
                   />
                 )}
                 
@@ -361,7 +393,7 @@ const InitialSetup = () => {
                   Party 2 (Other Side)
                 </Typography>
                 {suggestedParties.length > 0 ? (
-                  <FormControl fullWidth>
+                  <FormControl fullWidth error={!!error && error.includes('Party names')}>
                     <InputLabel id="party2-select-label">Select Party 2</InputLabel>
                     <Select
                       labelId="party2-select-label"
@@ -371,7 +403,11 @@ const InitialSetup = () => {
                       required
                     >
                       {suggestedParties.map((party) => (
-                        <MenuItem key={party.name} value={party.name}>
+                        <MenuItem 
+                          key={party.name} 
+                          value={party.name}
+                          disabled={party.name === party1Name} // Disable if already selected by Party 1
+                        >
                           {party.name} {party.isPrimary ? "(Primary)" : ""}
                         </MenuItem>
                       ))}
@@ -386,7 +422,8 @@ const InitialSetup = () => {
                     onChange={(e) => setParty2Name(e.target.value)}
                     variant="outlined"
                     required
-                    helperText="This is the other side in the negotiation"
+                    error={!!error && error.includes('Party names')}
+                    helperText={error && error.includes('Party names') ? error : "This is the other side in the negotiation"}
                   />
                 )}
                 

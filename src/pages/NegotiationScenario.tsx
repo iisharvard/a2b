@@ -158,7 +158,7 @@ const NegotiationScenario = () => {
       setShowRiskAssessment(false);
     } else {
       dispatch(selectScenario(scenario));
-      setShowRiskAssessment(false);
+      // Don't reset showRiskAssessment here to maintain its state
     }
   };
 
@@ -195,37 +195,15 @@ const NegotiationScenario = () => {
       return;
     }
     
-    // If risk assessment is already showing, just toggle it off
-    if (showRiskAssessment) {
-      setShowRiskAssessment(false);
-      return;
-    }
+    // Toggle visibility of risk assessment
+    setShowRiskAssessment(!showRiskAssessment);
     
-    try {
-      setIsGeneratingRisk(true);
-      setError(null);
-      
-      // Check if risk assessment already exists for this scenario
-      const existingRiskAssessment = currentCase.riskAssessments.find(
-        (ra) => ra.scenarioId === selectedScenario.id
-      );
-      
-      if (existingRiskAssessment) {
-        // If risk assessment exists and scenarios have been recalculated, update it
-        if (!recalculationStatus.riskAssessmentsRecalculated) {
-          // Generate risk assessment
-          const riskAssessment = await api.generateRiskAssessment(selectedScenario.id);
-          
-          // Update the existing risk assessment
-          dispatch(updateRiskAssessment({
-            ...riskAssessment,
-            id: existingRiskAssessment.id
-          }));
-          
-          // Mark risk assessments as recalculated
-          dispatch(setRiskAssessmentsRecalculated(true));
-        }
-      } else {
+    // If we're showing the risk assessment and it doesn't exist yet, generate it
+    if (!showRiskAssessment && !currentCase.riskAssessments.some(ra => ra.scenarioId === selectedScenario.id)) {
+      try {
+        setIsGeneratingRisk(true);
+        setError(null);
+        
         // Generate risk assessment
         const riskAssessment = await api.generateRiskAssessment(selectedScenario.id);
         
@@ -234,15 +212,13 @@ const NegotiationScenario = () => {
         
         // Mark risk assessments as recalculated
         dispatch(setRiskAssessmentsRecalculated(true));
+      } catch (err) {
+        console.error('Error generating risk assessment:', err);
+        setError('Failed to generate risk assessment. Please try again.');
+        setShowRiskAssessment(false); // Hide on error
+      } finally {
+        setIsGeneratingRisk(false);
       }
-      
-      // Show the risk assessment section
-      setShowRiskAssessment(true);
-    } catch (err) {
-      console.error('Error generating risk assessment:', err);
-      setError('Failed to generate risk assessment. Please try again.');
-    } finally {
-      setIsGeneratingRisk(false);
     }
   };
 
@@ -268,34 +244,16 @@ const NegotiationScenario = () => {
     navigate('/');
   };
 
-  // Function to handle recalculation of scenarios
-  const handleRecalculateScenarios = async () => {
-    if (!currentCase || !selectedIssueId) return;
+  const handleUpdateScenario = (updatedScenario: Scenario) => {
+    if (!currentCase) return;
     
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Force regenerate scenarios for the selected issue
-      const generatedScenarios = await api.forceGenerateScenarios(selectedIssueId);
-      
-      // Update Redux store with new scenarios
-      dispatch(setScenarios(generatedScenarios));
-      
-      // Mark scenarios as recalculated
-      dispatch(setScenariosRecalculated(true));
-      
-      // Show success message
-      setError('Scenarios have been successfully recalculated.');
-      
-      return generatedScenarios;
-    } catch (err) {
-      console.error('Error recalculating scenarios:', err);
-      setError('Failed to recalculate scenarios. Please try again.');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
+    // Update the scenario in the scenarios array
+    const updatedScenarios = currentCase.scenarios.map(scenario => 
+      scenario.id === updatedScenario.id ? updatedScenario : scenario
+    );
+    
+    // Update Redux store
+    dispatch(setScenarios(updatedScenarios));
   };
 
   if (!currentCase || !currentCase.analysis) {
@@ -330,24 +288,10 @@ const NegotiationScenario = () => {
           </Alert>
         )}
         
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={handleRecalculateScenarios}
-            disabled={loading}
-            startIcon={loading ? <CircularProgress size={16} /> : null}
-            sx={{ fontSize: '0.8rem' }}
-            size="small"
-          >
-            Reevaluate Analysis
-          </Button>
-        </Box>
-        
         {needsRecalculation && (
           <RecalculationWarning
             message="The analysis has been modified. The scenarios may not reflect the latest changes."
-            onRecalculate={handleRecalculateScenarios}
+            onRecalculate={handleGenerateScenarios}
           />
         )}
         
@@ -390,7 +334,7 @@ const NegotiationScenario = () => {
                     Scenario Spectrum
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Click on a scenario to view its risk assessment
+                    Click on a scenario to view its risk assessment. Click the edit icon to modify a scenario's description.
                   </Typography>
                   
                   <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
@@ -412,6 +356,7 @@ const NegotiationScenario = () => {
                     party1Name={party1Name}
                     party2Name={party2Name}
                     onSelectScenario={handleSelectScenario}
+                    onUpdateScenario={handleUpdateScenario}
                     selectedScenarioId={selectedScenario?.id}
                     riskAssessmentContent={
                       selectedScenario && showRiskAssessment && (
@@ -444,7 +389,13 @@ const NegotiationScenario = () => {
                       sx={{ fontSize: '0.8rem' }}
                       size="small"
                     >
-                      {showRiskAssessment ? 'Hide Risk Assessment' : 'Show Risk Assessment'}
+                      {isGeneratingRisk 
+                        ? 'Generating Risk Assessment...' 
+                        : showRiskAssessment 
+                          ? 'Hide Risk Assessment' 
+                          : currentCase.riskAssessments.some(ra => ra.scenarioId === selectedScenario.id)
+                            ? 'Show Risk Assessment'
+                            : 'Generate Risk Assessment'}
                     </Button>
                   </Box>
                 )}

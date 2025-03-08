@@ -30,10 +30,21 @@ import {
 } from '../store/negotiationSlice';
 import { setAnalysisRecalculated } from '../store/recalculationSlice';
 import { api } from '../services/api';
-import { ApiResponse, AnalysisResponse } from '../types/api';
 import LoadingOverlay from '../components/LoadingOverlay';
 import MarkdownEditor from '../components/MarkdownEditor';
 import { parseComponentsFromMarkdown, componentsToMarkdown } from '../utils/componentParser';
+
+// Define API types locally
+type ApiResponse<T> = T | { rateLimited: true };
+
+interface AnalysisResponse extends Analysis {
+  id: string;
+  ioa: string;
+  iceberg: string;
+  components: Component[];
+  createdAt: string;
+  updatedAt: string;
+}
 
 const ReviewAndRevise = () => {
   const navigate = useNavigate();
@@ -77,10 +88,22 @@ const ReviewAndRevise = () => {
       setIceberg(currentCase.analysis.iceberg);
       
       const componentsText = currentCase.analysis.components
-        .map((comp) => `## ${comp.name}\n${comp.description}`)
+        .map((comp: Component) => `## ${comp.name}\n${comp.description}`)
         .join('\n\n');
       
       setComponentsMarkdown(componentsText);
+      return;
+    }
+
+    // Validate parties before analysis
+    const hasValidParties = currentCase.suggestedParties && 
+      Array.isArray(currentCase.suggestedParties) && 
+      currentCase.suggestedParties.length >= 2 &&
+      currentCase.suggestedParties[0]?.name &&
+      currentCase.suggestedParties[1]?.name;
+
+    if (!hasValidParties) {
+      setError('Please set up both parties with names before proceeding with analysis.');
       return;
     }
 
@@ -90,10 +113,6 @@ const ReviewAndRevise = () => {
     setError(null);
     
     try {
-      if (!currentCase.suggestedParties || currentCase.suggestedParties.length === 0) {
-        throw new Error('Please set up party information before proceeding with analysis.');
-      }
-
       const analysisResult = await analyzeWithProgress(
         currentCase.content,
         currentCase.suggestedParties[0],
@@ -111,7 +130,7 @@ const ReviewAndRevise = () => {
       setIceberg(analysisResult.iceberg);
       
       const componentsText = analysisResult.components
-        .map((comp) => `## ${comp.name}\n${comp.description}`)
+        .map((comp: Component) => `## ${comp.name}\n${comp.description}`)
         .join('\n\n');
       
       setComponentsMarkdown(componentsText);
@@ -130,15 +149,21 @@ const ReviewAndRevise = () => {
       return;
     }
 
-    // Only redirect if parties are not set up at all
-    if (!currentCase.suggestedParties || currentCase.suggestedParties.length === 0) {
-      setError('Please set up party information before proceeding with analysis.');
-      navigate('/parties');
+    // More robust party validation
+    const hasValidParties = currentCase.suggestedParties && 
+      Array.isArray(currentCase.suggestedParties) && 
+      currentCase.suggestedParties.length >= 2 &&
+      currentCase.suggestedParties[0]?.name &&
+      currentCase.suggestedParties[1]?.name;
+
+    if (!hasValidParties) {
+      setError('Please set up both parties with names before proceeding with analysis.');
+      navigate('/');
       return;
     }
 
     fetchAnalysis();
-  }, [currentCase?.id, fetchAnalysis, navigate]);
+  }, [currentCase, fetchAnalysis, navigate]);
 
   const handleIoaChange = (value: string) => {
     setIoa(value);
@@ -191,7 +216,7 @@ const ReviewAndRevise = () => {
       setIceberg(analysisResult.iceberg);
       
       const componentsText = analysisResult.components
-        .map((comp) => `## ${comp.name}\n${comp.description}`)
+        .map((comp: Component) => `## ${comp.name}\n${comp.description}`)
         .join('\n\n');
       
       setComponentsMarkdown(componentsText);
@@ -304,16 +329,19 @@ const ReviewAndRevise = () => {
                 expandIcon={<ExpandMoreIcon />}
                 aria-controls="ioa-content"
                 id="ioa-header"
+                tabIndex={0}
               >
                 <Typography variant="h6">Issues of Agreement (IoA)</Typography>
               </AccordionSummary>
               <AccordionDetails>
-                <MarkdownEditor
-                  value={ioa}
-                  onChange={handleIoaChange}
-                  label=""
-                  height="300px"
-                />
+                <Box role="region" aria-labelledby="ioa-header">
+                  <MarkdownEditor
+                    value={ioa}
+                    onChange={handleIoaChange}
+                    label=""
+                    height="700px"
+                  />
+                </Box>
               </AccordionDetails>
             </Accordion>
           </Grid>
@@ -324,16 +352,19 @@ const ReviewAndRevise = () => {
                 expandIcon={<ExpandMoreIcon />}
                 aria-controls="iceberg-content"
                 id="iceberg-header"
+                tabIndex={0}
               >
                 <Typography variant="h6">Iceberg Analysis</Typography>
               </AccordionSummary>
               <AccordionDetails>
-                <MarkdownEditor
-                  value={iceberg}
-                  onChange={handleIcebergChange}
-                  label=""
-                  height="300px"
-                />
+                <Box role="region" aria-labelledby="iceberg-header">
+                  <MarkdownEditor
+                    value={iceberg}
+                    onChange={handleIcebergChange}
+                    label=""
+                    height="700px"
+                  />
+                </Box>
               </AccordionDetails>
             </Accordion>
           </Grid>
@@ -344,18 +375,21 @@ const ReviewAndRevise = () => {
                 expandIcon={<ExpandMoreIcon />}
                 aria-controls="issues-content"
                 id="issues-header"
+                tabIndex={0}
               >
                 <Typography variant="h6">Issues to Negotiate</Typography>
               </AccordionSummary>
               <AccordionDetails>
-                <MarkdownEditor
-                  value={componentsMarkdown}
-                  onChange={handleComponentsChange}
-                  placeholder="## Component Name
+                <Box role="region" aria-labelledby="issues-header">
+                  <MarkdownEditor
+                    value={componentsMarkdown}
+                    onChange={handleComponentsChange}
+                    placeholder="## Component Name
 
 Component description and details..."
-                  height="300px"
-                />
+                    height="700px"
+                  />
+                </Box>
               </AccordionDetails>
             </Accordion>
           </Grid>
