@@ -1,7 +1,5 @@
-import { Card, CardContent, Typography, Slider, Box, Divider, Button, Grid, IconButton } from '@mui/material';
+import { Card, CardContent, Typography, Box, Divider, Button, IconButton } from '@mui/material';
 import { Component, Case } from '../store/negotiationSlice';
-import { useSelector } from 'react-redux';
-import { RootState } from '../store';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -10,7 +8,6 @@ import CancelIcon from '@mui/icons-material/Cancel';
 interface NegotiationIssueCardProps {
   component: Component;
   onChange?: (updatedComponent: Component) => void;
-  readOnly?: boolean;
   case: Case;
   onUpdate: (updatedCase: Case) => void;
   showDiff?: boolean;
@@ -24,7 +21,6 @@ interface NegotiationIssueCardProps {
 const NegotiationIssueCard = ({ 
   component, 
   onChange, 
-  readOnly = false,
   case: currentCase,
   showDiff = false,
   hasChanges = false,

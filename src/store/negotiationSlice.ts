@@ -64,14 +64,11 @@ export interface Scenario {
 export interface RiskAssessment {
   id: string;
   scenarioId: string;
-  category: string;
-  shortTermImpact: string;
-  shortTermMitigation: string;
-  shortTermRiskAfter: string;
-  longTermImpact: string;
-  longTermMitigation: string;
-  longTermRiskAfter: string;
-  overallAssessment: string;
+  type: 'short_term' | 'long_term';
+  description: string;
+  likelihood: number;
+  impact: number;
+  mitigation: string;
 }
 
 export interface Analysis {
@@ -92,6 +89,11 @@ export interface Case {
   analysis: Analysis | null;
   scenarios: Scenario[];
   riskAssessments: RiskAssessment[];
+  recalculationStatus: {
+    analysisRecalculated: boolean;
+    scenariosRecalculated: boolean;
+    riskAssessmentsRecalculated: boolean;
+  };
   originalContent: {
     analysis: Analysis | null;
     scenarios: Scenario[];
@@ -133,6 +135,11 @@ export const negotiationSlice = createSlice({
         analysis: null,
         scenarios: [],
         riskAssessments: [],
+        recalculationStatus: {
+          analysisRecalculated: false,
+          scenariosRecalculated: false,
+          riskAssessmentsRecalculated: false,
+        },
         originalContent: {
           analysis: null,
           scenarios: [],
@@ -297,6 +304,11 @@ export const negotiationSlice = createSlice({
       state.error = null;
       state.selectedScenario = null;
     },
+    setRiskAssessmentsRecalculated: (state, action: PayloadAction<boolean>) => {
+      if (state.currentCase) {
+        state.currentCase.recalculationStatus.riskAssessmentsRecalculated = action.payload;
+      }
+    },
   },
 });
 
@@ -318,6 +330,7 @@ export const {
   updateRiskAssessment,
   deleteRiskAssessment,
   clearState,
+  setRiskAssessmentsRecalculated,
 } = negotiationSlice.actions;
 
 export default negotiationSlice.reducer; 

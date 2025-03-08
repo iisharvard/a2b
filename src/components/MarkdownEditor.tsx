@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Box, Paper, Tabs, Tab } from '@mui/material';
 import CodeMirror from '@uiw/react-codemirror';
 import ReactMarkdown from 'react-markdown';
@@ -14,15 +14,9 @@ interface MarkdownEditorProps {
 
 const MarkdownEditor = ({ value, onChange, label, placeholder, height = '400px' }: MarkdownEditorProps) => {
   const [tab, setTab] = useState(0);
-  const editorRef = useRef<HTMLTextAreaElement>(null);
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTab(newValue);
-  };
-
-  const handleChange = (_: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = editorRef.current?.value || '';
-    onChange(newValue);
   };
 
   return (

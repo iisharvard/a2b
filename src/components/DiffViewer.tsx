@@ -1,7 +1,6 @@
 import React from 'react';
-import { Box, Typography, Paper, Divider } from '@mui/material';
+import { Box, Typography, Paper } from '@mui/material';
 import { compareArrays } from '../utils/diffUtils';
-import { Component, Scenario, RiskAssessment } from '../store/negotiationSlice';
 
 interface DiffViewerProps {
   title: string;

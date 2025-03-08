@@ -60,17 +60,19 @@ const NegotiationScenario = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedIssueId, setSelectedIssueId] = useState<string>('');
-  const [scenarios, setLocalScenarios] = useState<Scenario[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingRisk, setIsGeneratingRisk] = useState(false);
-  const generationInProgress = useRef(false);
   const [showRiskAssessment, setShowRiskAssessment] = useState(false);
-  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   
+  // Get filtered scenarios for the selected issue
+  const filteredScenarios = currentCase?.scenarios.filter(
+    s => s.componentId === selectedIssueId
+  ) || [];
+
   // Check if analysis has been recalculated but scenarios haven't been updated
   const needsRecalculation = !recalculationStatus.scenariosRecalculated && 
     recalculationStatus.analysisRecalculated;
-  
+
   useEffect(() => {
     if (!currentCase || !currentCase.analysis) {
       navigate('/boundaries');
@@ -86,7 +88,7 @@ const NegotiationScenario = () => {
   // Use a separate effect for scenario generation to prevent infinite loops
   useEffect(() => {
     // Skip if already generating or no issue selected
-    if (generationInProgress.current || !selectedIssueId || !currentCase) {
+    if (isGenerating || !selectedIssueId || !currentCase) {
       return;
     }
 
@@ -99,13 +101,11 @@ const NegotiationScenario = () => {
       // If we have scenarios and they don't need recalculation, use them
       if (existingScenarios.length > 0 && recalculationStatus.scenariosRecalculated) {
         console.log(`Using existing scenarios for issue: ${selectedIssueId}`);
-        setLocalScenarios(existingScenarios);
         return;
       }
 
       // Only proceed with generation if we need to
       setIsGenerating(true);
-      generationInProgress.current = true;
       setLoading(true);
       setError(null);
       
@@ -119,7 +119,6 @@ const NegotiationScenario = () => {
         const scenariosArray = Array.isArray(newScenarios) ? newScenarios : [];
         console.log(`Generated ${scenariosArray.length} scenarios for issue: ${selectedIssueId}`);
         
-        setLocalScenarios(scenariosArray);
         dispatch(setScenarios(scenariosArray));
         
         // Mark scenarios as recalculated if they were generated due to analysis changes
@@ -133,16 +132,14 @@ const NegotiationScenario = () => {
           console.error(`Error generating scenarios for issue ${selectedIssueId}:`, err);
           setError('Failed to fetch scenarios. Please try again.');
         }
-        setLocalScenarios([]);
       } finally {
         setLoading(false);
         setIsGenerating(false);
-        generationInProgress.current = false;
       }
     };
 
     fetchScenarios();
-  }, [selectedIssueId, currentCase, dispatch, recalculationStatus.scenariosRecalculated]);
+  }, [selectedIssueId, currentCase, dispatch, recalculationStatus.scenariosRecalculated, isGenerating]);
 
   const handleIssueChange = (issueId: string) => {
     if (isGenerating) {
@@ -171,7 +168,6 @@ const NegotiationScenario = () => {
     setLoading(true);
     setError(null);
     setIsGenerating(true);
-    generationInProgress.current = true;
     
     try {
       console.log(`Manually triggering scenario generation for issue: ${selectedIssueId}`);
@@ -183,7 +179,6 @@ const NegotiationScenario = () => {
       const scenariosArray = Array.isArray(generatedScenarios) ? generatedScenarios : [];
       console.log(`Generated ${scenariosArray.length} scenarios for issue: ${selectedIssueId}`);
       
-      setLocalScenarios(scenariosArray);
       dispatch(setScenarios(scenariosArray));
     } catch (err) {
       console.error(`Error manually generating scenarios for issue ${selectedIssueId}:`, err);
@@ -191,7 +186,6 @@ const NegotiationScenario = () => {
     } finally {
       setLoading(false);
       setIsGenerating(false);
-      generationInProgress.current = false;
     }
   };
 
@@ -414,7 +408,7 @@ const NegotiationScenario = () => {
                   </Box>
                   
                   <ScenarioSpectrum
-                    scenarios={scenarios}
+                    scenarios={filteredScenarios}
                     party1Name={party1Name}
                     party2Name={party2Name}
                     onSelectScenario={handleSelectScenario}

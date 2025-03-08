@@ -3,15 +3,13 @@ import { Box, Typography, Button } from '@mui/material';
 import { RiskAssessment } from '../store/negotiationSlice';
 import { DataTable, Column } from './common/DataTable';
 
-const riskLevels = ['Low', 'Medium-Low', 'Medium', 'Medium-High', 'High'];
-
 interface RiskAssessmentTableProps {
   assessments: RiskAssessment[];
-  scenarioId: string;
-  viewMode: 'view' | 'edit';
-  onAddAssessment: (assessment: RiskAssessment) => void;
-  onUpdateAssessment: (assessment: RiskAssessment) => void;
-  onDeleteAssessment: (assessmentId: string) => void;
+  scenarioId?: string;
+  viewMode?: 'view' | 'edit';
+  onAddAssessment?: (assessment: RiskAssessment) => void;
+  onUpdateAssessment?: (assessment: RiskAssessment) => void;
+  onDeleteAssessment?: (id: string) => void;
 }
 
 interface TableSectionProps {
@@ -47,66 +45,107 @@ const TableSection: React.FC<TableSectionProps> = ({
 
 const RiskAssessmentTable: React.FC<RiskAssessmentTableProps> = ({
   assessments,
-  scenarioId, 
-  viewMode,
-  onAddAssessment, 
-  onUpdateAssessment, 
-  onDeleteAssessment,
+  scenarioId = '',
+  viewMode = 'view',
+  onAddAssessment,
+  onUpdateAssessment,
+  onDeleteAssessment
 }) => {
-  const filteredAssessments = assessments.filter(a => a.scenarioId === scenarioId);
+  const filteredAssessments = scenarioId ? assessments.filter(a => a.scenarioId === scenarioId) : assessments;
 
   const handleAddNew = () => {
-    onAddAssessment({
+    if (!onAddAssessment || !scenarioId) return;
+
+    const newAssessment: RiskAssessment = {
       id: Date.now().toString(),
       scenarioId,
-      category: 'New Risk Category',
-      shortTermImpact: '',
-      shortTermMitigation: '',
-      shortTermRiskAfter: 'Medium',
-      longTermImpact: '',
-      longTermMitigation: '',
-      longTermRiskAfter: 'Medium',
-      overallAssessment: ''
-    });
+      type: 'short_term',
+      description: '',
+      likelihood: 3,
+      impact: 3,
+      mitigation: ''
+    };
+    
+    onAddAssessment(newAssessment);
   };
 
   const handleUpdate = (item: RiskAssessment, field: string, value: any) => {
-    onUpdateAssessment({
-      ...item,
-      [field]: value
-    });
+    if (!onUpdateAssessment) return;
+
+    const updatedAssessment: RiskAssessment = { ...item };
+    
+    switch (field) {
+      case 'likelihood':
+        const likelihoodNum = Math.min(5, Math.max(1, parseInt(value, 10) || 1));
+        updatedAssessment.likelihood = likelihoodNum;
+        break;
+      case 'impact':
+        const impactNum = Math.min(5, Math.max(1, parseInt(value, 10) || 1));
+        updatedAssessment.impact = impactNum;
+        break;
+      case 'description':
+        updatedAssessment.description = value?.toString() || '';
+        break;
+      case 'mitigation':
+        updatedAssessment.mitigation = value?.toString() || '';
+        break;
+      case 'type':
+        if (value === 'short_term' || value === 'long_term') {
+          updatedAssessment.type = value;
+        } else {
+          console.warn(`Invalid type value: ${value}`);
+          return;
+        }
+        break;
+      default:
+        console.warn(`Unexpected field: ${field}`);
+        return;
+    }
+    
+    onUpdateAssessment(updatedAssessment);
   };
 
-  const baseColumns = [
-    { id: 'category', label: 'Risk Category', minWidth: 170, editable: viewMode === 'edit' }
+  const handleDelete = (assessment: RiskAssessment) => {
+    onDeleteAssessment?.(assessment.id);
+  };
+
+  const baseColumns: Column<RiskAssessment>[] = [
+    { 
+      id: 'description', 
+      label: 'Risk Description', 
+      minWidth: 170, 
+      editable: viewMode === 'edit',
+      type: 'text'
+    }
   ];
 
-  const shortTermColumns: Column<RiskAssessment>[] = [
+  const columns: Column<RiskAssessment>[] = [
     ...baseColumns,
-    { id: 'shortTermImpact', label: 'Short-term Impact', minWidth: 200, editable: viewMode === 'edit' },
-    { id: 'shortTermMitigation', label: 'Short-term Mitigation', minWidth: 200, editable: viewMode === 'edit' },
-    {
-      id: 'shortTermRiskAfter',
-      label: 'Risk Level After Mitigation',
-      minWidth: 170,
+    { 
+      id: 'likelihood', 
+      label: 'Likelihood (1-5)', 
+      minWidth: 100, 
       editable: viewMode === 'edit',
-      type: 'select',
-      options: riskLevels,
+      type: 'text',
+      getValue: (item: RiskAssessment) => item.likelihood.toString(),
+      format: (value: number) => `${value}/5`
     },
-  ];
-
-  const longTermColumns: Column<RiskAssessment>[] = [
-    ...baseColumns,
-    { id: 'longTermImpact', label: 'Long-term Impact', minWidth: 200, editable: viewMode === 'edit' },
-    { id: 'longTermMitigation', label: 'Long-term Mitigation', minWidth: 200, editable: viewMode === 'edit' },
-    {
-      id: 'longTermRiskAfter',
-      label: 'Risk Level After Mitigation',
-      minWidth: 170,
+    { 
+      id: 'impact', 
+      label: 'Impact (1-5)', 
+      minWidth: 100, 
       editable: viewMode === 'edit',
-      type: 'select',
-      options: riskLevels,
+      type: 'text',
+      getValue: (item: RiskAssessment) => item.impact.toString(),
+      format: (value: number) => `${value}/5`
     },
+    { 
+      id: 'mitigation', 
+      label: 'Mitigation Strategy', 
+      minWidth: 200, 
+      editable: viewMode === 'edit',
+      type: 'text'
+    }
   ];
 
   return (
@@ -125,24 +164,13 @@ const RiskAssessmentTable: React.FC<RiskAssessmentTableProps> = ({
       )}
 
       <TableSection
-        title="Short-term Risk Assessment"
-        columns={shortTermColumns}
+        title="Risk Assessment"
+        columns={columns}
         data={filteredAssessments}
         onUpdate={handleUpdate}
-        onDelete={assessment => onDeleteAssessment(assessment.id)}
+        onDelete={handleDelete}
         getRowId={assessment => assessment.id}
       />
-
-      <Box sx={{ mt: 4 }}>
-        <TableSection
-          title="Long-term Risk Assessment"
-          columns={longTermColumns}
-          data={filteredAssessments}
-          onUpdate={handleUpdate}
-          onDelete={assessment => onDeleteAssessment(assessment.id)}
-          getRowId={assessment => assessment.id}
-        />
-      </Box>
     </Box>
   );
 };

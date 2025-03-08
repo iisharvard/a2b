@@ -12,18 +12,19 @@ import {
   Divider,
 } from '@mui/material';
 import { RootState } from '../store';
+import type { RiskAssessment } from '../store/negotiationSlice';
 import { 
   addRiskAssessment, 
   updateRiskAssessment,
   setRiskAssessments,
-  setRiskAssessmentsRecalculated
+  setRiskAssessmentsRecalculated,
 } from '../store/negotiationSlice';
 import { api } from '../services/api';
 import LoadingOverlay from '../components/LoadingOverlay';
 import RiskAssessmentTable from '../components/RiskAssessmentTable';
 import RecalculationWarning from '../components/RecalculationWarning';
 
-const RiskAssessment = () => {
+const RiskAssessmentPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   
@@ -75,7 +76,7 @@ const RiskAssessment = () => {
     dispatch(addRiskAssessment(assessment));
   };
 
-  const handleUpdateRiskAssessment = (assessment: any) => {
+  const handleUpdateAssessment = (assessment: RiskAssessment) => {
     dispatch(updateRiskAssessment(assessment));
   };
 
@@ -173,6 +174,10 @@ const RiskAssessment = () => {
     (c) => c.id === selectedScenario.componentId
   );
 
+  // Use suggestedParties instead of party1/party2
+  const party1Name = currentCase.suggestedParties[0]?.name || 'Party 1';
+  const party2Name = currentCase.suggestedParties[1]?.name || 'Party 2';
+
   return (
     <Container maxWidth="xl">
       <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
@@ -227,16 +232,16 @@ const RiskAssessment = () => {
                       <strong>Description:</strong> {selectedComponent.description}
                     </Typography>
                     <Typography variant="body2" sx={{ mb: 1 }}>
-                      <strong>{currentCase?.party1.name} Redline:</strong> {selectedComponent.redlineParty1}
+                      <strong>{party1Name} Redline:</strong> {selectedComponent.redlineParty1}
                     </Typography>
                     <Typography variant="body2" sx={{ mb: 1 }}>
-                      <strong>{currentCase?.party1.name} Bottomline:</strong> {selectedComponent.bottomlineParty1}
+                      <strong>{party1Name} Bottomline:</strong> {selectedComponent.bottomlineParty1}
                     </Typography>
                     <Typography variant="body2" sx={{ mb: 1 }}>
-                      <strong>{currentCase?.party2.name} Redline:</strong> {selectedComponent.redlineParty2}
+                      <strong>{party2Name} Redline:</strong> {selectedComponent.redlineParty2}
                     </Typography>
                     <Typography variant="body2">
-                      <strong>{currentCase?.party2.name} Bottomline:</strong> {selectedComponent.bottomlineParty2}
+                      <strong>{party2Name} Bottomline:</strong> {selectedComponent.bottomlineParty2}
                     </Typography>
                   </>
                 )}
@@ -261,11 +266,11 @@ const RiskAssessment = () => {
             
             {currentCase.riskAssessments.filter(ra => ra.scenarioId === selectedScenario?.id).length > 0 ? (
               <RiskAssessmentTable
-                riskAssessment={currentCase.riskAssessments.filter(ra => ra.scenarioId === selectedScenario?.id)}
+                assessments={currentCase.riskAssessments.filter(ra => ra.scenarioId === selectedScenario?.id)}
                 scenarioId={selectedScenario?.id || ''}
-                onAddAssessment={(assessment) => dispatch(addRiskAssessment(assessment))}
-                onUpdateAssessment={handleUpdateRiskAssessment}
-                onDeleteAssessment={(id) => {}}
+                onAddAssessment={handleAddAssessment}
+                onUpdateAssessment={handleUpdateAssessment}
+                onDeleteAssessment={handleDeleteAssessment}
               />
             ) : (
               <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
@@ -283,4 +288,4 @@ const RiskAssessment = () => {
   );
 };
 
-export default RiskAssessment; 
+export default RiskAssessmentPage; 

@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState, ReactNode } from 'react';
-import { Box, Typography, Paper, Grid, Chip, Collapse, Tooltip } from '@mui/material';
+import { Box, Typography, Paper, Tooltip, Collapse } from '@mui/material';
 import * as d3 from 'd3';
-import { Scenario, Component } from '../store/negotiationSlice';
+import { Scenario } from '../store/negotiationSlice';
 
 interface ScenarioSpectrumProps {
   scenarios: Scenario[];
   onSelectScenario: (scenario: Scenario) => void;
   selectedScenarioId?: string;
-  component?: Component;
   party1Name?: string;
   party2Name?: string;
   riskAssessmentContent?: ReactNode;
@@ -22,11 +21,28 @@ const getScenarioTypeNames = (party1Name: string, party2Name: string) => ({
   'redline_violated_p2': `${party2Name} Redline Violated`
 });
 
+// Color mapping for scenario types
+const getColorForType = (type: string) => {
+  switch (type) {
+    case 'redline_violated_p1':
+      return "#ff5252";
+    case 'bottomline_violated_p1':
+      return "#ff9800";
+    case 'agreement_area':
+      return "#4caf50";
+    case 'bottomline_violated_p2':
+      return "#ff9800";
+    case 'redline_violated_p2':
+      return "#ff5252";
+    default:
+      return "#ccc";
+  }
+};
+
 const ScenarioSpectrum = ({ 
   scenarios, 
   onSelectScenario, 
   selectedScenarioId,
-  component,
   party1Name = 'Party 1',
   party2Name = 'Party 2',
   riskAssessmentContent
@@ -39,34 +55,11 @@ const ScenarioSpectrum = ({
   // Get scenario type names with current party names
   const scenarioTypeNames = getScenarioTypeNames(party1Name, party2Name);
 
-  // Get scenario by type
-  const getScenarioByType = (type: string) => {
-    return scenarios.find(s => s.type === type);
-  };
-  
-  // Color mapping for scenario types
-  const getColorForType = (type: string) => {
-    switch (type) {
-      case 'redline_violated_p1':
-        return "#ff5252";
-      case 'bottomline_violated_p1':
-        return "#ff9800";
-      case 'agreement_area':
-        return "#4caf50";
-      case 'bottomline_violated_p2':
-        return "#ff9800";
-      case 'redline_violated_p2':
-        return "#ff5252";
-      default:
-        return "#ccc";
-    }
-  };
-
   // Get scenario name based on type
   const getScenarioName = (type: string, index: number) => {
     return `Scenario ${index + 1}: ${scenarioTypeNames[type as keyof typeof scenarioTypeNames] || type}`;
   };
-  
+
   useEffect(() => {
     if (!svgRef.current || scenarios.length === 0) return;
     
