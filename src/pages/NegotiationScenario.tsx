@@ -87,7 +87,21 @@ const NegotiationScenario = () => {
     }
 
     const fetchScenarios = async () => {
-      // Set flags to prevent multiple calls
+      // Check if we already have scenarios for this issue in Redux
+      const existingScenarios = currentCase.scenarios.filter(
+        (s) => s.componentId === selectedIssueId
+      );
+      
+      // If we have scenarios and they don't need recalculation, use them
+      if (existingScenarios.length > 0 && 
+          (!currentCase.recalculationStatus || 
+           currentCase.recalculationStatus.scenariosRecalculated)) {
+        console.log(`Using existing scenarios for issue: ${selectedIssueId}`);
+        setLocalScenarios(existingScenarios);
+        return;
+      }
+
+      // Only proceed with generation if we need to
       setIsGenerating(true);
       generationInProgress.current = true;
       setLoading(true);
@@ -96,29 +110,27 @@ const NegotiationScenario = () => {
       try {
         console.log(`Starting scenario generation for issue: ${selectedIssueId}`);
         
-        // Check if we already have scenarios for this issue in Redux
-        const existingScenarios = currentCase.scenarios.filter(
-          (s) => s.componentId === selectedIssueId
-        );
+        // Use regular generateScenarios instead of forceGenerateScenarios to use cache if available
+        const newScenarios = await api.generateScenarios(selectedIssueId);
         
-        if (existingScenarios.length > 0) {
-          console.log(`Using existing scenarios for issue: ${selectedIssueId}`);
-          setLocalScenarios(existingScenarios);
-        } else {
-          console.log(`No existing scenarios, generating new ones for issue: ${selectedIssueId}`);
-          // Use regular generateScenarios instead of forceGenerateScenarios to use cache if available
-          const newScenarios = await api.generateScenarios(selectedIssueId);
-          
-          // Ensure newScenarios is an array
-          const scenariosArray = Array.isArray(newScenarios) ? newScenarios : [];
-          console.log(`Generated ${scenariosArray.length} scenarios for issue: ${selectedIssueId}`);
-          
-          setLocalScenarios(scenariosArray);
-          dispatch(setScenarios(scenariosArray));
+        // Ensure newScenarios is an array
+        const scenariosArray = Array.isArray(newScenarios) ? newScenarios : [];
+        console.log(`Generated ${scenariosArray.length} scenarios for issue: ${selectedIssueId}`);
+        
+        setLocalScenarios(scenariosArray);
+        dispatch(setScenarios(scenariosArray));
+        
+        // Mark scenarios as recalculated if they were generated due to analysis changes
+        if (currentCase.recalculationStatus && !currentCase.recalculationStatus.scenariosRecalculated) {
+          dispatch(setScenariosRecalculated(true));
         }
-      } catch (err) {
-        console.error(`Error generating scenarios for issue ${selectedIssueId}:`, err);
-        setError('Failed to fetch scenarios. Please try again.');
+      } catch (err: any) {
+        if (err.message?.includes('rate limit')) {
+          setError('Rate limit reached. Please wait a moment before trying again.');
+        } else {
+          console.error(`Error generating scenarios for issue ${selectedIssueId}:`, err);
+          setError('Failed to fetch scenarios. Please try again.');
+        }
         setLocalScenarios([]);
       } finally {
         setLoading(false);
@@ -311,7 +323,7 @@ const NegotiationScenario = () => {
   return (
     <Container maxWidth="xl">
       <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
-        <Typography variant="h5" component="h1" gutterBottom align="center">
+        <Typography variant="h4" component="h1" gutterBottom align="center">
           Negotiation Scenarios
         </Typography>
         
@@ -323,17 +335,20 @@ const NegotiationScenario = () => {
           </Alert>
         )}
         
-        {needsRecalculation && (
-          <RecalculationWarning 
-            message="The negotiation analysis has been updated. The scenarios may not reflect the latest changes."
-            onRecalculate={handleRecalculateScenarios}
-            showDiff={true}
-            diffTitle="Scenario Changes"
-            originalItems={currentCase.originalContent.scenarios.filter(s => s.componentId === selectedIssueId)}
-            updatedItems={scenarios}
-            idKey="id"
-            nameKey="description"
-          />
+        {currentCase?.recalculationStatus && !currentCase.recalculationStatus.scenariosRecalculated && (
+          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={handleRecalculateScenarios}
+              disabled={loading || isGenerating}
+              startIcon={isGenerating ? <CircularProgress size={16} /> : null}
+              sx={{ fontSize: '0.8rem' }}
+              size="small"
+            >
+              Recalculate Scenarios
+            </Button>
+          </Box>
         )}
         
         <Grid container spacing={4}>
@@ -409,23 +424,6 @@ const NegotiationScenario = () => {
                 Scenarios
               </Typography>
               <Box>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  onClick={() => {
-                    // Clear all scenarios from Redux
-                    if (currentCase) {
-                      dispatch(setScenarios([]));
-                      setLocalScenarios([]);
-                      setError(null);
-                    }
-                  }}
-                  disabled={loading || isGenerating || !scenarios.length}
-                  sx={{ mr: 1, fontSize: '0.8rem' }}
-                  size="small"
-                >
-                  Clear All Scenarios
-                </Button>
                 <Button
                   variant="outlined"
                   color="primary"

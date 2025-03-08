@@ -130,39 +130,6 @@ const InitialSetup = () => {
     }
   };
 
-  // Debounce function to avoid too many API calls
-  useEffect(() => {
-    // Skip if the content is too short or if it's already been processed
-    if (caseContent.trim().length <= 100) {
-      return;
-    }
-    
-    // Check if we already have processed this exact content
-    if (currentCase && 
-        currentCase.processed && 
-        currentCase.content === caseContent && 
-        currentCase.suggestedParties.length > 0) {
-      // Content already processed, use existing data
-      setSuggestedParties(currentCase.suggestedParties);
-      
-      // If parties were found, pre-select the first two
-      if (currentCase.suggestedParties.length >= 2) {
-        setParty1Name(currentCase.suggestedParties[0].name);
-        setParty1Description(currentCase.suggestedParties[0].description);
-        setParty2Name(currentCase.suggestedParties[1].name);
-        setParty2Description(currentCase.suggestedParties[1].description);
-      }
-      return;
-    }
-    
-    // Content changed or not processed yet, make API call
-    const timer = setTimeout(() => {
-      identifyPartiesFromContent();
-    }, 1000);
-    
-    return () => clearTimeout(timer);
-  }, [caseContent, currentCase]);
-
   const handleParty1SelectionChange = (e: SelectChangeEvent) => {
     const selectedName = e.target.value;
     setParty1Name(selectedName);
@@ -228,13 +195,11 @@ const InitialSetup = () => {
       dispatch(setCaseContent({ content: caseContent }));
       dispatch(setParties(parties));
       
-      // Ensure the processed flag and suggested parties are saved
-      if (!currentCase?.processed || currentCase.suggestedParties.length === 0) {
-        // If we haven't processed the content yet, do it now
-        const identifiedParties = await api.identifyParties(caseContent);
+      // If we haven't processed the content yet, just mark it as processed without identifying parties
+      if (!currentCase?.processed) {
         dispatch(setCaseProcessed({
           processed: true,
-          suggestedParties: identifiedParties
+          suggestedParties: [] // Empty array since we're not identifying parties
         }));
       }
       

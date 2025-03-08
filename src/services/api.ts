@@ -9,6 +9,74 @@ const OPENAI_API_KEY = (import.meta as any).env?.VITE_OPENAI_API_KEY || '';
 const MODEL = 'gpt-4o'; // or 'gpt-3.5-turbo' for a more cost-effective option
 const TEMPERATURE = 0;
 
+// Rate limiting configuration
+const RATE_LIMIT = {
+  requests: 3,  // Number of requests allowed
+  interval: 60000,  // Time window in milliseconds (1 minute)
+  minDelay: 1000,  // Minimum delay between requests
+};
+
+// Request queue implementation
+class RequestQueue {
+  private queue: Array<() => Promise<any>> = [];
+  private processing = false;
+  private requestTimes: number[] = [];
+
+  async add<T>(request: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      this.queue.push(async () => {
+        try {
+          const result = await this.executeWithRateLimit(request);
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      });
+      this.process();
+    });
+  }
+
+  private async executeWithRateLimit<T>(request: () => Promise<T>): Promise<T> {
+    // Remove old request times
+    const now = Date.now();
+    this.requestTimes = this.requestTimes.filter(time => now - time < RATE_LIMIT.interval);
+
+    // If we've hit the rate limit, wait until we can make another request
+    if (this.requestTimes.length >= RATE_LIMIT.requests) {
+      const oldestRequest = this.requestTimes[0];
+      const waitTime = Math.max(
+        RATE_LIMIT.interval - (now - oldestRequest),
+        RATE_LIMIT.minDelay
+      );
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+
+    // Add current request time
+    this.requestTimes.push(now);
+
+    // Execute request
+    return await request();
+  }
+
+  private async process() {
+    if (this.processing || this.queue.length === 0) return;
+
+    this.processing = true;
+    while (this.queue.length > 0) {
+      const request = this.queue.shift();
+      if (request) {
+        await request();
+        // Add minimum delay between requests
+        await new Promise(resolve => setTimeout(resolve, RATE_LIMIT.minDelay));
+      }
+    }
+    this.processing = false;
+  }
+}
+
+// Create a single instance of the request queue
+const requestQueue = new RequestQueue();
+
 // Helper function to read prompt files
 const readPromptFile = async (fileName: string): Promise<string> => {
   try {
@@ -23,84 +91,90 @@ const readPromptFile = async (fileName: string): Promise<string> => {
   }
 };
 
-// Helper function to make API calls to OpenAI
-const callOpenAI = async (messages: any[], retryCount = 0, initialDelay = 1000): Promise<string | { rateLimited: true }> => {
-  const maxRetries = 3;
-  
-  try {
-    if (!OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is not set. Please check your .env file.');
-    }
-
-    // Simple request with JSON mode
-    const requestBody = {
-      model: MODEL,
-      messages,
-      temperature: TEMPERATURE,
-      max_tokens: 4000,
-      response_format: { type: "json_object" }
+interface OpenAIError {
+  response?: {
+    status: number;
+    data: any;
+    headers: {
+      'retry-after'?: string;
     };
+  };
+  message: string;
+}
 
-    console.log('OpenAI API request:', {
-      model: requestBody.model,
-      response_format: requestBody.response_format,
-      temperature: requestBody.temperature,
-      max_tokens: requestBody.max_tokens,
-    });
-
-    const response = await axios.post(
-      OPENAI_API_URL,
-      requestBody,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${OPENAI_API_KEY}`
-        }
+// Update the callOpenAI function to use the request queue
+const callOpenAI = async (messages: any[], retryCount = 0, initialDelay = 1000): Promise<string | { rateLimited: true }> => {
+  return requestQueue.add(async () => {
+    const maxRetries = 3;
+    
+    try {
+      if (!OPENAI_API_KEY) {
+        throw new Error('OpenAI API key is not set. Please check your .env file.');
       }
-    );
-    
-    // Check if the response has the expected structure
-    if (response.data && 
-        response.data.choices && 
-        response.data.choices.length > 0 && 
-        response.data.choices[0].message) {
-      return response.data.choices[0].message.content;
-    } else {
-      console.error('Unexpected API response structure:', response.data);
-      throw new Error('Unexpected API response structure');
-    }
-  } catch (error: any) {
-    console.error('Error calling OpenAI API:', error);
-    
-    // Check if it's a rate limit error (429) and we haven't exceeded max retries
-    if (error.response && error.response.status === 429 && retryCount < maxRetries) {
-      // Extract retry-after header or use exponential backoff
-      let retryAfter = error.response.headers['retry-after'];
-      let delay = retryAfter ? parseInt(retryAfter) * 1000 : initialDelay * Math.pow(2, retryCount);
+
+      const requestBody = {
+        model: MODEL,
+        messages,
+        temperature: TEMPERATURE,
+        max_tokens: 4000,
+        response_format: { type: "json_object" }
+      };
+
+      console.log('OpenAI API request:', {
+        model: requestBody.model,
+        response_format: requestBody.response_format,
+        temperature: requestBody.temperature,
+        max_tokens: requestBody.max_tokens,
+      });
+
+      const response = await axios.post(
+        OPENAI_API_URL,
+        requestBody,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${OPENAI_API_KEY}`
+          }
+        }
+      );
       
-      console.log(`Rate limit exceeded. Retrying in ${delay/1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`);
+      if (response.data && 
+          response.data.choices && 
+          response.data.choices.length > 0 && 
+          response.data.choices[0].message) {
+        return response.data.choices[0].message.content;
+      } else {
+        console.error('Unexpected API response structure:', response.data);
+        throw new Error('Unexpected API response structure');
+      }
+    } catch (error: unknown) {
+      const err = error as OpenAIError;
+      console.error('Error calling OpenAI API:', err);
       
-      // Wait for the specified delay
-      await new Promise(resolve => setTimeout(resolve, delay));
+      if (err.response && err.response.status === 429 && retryCount < maxRetries) {
+        const retryAfter = err.response.headers['retry-after'];
+        const delay = retryAfter ? parseInt(retryAfter) * 1000 : initialDelay * Math.pow(2, retryCount);
+        
+        console.log(`Rate limit exceeded. Retrying in ${delay/1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`);
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        return callOpenAI(messages, retryCount + 1, initialDelay);
+      }
       
-      // Retry the request with incremented retry count
-      return callOpenAI(messages, retryCount + 1, initialDelay);
+      if (err.response && err.response.status === 429) {
+        console.log('Rate limit exceeded and max retries reached. Returning rate limited flag.');
+        return { rateLimited: true };
+      }
+      
+      if (err.response) {
+        console.error('API error response:', err.response.data);
+        throw new Error(`OpenAI API error: ${err.response.status} - ${JSON.stringify(err.response.data)}`);
+      }
+      
+      throw new Error('Failed to get response from OpenAI: ' + (err.message || 'Unknown error'));
     }
-    
-    // If we've exhausted retries or it's a rate limit error, return a special flag
-    if (error.response && error.response.status === 429) {
-      console.log('Rate limit exceeded and max retries reached. Returning rate limited flag.');
-      return { rateLimited: true };
-    }
-    
-    // Provide more detailed error information
-    if (error.response) {
-      console.error('API error response:', error.response.data);
-      throw new Error(`OpenAI API error: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
-    }
-    
-    throw new Error('Failed to get response from OpenAI: ' + (error.message || 'Unknown error'));
-  }
+  });
 };
 
 // Helper function to make API calls to the language model with prompt files
@@ -166,12 +240,31 @@ const apiCache = {
   riskAssessments: new Map<string, RiskAssessment[]>(),
 };
 
+// Add request lock for analysis
+let analysisInProgress: string | null = null;
+
 export const api = {
-  async analyzeCase(caseContent: string, party1: Party, party2: Party): Promise<Analysis | { rateLimited: true }> {
-    console.log('Analyzing case with LLM...');
+  async analyzeCase(
+    caseContent: string, 
+    party1: Party, 
+    party2: Party,
+    onProgress?: (step: number, message: string, substep: number) => void
+  ): Promise<Analysis | { rateLimited: true }> {
+    const requestId = Date.now().toString();
+    
+    // Check if analysis is already in progress
+    if (analysisInProgress) {
+      console.log(`Analysis already in progress (${analysisInProgress}), skipping new request ${requestId}`);
+      return { rateLimited: true };
+    }
+    
+    analysisInProgress = requestId;
+    console.log(`[${requestId}] Starting case analysis...`);
     
     try {
       // Call the language model for Island of Agreements
+      console.log(`[${requestId}] Step 1: Island of Agreements analysis`);
+      onProgress?.(1, 'Analyzing Island of Agreements...', 33);
       const ioaResponse = await callLanguageModel('islandOfAgreement.txt', {
         caseContent,
         party1Name: party1.name,
@@ -180,10 +273,13 @@ export const api = {
       
       // Check if we hit a rate limit
       if ('rateLimited' in ioaResponse && ioaResponse.rateLimited) {
+        console.log(`[${requestId}] Rate limit hit during IoA analysis`);
         return { rateLimited: true };
       }
       
       // Call the language model for Iceberg Analysis
+      console.log(`[${requestId}] Step 2: Iceberg analysis`);
+      onProgress?.(2, 'Performing Iceberg Analysis...', 66);
       const icebergResponse = await callLanguageModel('iceberg.txt', {
         caseContent,
         party1Name: party1.name,
@@ -192,10 +288,13 @@ export const api = {
       
       // Check if we hit a rate limit
       if ('rateLimited' in icebergResponse && icebergResponse.rateLimited) {
+        console.log(`[${requestId}] Rate limit hit during Iceberg analysis`);
         return { rateLimited: true };
       }
       
       // Call the language model for Components and Redline/Bottomline
+      console.log(`[${requestId}] Step 3: Components analysis`);
+      onProgress?.(3, 'Identifying Components and Boundaries...', 90);
       const componentsResponse = await callLanguageModel('redlinebottomlineRequirements.txt', {
         caseContent,
         party1Name: party1.name,
@@ -206,8 +305,12 @@ export const api = {
       
       // Check if we hit a rate limit
       if ('rateLimited' in componentsResponse && componentsResponse.rateLimited) {
+        console.log(`[${requestId}] Rate limit hit during Components analysis`);
         return { rateLimited: true };
       }
+      
+      console.log(`[${requestId}] Analysis complete`);
+      onProgress?.(3, 'Analysis complete!', 100);
       
       // Parse the responses
       return {
@@ -219,7 +322,7 @@ export const api = {
         version: 1
       };
     } catch (error) {
-      console.error('Error analyzing case:', error);
+      console.error(`[${requestId}] Error analyzing case:`, error);
       
       // Fallback to basic structure if API call fails
       return {
@@ -241,6 +344,11 @@ export const api = {
         createdAt: new Date().toISOString(),
         version: 1
       };
+    } finally {
+      // Clear the analysis lock
+      if (analysisInProgress === requestId) {
+        analysisInProgress = null;
+      }
     }
   },
   
@@ -248,7 +356,12 @@ export const api = {
     console.log('Generating scenarios for component:', componentId);
     
     try {
-      console.log('Calling LLM for scenarios generation...');
+      // Check cache first
+      const cachedScenarios = apiCache.scenarios.get(componentId);
+      if (cachedScenarios) {
+        console.log('Using cached scenarios for component:', componentId);
+        return cachedScenarios;
+      }
       
       // Get the component details from the store
       const state = store.getState();
@@ -277,6 +390,13 @@ export const api = {
         party2Name
       });
       
+      // Check if we hit a rate limit
+      if ('rateLimited' in result && result.rateLimited) {
+        const error = new Error('Rate limit exceeded');
+        error.message = 'rate limit exceeded';
+        throw error;
+      }
+      
       // Parse the response and log it
       console.log('Received scenario response:', JSON.stringify(result, null, 2));
       const scenarios = result.scenarios || [];
@@ -285,8 +405,13 @@ export const api = {
       apiCache.scenarios.set(componentId, scenarios);
       
       return scenarios;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating scenarios:', error);
+      
+      // If it's a rate limit error, propagate it
+      if (error.message?.includes('rate limit')) {
+        throw error;
+      }
       
       // Fallback to basic scenarios if API call fails
       const fallbackScenarios: Scenario[] = [

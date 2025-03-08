@@ -1,0 +1,11 @@
+.scenario-dot {
+  transition: all 0.2s ease;
+}
+
+.scenario-dot:hover {
+  filter: drop-shadow(0 0 6px rgba(0,0,0,0.3));
+}
+
+.scenario-dot.selected {
+  filter: drop-shadow(0 0 8px rgba(0,0,0,0.4));
+} 

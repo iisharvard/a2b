@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import {
@@ -11,6 +11,8 @@ import {
   Alert,
   CircularProgress,
   Divider,
+  LinearProgress,
+  Stack,
 } from '@mui/material';
 import { RootState } from '../store';
 import {
@@ -20,6 +22,7 @@ import {
   updateComponents,
   Analysis,
   Component,
+  Party,
 } from '../store/negotiationSlice';
 import { api } from '../services/api';
 import LoadingOverlay from '../components/LoadingOverlay';
@@ -28,6 +31,7 @@ import MarkdownEditor from '../components/MarkdownEditor';
 const ReviewAndRevise = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const analysisInProgress = useRef(false);
   
   const { currentCase, loading: stateLoading } = useSelector(
     (state: RootState) => state.negotiation
@@ -38,75 +42,89 @@ const ReviewAndRevise = () => {
   const [ioa, setIoa] = useState('');
   const [iceberg, setIceberg] = useState('');
   const [componentsMarkdown, setComponentsMarkdown] = useState('');
+  const [analysisProgress, setAnalysisProgress] = useState({
+    step: 0,
+    message: '',
+    substep: 0
+  });
+  
+  // Memoize the analysis function to prevent recreating it on every render
+  const analyzeWithProgress = useCallback(async (content: string, p1: Party, p2: Party) => {
+    return api.analyzeCase(
+      content,
+      p1,
+      p2,
+      (step: number, message: string, substep: number) => {
+        setAnalysisProgress({ step, message, substep });
+      }
+    );
+  }, []);
 
+  // Memoize the fetch analysis function
+  const fetchAnalysis = useCallback(async () => {
+    if (!currentCase || analysisInProgress.current) return;
+    
+    // If we already have an analysis, use it without re-analyzing
+    if (currentCase.analysis) {
+      setIoa(currentCase.analysis.ioa);
+      setIceberg(currentCase.analysis.iceberg);
+      
+      const componentsText = currentCase.analysis.components
+        .map((comp) => `## ${comp.name}\n${comp.description}`)
+        .join('\n\n');
+      
+      setComponentsMarkdown(componentsText);
+      return;
+    }
+
+    // Only analyze if we don't have an analysis yet
+    analysisInProgress.current = true;
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const analysisResult = await analyzeWithProgress(
+        currentCase.content,
+        currentCase.party1,
+        currentCase.party2
+      );
+      
+      // Check if we hit a rate limit
+      if ('rateLimited' in analysisResult && analysisResult.rateLimited) {
+        console.log('Rate limit hit, keeping loading screen visible');
+        return;
+      }
+      
+      // Now we know it's a valid Analysis object
+      const analysis = analysisResult as Analysis;
+      dispatch(setAnalysis(analysis));
+      
+      setIoa(analysis.ioa);
+      setIceberg(analysis.iceberg);
+      
+      const componentsText = analysis.components
+        .map((comp: Component) => `## ${comp.name}\n${comp.description}`)
+        .join('\n\n');
+      
+      setComponentsMarkdown(componentsText);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to analyze case. Please try again.');
+    } finally {
+      setLoading(false);
+      analysisInProgress.current = false;
+    }
+  }, [currentCase, dispatch, analyzeWithProgress]);
+
+  // Effect to handle initial load and navigation
   useEffect(() => {
     if (!currentCase) {
       navigate('/');
       return;
     }
 
-    const fetchAnalysis = async () => {
-      if (currentCase.analysis) {
-        // If we already have an analysis, use it
-        setIoa(currentCase.analysis.ioa);
-        setIceberg(currentCase.analysis.iceberg);
-        
-        // Convert components to markdown for editing - only show component names and descriptions
-        const componentsText = currentCase.analysis.components
-          .map(
-            (comp) =>
-              `## ${comp.name}\n${comp.description}`
-          )
-          .join('\n\n');
-        
-        setComponentsMarkdown(componentsText);
-      } else {
-        // Otherwise, generate a new analysis
-        setLoading(true);
-        setError(null);
-        
-        try {
-          const analysisResult = await api.analyzeCase(
-            currentCase.content,
-            currentCase.party1,
-            currentCase.party2
-          );
-          
-          // Check if we hit a rate limit
-          if ('rateLimited' in analysisResult && analysisResult.rateLimited) {
-            // Keep loading state true to show loading screen
-            console.log('Rate limit hit, keeping loading screen visible');
-            return; // Exit without setting loading to false
-          }
-          
-          // Now we know it's a valid Analysis object
-          const analysis = analysisResult as Analysis;
-          dispatch(setAnalysis(analysis));
-          
-          setIoa(analysis.ioa);
-          setIceberg(analysis.iceberg);
-          
-          // Convert components to markdown for editing - only show component names and descriptions
-          const componentsText = analysis.components
-            .map(
-              (comp: Component) =>
-                `## ${comp.name}\n${comp.description}`
-            )
-            .join('\n\n');
-          
-          setComponentsMarkdown(componentsText);
-        } catch (err) {
-          console.error(err);
-          setError('Failed to analyze case. Please try again.');
-        } finally {
-          // Only set loading to false if we didn't hit a rate limit
-          setLoading(false);
-        }
-      }
-    };
-
     fetchAnalysis();
-  }, [currentCase, dispatch, navigate]);
+  }, [currentCase?.id, fetchAnalysis]); // Add fetchAnalysis to dependencies
 
   const handleIoaChange = (value: string) => {
     setIoa(value);
@@ -172,6 +190,48 @@ const ReviewAndRevise = () => {
     navigate('/boundaries');
   };
 
+  // Add recalculate function with progress tracking
+  const handleRecalculate = async () => {
+    if (!currentCase) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const analysisResult = await analyzeWithProgress(
+        currentCase.content,
+        currentCase.party1,
+        currentCase.party2
+      );
+      
+      // Check if we hit a rate limit
+      if ('rateLimited' in analysisResult && analysisResult.rateLimited) {
+        setError('Rate limit reached. Please try again in a few moments.');
+        return;
+      }
+      
+      // Now we know it's a valid Analysis object
+      const analysis = analysisResult as Analysis;
+      dispatch(setAnalysis(analysis));
+      
+      setIoa(analysis.ioa);
+      setIceberg(analysis.iceberg);
+      
+      const componentsText = analysis.components
+        .map((comp: Component) => `## ${comp.name}\n${comp.description}`)
+        .join('\n\n');
+      
+      setComponentsMarkdown(componentsText);
+      setError('Analysis has been successfully recalculated.');
+      
+    } catch (err) {
+      console.error(err);
+      setError('Failed to recalculate analysis. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!currentCase) {
     return null; // Will redirect in useEffect
   }
@@ -180,17 +240,60 @@ const ReviewAndRevise = () => {
     <Container maxWidth="xl">
       <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom align="center">
-          Analysis & Issues
+          Analysis and Issues
         </Typography>
         
         <Divider sx={{ mb: 4 }} />
         
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
+          <Alert severity={error.includes('successfully') ? 'success' : 'error'} sx={{ mb: 3 }}>
             {error}
           </Alert>
         )}
         
+        {/* Replace recalculation warning with a simple button */}
+        {currentCase?.recalculationStatus && !currentCase.recalculationStatus.analysisRecalculated && (
+          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={handleRecalculate}
+              disabled={loading}
+              startIcon={loading ? <CircularProgress size={16} /> : null}
+              sx={{ fontSize: '0.8rem' }}
+              size="small"
+            >
+              Recalculate Analysis
+            </Button>
+          </Box>
+        )}
+        
+        {loading && (
+          <Box sx={{ width: '100%', mb: 4 }}>
+            <Stack spacing={2}>
+              <Typography variant="body2" color="text.secondary">
+                {analysisProgress.message}
+              </Typography>
+              <LinearProgress 
+                variant="determinate" 
+                value={analysisProgress.substep} 
+                sx={{
+                  height: 10,
+                  borderRadius: 5,
+                  backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                  '& .MuiLinearProgress-bar': {
+                    borderRadius: 5,
+                    backgroundColor: '#1a90ff',
+                  }
+                }}
+              />
+              <Typography variant="caption" color="text.secondary" align="right">
+                Step {analysisProgress.step} of 3
+              </Typography>
+            </Stack>
+          </Box>
+        )}
+
         <Grid container spacing={4}>
           <Grid item xs={12}>
             <Typography variant="h6" gutterBottom>
@@ -241,7 +344,7 @@ const ReviewAndRevise = () => {
         </Grid>
       </Paper>
       
-      {loading && <LoadingOverlay open={loading} message="Processing analysis..." />}
+      {loading && <LoadingOverlay open={loading} message={analysisProgress.message} />}
     </Container>
   );
 };

@@ -14,13 +14,13 @@ interface ScenarioSpectrumProps {
 }
 
 // Scenario type names mapping
-const scenarioTypeNames = {
-  'redline_violated_p1': 'Health for All (HfA) Redline Violated',
-  'bottomline_violated_p1': 'Health for All (HfA) Bottomline Violated',
+const getScenarioTypeNames = (party1Name: string, party2Name: string) => ({
+  'redline_violated_p1': `${party1Name} Redline Violated`,
+  'bottomline_violated_p1': `${party1Name} Bottomline Violated`,
   'agreement_area': 'Agreement Area',
-  'bottomline_violated_p2': 'Ministry of Health Bottomline Violated',
-  'redline_violated_p2': 'Ministry of Health Redline Violated'
-};
+  'bottomline_violated_p2': `${party2Name} Bottomline Violated`,
+  'redline_violated_p2': `${party2Name} Redline Violated`
+});
 
 const ScenarioSpectrum = ({ 
   scenarios, 
@@ -34,7 +34,11 @@ const ScenarioSpectrum = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [scenarioPositions, setScenarioPositions] = useState<{[key: string]: {x: number, y: number}}>({}); 
+  const [hoveredScenario, setHoveredScenario] = useState<string | null>(null);
   
+  // Get scenario type names with current party names
+  const scenarioTypeNames = getScenarioTypeNames(party1Name, party2Name);
+
   // Get scenario by type
   const getScenarioByType = (type: string) => {
     return scenarios.find(s => s.type === type);
@@ -66,67 +70,134 @@ const ScenarioSpectrum = ({
   useEffect(() => {
     if (!svgRef.current || scenarios.length === 0) return;
     
-    const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
-    
     const width = svgRef.current.clientWidth;
-    const height = 60; // Reduced height
-    const margin = { top: 10, right: 20, bottom: 10, left: 20 };
-    const innerWidth = width - margin.left - margin.right;
-    
-    // Create a scale for the spectrum
-    const x = d3.scaleLinear()
-      .domain([0, 4])  // 5 scenarios (0-4)
-      .range([0, innerWidth]);
-    
-    // Create the main group
-    const g = svg.append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
-    
-    // Draw the line
-    g.append("line")
-      .attr("x1", 0)
-      .attr("y1", 30)
-      .attr("x2", innerWidth)
-      .attr("y2", 30)
+    const height = 120;
+    const margin = { top: 20, right: 20, bottom: 30, left: 20 };
+
+    // Clear existing content
+    d3.select(svgRef.current).selectAll("*").remove();
+
+    const svg = d3.select(svgRef.current)
+      .attr("width", width)
+      .attr("height", height);
+
+    // Create scale - reversed order again
+    const xScale = d3.scaleLinear()
+      .domain([0, scenarios.length - 1])
+      .range([width - margin.right, margin.left]);
+
+    // Add risk label - moved higher and aligned left with arrow
+    svg.append("text")
+      .attr("x", margin.left)
+      .attr("y", 15)
+      .attr("text-anchor", "start")
+      .attr("fill", "#666")
+      .attr("font-size", "12px")
+      .text(`Increasing risk for ${party2Name} →`);  // Added arrow
+
+    // Create the spectrum line group
+    const spectrumGroup = svg.append("g")
+      .attr("transform", `translate(0, ${height/2})`);
+
+    // Add "Zone of Possible Agreement" background
+    const zopaWidth = (xScale(1) - xScale(3)); // Positions 2,3,4 in reversed order
+    spectrumGroup.append("rect")
+      .attr("x", xScale(3))
+      .attr("y", -15)
+      .attr("width", zopaWidth)
+      .attr("height", 30)
+      .attr("fill", "rgba(0, 255, 0, 0.1)")
+      .attr("rx", 15);
+
+    // Add ZOPA label
+    svg.append("text")
+      .attr("x", xScale(2))
+      .attr("y", 35)
+      .attr("text-anchor", "middle")
+      .attr("fill", "#666")
+      .attr("font-size", "10px")
+      .text("Zone of Possible Agreement");
+
+    // Add horizontal line
+    spectrumGroup.append("line")
+      .attr("x1", margin.left)
+      .attr("x2", width - margin.right)
+      .attr("y1", 0)
+      .attr("y2", 0)
       .attr("stroke", "#ccc")
-      .attr("stroke-width", 3);
-    
-    // Draw the scenario points
-    const circles = g.selectAll("circle")
-      .data(scenarios)
+      .attr("stroke-width", 2);
+
+    // Reverse scenarios order
+    const displayScenarios = [...scenarios].reverse().map((scenario, index) => ({
+      ...scenario,
+      displayNumber: index + 1
+    }));
+
+    // Add dots for each scenario
+    spectrumGroup.selectAll("circle")
+      .data(displayScenarios)
       .enter()
       .append("circle")
-      .attr("cx", (d, i) => x(i))
-      .attr("cy", 30)
-      .attr("r", 10)
-      .attr("fill", d => getColorForType(d.type))
-      .attr("stroke", d => selectedScenarioId === d.id ? "#000" : "none")
-      .attr("stroke-width", 2)
-      .attr("class", d => `scenario-point-${d.id}`) // Add class for connecting lines
+      .attr("cx", (d, i) => xScale(i))
+      .attr("cy", 0)
+      .attr("r", d => d.id === selectedScenarioId ? 8 : 6)
+      .attr("fill", d => {
+        const color = d.type.includes('redline') ? '#ff4444' : 
+                     d.type.includes('bottomline') ? '#ffaa00' : 
+                     '#44aa44';
+        return d.id === selectedScenarioId ? color : `${color}80`;
+      })
+      .attr("class", "scenario-dot")
       .style("cursor", "pointer")
-      .on("click", (event, d) => {
-        onSelectScenario(d);
-      });
-    
-    // Add small labels for the points (just numbers 1-5)
-    g.selectAll("text.point-label")
-      .data(scenarios)
+      .style("transition", "all 0.3s ease")
+      .style("filter", d => {
+        if (d.id === selectedScenarioId) {
+          const color = d.type.includes('redline') ? '#ff4444' : 
+                       d.type.includes('bottomline') ? '#ffaa00' : 
+                       '#44aa44';
+          return `drop-shadow(0 0 4px ${color}) drop-shadow(0 0 6px ${color})`;
+        }
+        return "none";
+      })
+      .on("click", (event, d) => onSelectScenario(d))
+      .on("mouseover", (event, d) => setHoveredScenario(d.id))
+      .on("mouseout", () => setHoveredScenario(null));
+
+    // Add scenario numbers
+    spectrumGroup.selectAll("text.scenario-number")
+      .data(displayScenarios)
       .enter()
       .append("text")
-      .attr("class", "point-label")
-      .attr("x", (d, i) => x(i))
-      .attr("y", 10)
+      .attr("class", "scenario-number")
+      .attr("x", (d, i) => xScale(i))
+      .attr("y", -15)
       .attr("text-anchor", "middle")
-      .attr("fill", "#000")
-      .style("font-size", "9px") // Decreased font size
-      .text((d, i) => i + 1);
-    
+      .attr("fill", "#666")
+      .attr("font-size", "12px")
+      .text(d => d.displayNumber);
+
+    // Add labels - party1 on left, party2 on right
+    svg.append("text")
+      .attr("x", margin.left)
+      .attr("y", height - 5)
+      .attr("text-anchor", "start")
+      .attr("fill", "#666")
+      .attr("font-size", "12px")
+      .text(party1Name);  // Changed to party1Name
+
+    svg.append("text")
+      .attr("x", width - margin.right)
+      .attr("y", height - 5)
+      .attr("text-anchor", "end")
+      .attr("fill", "#666")
+      .attr("font-size", "12px")
+      .text(party2Name);  // Changed to party2Name
+
     // Store the positions of the circles for connecting lines
     const positions: {[key: string]: {x: number, y: number}} = {};
     scenarios.forEach((scenario, i) => {
       positions[scenario.id] = {
-        x: x(i) + margin.left,
+        x: xScale(i) + margin.left,
         y: 30 + margin.top
       };
     });
@@ -134,70 +205,16 @@ const ScenarioSpectrum = ({
     
   }, [scenarios, selectedScenarioId, party1Name, party2Name]);
   
-  // Draw connecting line when a scenario is selected
-  useEffect(() => {
-    if (!selectedScenarioId || !containerRef.current) return;
-    
-    // Remove any existing connecting lines
-    const container = containerRef.current;
-    const existingLines = container.querySelectorAll('.connecting-line');
-    existingLines.forEach(line => line.remove());
-    
-    // Get the position of the selected dot
-    const dotPosition = scenarioPositions[selectedScenarioId];
-    if (!dotPosition) return;
-    
-    // Get the position of the selected scenario box
-    const scenarioBox = container.querySelector(`#scenario-box-${selectedScenarioId}`);
-    if (!scenarioBox) return;
-    
-    // Get the position of the scenario box relative to the container
-    const boxRect = scenarioBox.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
-    
-    // Calculate the position for the line
-    const startX = dotPosition.x;
-    const startY = dotPosition.y;
-    const endX = boxRect.left - containerRect.left + 8; // 8px is half the width of the dot in the scenario box
-    const endY = boxRect.top - containerRect.top + 8; // 8px is half the height of the dot in the scenario box
-    
-    // Create an SVG overlay for the connecting line
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', 'connecting-line');
-    svg.setAttribute('style', 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;');
-    
-    // Create the path for the connecting line
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    const selectedScenario = scenarios.find(s => s.id === selectedScenarioId);
-    if (!selectedScenario) return;
-    
-    const color = getColorForType(selectedScenario.type);
-    
-    // Create a curved path from the dot to the scenario box
-    const midX = (startX + endX) / 2;
-    const pathData = `M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`;
-    
-    path.setAttribute('d', pathData);
-    path.setAttribute('stroke', color);
-    path.setAttribute('stroke-width', '2');
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke-dasharray', '4');
-    
-    svg.appendChild(path);
-    container.appendChild(svg);
-    
-  }, [selectedScenarioId, scenarioPositions, scenarios]);
-  
   return (
     <Box ref={containerRef} sx={{ position: 'relative' }}>
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
         {/* Spectrum visualization */}
-        <svg ref={svgRef} width="100%" height="60"></svg>
+        <svg ref={svgRef} style={{ width: '100%', height: '120px' }} />
       </Paper>
       
-      {/* Scenario boxes - now vertically stacked */}
+      {/* Scenario boxes - vertically stacked */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {scenarios.map((scenario, index) => {
+        {scenarios.map((scenario, index) => {  {/* Removed reverse() */}
           const isSelected = selectedScenarioId === scenario.id;
           
           return (
@@ -211,14 +228,14 @@ const ScenarioSpectrum = ({
                       cursor: 'pointer',
                       borderColor: isSelected ? 'primary.main' : 'divider',
                       borderWidth: isSelected ? 2 : 1,
-                      bgcolor: isSelected ? 'action.selected' : 'background.paper',
+                      bgcolor: 'background.paper',
                       opacity: selectedScenarioId && !isSelected ? 0.6 : 1,
-                      transition: 'opacity 0.3s, border-color 0.3s, background-color 0.3s',
+                      transition: 'opacity 0.3s, border-color 0.3s',
                       position: 'relative',
                       '&:hover': {
                         opacity: 1,
                         borderColor: isSelected ? 'primary.dark' : 'primary.light',
-                        bgcolor: isSelected ? 'action.hover' : 'background.paper',
+                        bgcolor: 'background.paper',
                       }
                     }}
                     onClick={() => onSelectScenario(scenario)}
@@ -232,29 +249,28 @@ const ScenarioSpectrum = ({
                           borderRadius: '50%', 
                           bgcolor: getColorForType(scenario.type),
                           mr: 1,
-                          border: isSelected ? '2px solid black' : 'none'
+                          boxShadow: isSelected ? '0 0 6px rgba(255,255,255,0.8)' : 'none'
                         }} 
                       />
                       <Typography variant="subtitle2" sx={{ 
                         color: getColorForType(scenario.type),
                         fontWeight: 'bold',
-                        fontSize: '0.85rem' // Decreased font size
+                        fontSize: '0.85rem'
                       }}>
                         {getScenarioName(scenario.type, index)}
                       </Typography>
                     </Box>
-                    <Typography variant="body2" sx={{ fontSize: '0.8rem', pl: 3 }}> {/* Decreased font size and added left padding */}
+                    <Typography variant="body2" sx={{ fontSize: '0.8rem', pl: 3 }}>
                       {scenario.description}
                     </Typography>
                   </Paper>
                 </div>
               </Tooltip>
               
-              {/* Risk Assessment Content - only show for selected scenario */}
               {isSelected && riskAssessmentContent && (
                 <Box 
                   sx={{ 
-                    ml: 4, // Indent to create scaffolded appearance
+                    ml: 4,
                     mt: 1, 
                     borderLeft: `2px solid ${getColorForType(scenario.type)}`,
                     pl: 2
