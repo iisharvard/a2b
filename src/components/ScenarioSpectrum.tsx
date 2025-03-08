@@ -248,37 +248,25 @@ const ScenarioSpectrum = ({
                           height: 16, 
                           borderRadius: '50%', 
                           bgcolor: getColorForType(scenario.type),
-                          mr: 1,
-                          boxShadow: isSelected ? '0 0 6px rgba(255,255,255,0.8)' : 'none'
+                          mr: 2 
                         }} 
                       />
-                      <Typography variant="subtitle2" sx={{ 
-                        color: getColorForType(scenario.type),
-                        fontWeight: 'bold',
-                        fontSize: '0.85rem'
-                      }}>
+                      <Typography variant="subtitle1">
                         {getScenarioName(scenario.type, index)}
                       </Typography>
                     </Box>
-                    <Typography variant="body2" sx={{ fontSize: '0.8rem', pl: 3 }}>
+                    
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                       {scenario.description}
                     </Typography>
+
+                    {/* Show risk assessment content if this scenario is selected */}
+                    <Collapse in={isSelected} timeout="auto" unmountOnExit>
+                      {isSelected && riskAssessmentContent}
+                    </Collapse>
                   </Paper>
                 </div>
               </Tooltip>
-              
-              {isSelected && riskAssessmentContent && (
-                <Box 
-                  sx={{ 
-                    ml: 4,
-                    mt: 1, 
-                    borderLeft: `2px solid ${getColorForType(scenario.type)}`,
-                    pl: 2
-                  }}
-                >
-                  {riskAssessmentContent}
-                </Box>
-              )}
             </Box>
           );
         })}

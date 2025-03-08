@@ -32,6 +32,7 @@ import {
   AccordionSummary,
   AccordionDetails,
   Tooltip,
+  CircularProgress,
 } from '@mui/material';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -284,6 +285,37 @@ const RedlineBottomline = () => {
     }
   };
 
+  const handleReanalyze = async () => {
+    if (!currentCase || !currentCase.suggestedParties.length) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const analysisResult = await api.analyzeCase(
+        currentCase.content,
+        currentCase.suggestedParties[0],
+        currentCase.suggestedParties[1]
+      );
+      
+      if ('rateLimited' in analysisResult) {
+        setError('Rate limit reached. Please try again in a few moments.');
+        return;
+      }
+      
+      dispatch(updateComponents(analysisResult.components));
+      dispatch(updateIoA(analysisResult.ioa));
+      dispatch(updateIceberg(analysisResult.iceberg));
+      dispatch(setAnalysisRecalculated(true));
+      setError('Analysis has been successfully recalculated.');
+    } catch (err) {
+      console.error(err);
+      setError('Failed to recalculate analysis. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!currentCase || !currentCase.analysis) {
     return null; // Will redirect in useEffect
   }
@@ -303,7 +335,7 @@ const RedlineBottomline = () => {
         <Divider sx={{ mb: 4 }} />
         
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
+          <Alert severity={error.includes('successfully') ? 'success' : 'error'} sx={{ mb: 3 }}>
             {error}
           </Alert>
         )}
@@ -314,6 +346,22 @@ const RedlineBottomline = () => {
             onRecalculate={handleRecalculateAnalysis}
           />
         )}
+        
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={handleReanalyze}
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={16} /> : null}
+            sx={{ fontSize: '0.8rem' }}
+            size="small"
+          >
+            Reevaluate Analysis
+          </Button>
+        </Box>
+
+        {loading && <LoadingOverlay open={loading} message="Analyzing..." />}
         
         <Grid container spacing={3}>
           {/* Left panel for component selection and ordering */}

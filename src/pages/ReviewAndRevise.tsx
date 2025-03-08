@@ -13,7 +13,11 @@ import {
   Divider,
   LinearProgress,
   Stack,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
+import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { RootState } from '../store';
 import {
   setAnalysis,
@@ -86,7 +90,7 @@ const ReviewAndRevise = () => {
     setError(null);
     
     try {
-      if (!currentCase.suggestedParties || currentCase.suggestedParties.length < 2) {
+      if (!currentCase.suggestedParties || currentCase.suggestedParties.length === 0) {
         throw new Error('Please set up party information before proceeding with analysis.');
       }
 
@@ -126,8 +130,8 @@ const ReviewAndRevise = () => {
       return;
     }
 
-    // Check if parties are set up
-    if (!currentCase.suggestedParties || currentCase.suggestedParties.length < 2) {
+    // Only redirect if parties are not set up at all
+    if (!currentCase.suggestedParties || currentCase.suggestedParties.length === 0) {
       setError('Please set up party information before proceeding with analysis.');
       navigate('/parties');
       return;
@@ -253,7 +257,7 @@ const ReviewAndRevise = () => {
           </Alert>
         )}
         
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
           <Button
             variant="outlined"
             color="primary"
@@ -263,18 +267,7 @@ const ReviewAndRevise = () => {
             sx={{ fontSize: '0.8rem' }}
             size="small"
           >
-            Reevaluate
-          </Button>
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={handleRecalculate}
-            disabled={loading}
-            startIcon={loading ? <CircularProgress size={16} /> : null}
-            sx={{ fontSize: '0.8rem' }}
-            size="small"
-          >
-            Recalculate Analysis
+            Reevaluate Analysis
           </Button>
         </Box>
         
@@ -306,40 +299,65 @@ const ReviewAndRevise = () => {
 
         <Grid container spacing={4}>
           <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom>
-              Issues of Agreement (IoA)
-            </Typography>
-            <MarkdownEditor
-              value={ioa}
-              onChange={handleIoaChange}
-              label=""
-              height="200px"
-            />
+            <Accordion defaultExpanded>
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                aria-controls="ioa-content"
+                id="ioa-header"
+              >
+                <Typography variant="h6">Issues of Agreement (IoA)</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <MarkdownEditor
+                  value={ioa}
+                  onChange={handleIoaChange}
+                  label=""
+                  height="300px"
+                />
+              </AccordionDetails>
+            </Accordion>
           </Grid>
           
           <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom>
-              Iceberg Analysis
-            </Typography>
-            <MarkdownEditor
-              value={iceberg}
-              onChange={handleIcebergChange}
-              label=""
-              height="200px"
-            />
+            <Accordion>
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                aria-controls="iceberg-content"
+                id="iceberg-header"
+              >
+                <Typography variant="h6">Iceberg Analysis</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <MarkdownEditor
+                  value={iceberg}
+                  onChange={handleIcebergChange}
+                  label=""
+                  height="300px"
+                />
+              </AccordionDetails>
+            </Accordion>
           </Grid>
           
           <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom>
-              Issues to Negotiate
-            </Typography>
-            <MarkdownEditor
-              value={componentsMarkdown}
-              onChange={handleComponentsChange}
-              placeholder="## Component Name
+            <Accordion>
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                aria-controls="issues-content"
+                id="issues-header"
+              >
+                <Typography variant="h6">Issues to Negotiate</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <MarkdownEditor
+                  value={componentsMarkdown}
+                  onChange={handleComponentsChange}
+                  placeholder="## Component Name
 
 Component description and details..."
-            />
+                  height="300px"
+                />
+              </AccordionDetails>
+            </Accordion>
           </Grid>
           
           <Grid item xs={12} sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>

@@ -47,10 +47,10 @@ const TableSection: React.FC<TableSectionProps> = ({
 
 const RiskAssessmentTable: React.FC<RiskAssessmentTableProps> = ({
   assessments,
-  scenarioId,
+  scenarioId, 
   viewMode,
-  onAddAssessment,
-  onUpdateAssessment,
+  onAddAssessment, 
+  onUpdateAssessment, 
   onDeleteAssessment,
 }) => {
   const filteredAssessments = assessments.filter(a => a.scenarioId === scenarioId);

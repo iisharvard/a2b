@@ -336,6 +336,20 @@ const NegotiationScenario = () => {
           </Alert>
         )}
         
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={handleRecalculateScenarios}
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={16} /> : null}
+            sx={{ fontSize: '0.8rem' }}
+            size="small"
+          >
+            Reevaluate Analysis
+          </Button>
+        </Box>
+        
         {needsRecalculation && (
           <RecalculationWarning
             message="The analysis has been modified. The scenarios may not reflect the latest changes."
@@ -385,28 +399,59 @@ const NegotiationScenario = () => {
                     Click on a scenario to view its risk assessment
                   </Typography>
                   
+                  <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      onClick={handleGenerateScenarios}
+                      disabled={isGenerating}
+                      startIcon={isGenerating ? <CircularProgress size={16} /> : null}
+                      sx={{ fontSize: '0.8rem' }}
+                      size="small"
+                    >
+                      Regenerate Scenarios
+                    </Button>
+                  </Box>
+                  
                   <ScenarioSpectrum
                     scenarios={scenarios}
                     party1Name={party1Name}
                     party2Name={party2Name}
                     onSelectScenario={handleSelectScenario}
                     selectedScenarioId={selectedScenario?.id}
+                    riskAssessmentContent={
+                      selectedScenario && showRiskAssessment && (
+                        <Box sx={{ mt: 2 }}>
+                          <Typography variant="h6" gutterBottom>
+                            Risk Assessment
+                          </Typography>
+                          <RiskAssessmentTable
+                            assessments={currentCase.riskAssessments}
+                            scenarioId={selectedScenario.id}
+                            viewMode="edit"
+                            onAddAssessment={handleAddAssessment}
+                            onUpdateAssessment={handleUpdateRiskAssessment}
+                            onDeleteAssessment={handleDeleteAssessment}
+                          />
+                        </Box>
+                      )
+                    }
                   />
                 </Box>
-                
-                {showRiskAssessment && selectedScenario && (
-                  <Box sx={{ mt: 4 }}>
-                    <Typography variant="h6" gutterBottom>
-                      Risk Assessment
-                    </Typography>
-                    <RiskAssessmentTable
-                      assessments={currentCase.riskAssessments}
-                      scenarioId={selectedScenario.id}
-                      viewMode="edit"
-                      onAddAssessment={handleAddAssessment}
-                      onUpdateAssessment={handleUpdateRiskAssessment}
-                      onDeleteAssessment={handleDeleteAssessment}
-                    />
+
+                {selectedScenario && (
+                  <Box sx={{ mt: 3, mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      onClick={handleGenerateRiskAssessment}
+                      disabled={isGeneratingRisk}
+                      startIcon={isGeneratingRisk ? <CircularProgress size={16} /> : null}
+                      sx={{ fontSize: '0.8rem' }}
+                      size="small"
+                    >
+                      {showRiskAssessment ? 'Hide Risk Assessment' : 'Show Risk Assessment'}
+                    </Button>
                   </Box>
                 )}
               </>
