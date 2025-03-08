@@ -17,6 +17,12 @@ import {
   Tooltip,
   Badge,
   Chip,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  IconButton,
+  Drawer,
 } from '@mui/material';
 import DescriptionIcon from '@mui/icons-material/Description';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
@@ -26,6 +32,11 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import LockIcon from '@mui/icons-material/Lock';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SaveIcon from '@mui/icons-material/Save';
+import MenuIcon from '@mui/icons-material/Menu';
+import GavelIcon from '@mui/icons-material/Gavel';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+import TrackChangesIcon from '@mui/icons-material/TrackChanges';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { RootState } from '../store';
 
 // Import all pages
@@ -69,11 +80,12 @@ function a11yProps(index: number) {
   };
 }
 
-const MainLayout = () => {
+const MainLayout = ({ children }: MainLayoutProps) => {
   const [tabValue, setTabValue] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
+  const [mobileOpen, setMobileOpen] = useState(false);
   
   const { currentCase, loading } = useSelector(
     (state: RootState) => state.negotiation
@@ -238,6 +250,10 @@ const MainLayout = () => {
         </span>
       </Tooltip>
     );
+  };
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
   };
 
   return (

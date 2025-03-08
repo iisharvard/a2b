@@ -1,5 +1,5 @@
 import { Card, CardContent, Typography, Slider, Box, Divider, Button, Grid, IconButton } from '@mui/material';
-import { Component } from '../store/negotiationSlice';
+import { Component, Case } from '../store/negotiationSlice';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
@@ -11,8 +11,8 @@ interface NegotiationIssueCardProps {
   component: Component;
   onChange?: (updatedComponent: Component) => void;
   readOnly?: boolean;
-  party1Name?: string;
-  party2Name?: string;
+  case: Case;
+  onUpdate: (updatedCase: Case) => void;
   showDiff?: boolean;
   hasChanges?: boolean;
   onAcceptChange?: () => void;
@@ -25,8 +25,7 @@ const NegotiationIssueCard = ({
   component, 
   onChange, 
   readOnly = false,
-  party1Name: propParty1Name,
-  party2Name: propParty2Name,
+  case: currentCase,
   showDiff = false,
   hasChanges = false,
   onAcceptChange,
@@ -34,10 +33,9 @@ const NegotiationIssueCard = ({
   onMoveUp,
   onMoveDown
 }: NegotiationIssueCardProps) => {
-  // Get party names from the Redux store if not provided as props
-  const { currentCase } = useSelector((state: RootState) => state.negotiation);
-  const party1Name = propParty1Name || currentCase?.party1?.name || 'Party 1';
-  const party2Name = propParty2Name || currentCase?.party2?.name || 'Party 2';
+  // Use suggestedParties instead of party1/party2
+  const party1Name = currentCase.suggestedParties[0]?.name || 'Party 1';
+  const party2Name = currentCase.suggestedParties[1]?.name || 'Party 2';
 
   const handleChange = (party: 'party1' | 'party2', type: 'redline' | 'bottomline', value: string) => {
     if (onChange) {
