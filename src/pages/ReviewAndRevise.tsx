@@ -62,10 +62,9 @@ const ReviewAndRevise = () => {
   const analysisInProgress = useRef(false);
   
   // Redux state
-  const { currentCase, loading: stateLoading } = useSelector(
+  const { currentCase } = useSelector(
     (state: RootState) => state.negotiation
   );
-  const recalculationStatus = useSelector((state: RootState) => state.recalculation);
   
   // Local state
   const [loading, setLoading] = useState(false);
