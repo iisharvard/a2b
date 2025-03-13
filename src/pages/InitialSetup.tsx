@@ -9,6 +9,11 @@ import {
   Box,
   Paper,
   Grid,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  FormHelperText,
   Dialog,
   DialogActions,
   DialogContent,
@@ -16,6 +21,7 @@ import {
   DialogTitle,
   Alert,
   Divider,
+  SelectChangeEvent,
 } from '@mui/material';
 import { RootState } from '../store';
 import {
@@ -25,7 +31,6 @@ import {
   Party,
 } from '../store/negotiationSlice';
 import { api } from '../services/api';
-import MarkdownEditor from '../components/MarkdownEditor';
 
 /**
  * InitialSetup component for entering case details and party information
@@ -111,6 +116,29 @@ const InitialSetup = () => {
   }, [caseContent]);
   
   /**
+   * Handle party selection changes
+   */
+  const handleParty1Change = useCallback((event: SelectChangeEvent) => {
+    const selectedName = event.target.value;
+    setParty1Name(selectedName);
+    
+    const selectedParty = suggestedParties.find(party => party.name === selectedName);
+    if (selectedParty) {
+      setParty1Description(selectedParty.description);
+    }
+  }, [suggestedParties]);
+
+  const handleParty2Change = useCallback((event: SelectChangeEvent) => {
+    const selectedName = event.target.value;
+    setParty2Name(selectedName);
+    
+    const selectedParty = suggestedParties.find(party => party.name === selectedName);
+    if (selectedParty) {
+      setParty2Description(selectedParty.description);
+    }
+  }, [suggestedParties]);
+  
+  /**
    * Handles form submission
    */
   const handleSubmit = useCallback(() => {
@@ -145,8 +173,8 @@ const InitialSetup = () => {
     }));
     dispatch(setParties(updatedParties));
     
-    // Navigate to analysis page
-    navigate('/analysis');
+    // Navigate to review page (this matches the route in MainLayout.tsx)
+    navigate('/review');
   }, [
     caseContent,
     party1Name,
@@ -189,6 +217,78 @@ const InitialSetup = () => {
     setConfirmDialogOpen(false);
   }, []);
   
+  /**
+   * Render party selection
+   */
+  const renderPartySelection = (
+    partyNumber: 1 | 2,
+    partyName: string,
+    partyDescription: string,
+    handleChange: (event: SelectChangeEvent) => void
+  ) => {
+    const label = partyNumber === 1 ? 'Party 1 (Your Side)' : 'Party 2 (Other Side)';
+    const helperText = partyNumber === 1 
+      ? 'This is your side in the negotiation'
+      : 'This is the other side in the negotiation';
+    const selectLabel = partyNumber === 1 ? 'Select Party 1' : 'Select Party 2';
+    const otherPartyName = partyNumber === 1 ? party2Name : party1Name;
+    
+    return (
+      <Grid item xs={12} md={6}>
+        <Box sx={{ p: 2 }}>
+          <Typography variant="subtitle1" gutterBottom>
+            {label}
+          </Typography>
+          
+          {suggestedParties.length > 0 && partiesIdentified ? (
+            <FormControl fullWidth margin="normal">
+              <InputLabel id={`party${partyNumber}-select-label`}>{selectLabel}</InputLabel>
+              <Select
+                labelId={`party${partyNumber}-select-label`}
+                value={partyName}
+                onChange={handleChange}
+                label={selectLabel}
+                required
+              >
+                {suggestedParties.map((party) => (
+                  <MenuItem 
+                    key={party.name} 
+                    value={party.name}
+                    disabled={party.name === otherPartyName} // Disable if already selected by other party
+                  >
+                    {party.name} {party.isPrimary ? "(Primary)" : ""}
+                  </MenuItem>
+                ))}
+              </Select>
+              <FormHelperText>{helperText}</FormHelperText>
+            </FormControl>
+          ) : (
+            <TextField
+              fullWidth
+              label={`Party ${partyNumber} Name`}
+              value={partyName}
+              onChange={(e) => partyNumber === 1 ? setParty1Name(e.target.value) : setParty2Name(e.target.value)}
+              margin="normal"
+              variant="outlined"
+              required
+            />
+          )}
+          
+          <TextField
+            fullWidth
+            label={`Party ${partyNumber} Description`}
+            value={partyDescription}
+            onChange={(e) => partyNumber === 1 ? setParty1Description(e.target.value) : setParty2Description(e.target.value)}
+            margin="normal"
+            variant="outlined"
+            multiline
+            rows={4}
+          />
+        </Box>
+      </Grid>
+    );
+  };
+  
   return (
     <Container maxWidth="xl">
       <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
@@ -209,11 +309,14 @@ const InitialSetup = () => {
             <Typography variant="h6" gutterBottom>
               Case Content
             </Typography>
-            <MarkdownEditor
+            <TextField
+              fullWidth
+              multiline
+              rows={12}
               value={caseContent}
-              onChange={setCaseContent}
-              label="Enter or paste your case content here"
-              height="400px"
+              onChange={(e) => setCaseContent(e.target.value)}
+              placeholder="Enter or paste your case content here"
+              variant="outlined"
             />
           </Grid>
           
@@ -232,49 +335,8 @@ const InitialSetup = () => {
             </Box>
             
             <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Party 1 Name"
-                  value={party1Name}
-                  onChange={(e) => setParty1Name(e.target.value)}
-                  margin="normal"
-                  variant="outlined"
-                  required
-                />
-                <TextField
-                  fullWidth
-                  label="Party 1 Description"
-                  value={party1Description}
-                  onChange={(e) => setParty1Description(e.target.value)}
-                  margin="normal"
-                  variant="outlined"
-                  multiline
-                  rows={4}
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Party 2 Name"
-                  value={party2Name}
-                  onChange={(e) => setParty2Name(e.target.value)}
-                  margin="normal"
-                  variant="outlined"
-                  required
-                />
-                <TextField
-                  fullWidth
-                  label="Party 2 Description"
-                  value={party2Description}
-                  onChange={(e) => setParty2Description(e.target.value)}
-                  margin="normal"
-                  variant="outlined"
-                  multiline
-                  rows={4}
-                />
-              </Grid>
+              {renderPartySelection(1, party1Name, party1Description, handleParty1Change)}
+              {renderPartySelection(2, party2Name, party2Description, handleParty2Change)}
             </Grid>
           </Grid>
           
