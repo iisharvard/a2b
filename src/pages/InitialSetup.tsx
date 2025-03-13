@@ -26,7 +26,7 @@ import {
 } from '@mui/material';
 import { setCase, setParties, clearState, setCaseProcessed } from '../store/negotiationSlice';
 import LoadingOverlay from '../components/LoadingOverlay';
-import { api } from '../services/api.ts';
+import { api } from '../services/api';
 
 interface PartyOption {
   name: string;
