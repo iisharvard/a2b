@@ -1,7 +1,22 @@
 import React from 'react';
-import { Box, Typography, Button } from '@mui/material';
+import { 
+  Box, 
+  Typography, 
+  Paper, 
+  Grid, 
+  Divider, 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableContainer, 
+  TableHead, 
+  TableRow,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { RiskAssessment } from '../store/negotiationSlice';
-import { DataTable, Column } from './common/DataTable';
 
 interface RiskAssessmentTableProps {
   assessments: RiskAssessment[];
@@ -12,37 +27,6 @@ interface RiskAssessmentTableProps {
   onDeleteAssessment?: (id: string) => void;
 }
 
-interface TableSectionProps {
-  title: string;
-  columns: Column<RiskAssessment>[];
-  data: RiskAssessment[];
-  onUpdate: (item: RiskAssessment, field: string, value: any) => void;
-  onDelete: (assessment: RiskAssessment) => void;
-  getRowId: (assessment: RiskAssessment) => string;
-}
-
-const TableSection: React.FC<TableSectionProps> = ({
-  title,
-  columns,
-  data,
-  onUpdate,
-  onDelete,
-  getRowId
-}) => (
-  <Box>
-    <Typography variant="h6" gutterBottom>
-      {title}
-    </Typography>
-    <DataTable
-      columns={columns}
-      data={data}
-      onUpdate={onUpdate}
-      onDelete={onDelete}
-      getRowId={getRowId}
-    />
-  </Box>
-);
-
 const RiskAssessmentTable: React.FC<RiskAssessmentTableProps> = ({
   assessments,
   scenarioId = '',
@@ -51,126 +35,221 @@ const RiskAssessmentTable: React.FC<RiskAssessmentTableProps> = ({
   onUpdateAssessment,
   onDeleteAssessment
 }) => {
-  const filteredAssessments = scenarioId ? assessments.filter(a => a.scenarioId === scenarioId) : assessments;
+  const filteredAssessments = scenarioId 
+    ? assessments.filter(a => a.scenarioId === scenarioId) 
+    : assessments;
 
-  const handleAddNew = () => {
-    if (!onAddAssessment || !scenarioId) return;
+  // If no assessments, show a message
+  if (filteredAssessments.length === 0) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 2 }}>
+        <Typography variant="body1" color="text.secondary">
+          No risk assessment available.
+        </Typography>
+      </Box>
+    );
+  }
 
-    const newAssessment: RiskAssessment = {
-      id: Date.now().toString(),
-      scenarioId,
-      type: 'short_term',
-      description: '',
-      likelihood: 3,
-      impact: 3,
-      mitigation: ''
-    };
-    
-    onAddAssessment(newAssessment);
-  };
-
-  const handleUpdate = (item: RiskAssessment, field: string, value: any) => {
-    if (!onUpdateAssessment) return;
-
-    const updatedAssessment: RiskAssessment = { ...item };
-    
-    switch (field) {
-      case 'likelihood':
-        const likelihoodNum = Math.min(5, Math.max(1, parseInt(value, 10) || 1));
-        updatedAssessment.likelihood = likelihoodNum;
-        break;
-      case 'impact':
-        const impactNum = Math.min(5, Math.max(1, parseInt(value, 10) || 1));
-        updatedAssessment.impact = impactNum;
-        break;
-      case 'description':
-        updatedAssessment.description = value?.toString() || '';
-        break;
-      case 'mitigation':
-        updatedAssessment.mitigation = value?.toString() || '';
-        break;
-      case 'type':
-        if (value === 'short_term' || value === 'long_term') {
-          updatedAssessment.type = value;
-        } else {
-          console.warn(`Invalid type value: ${value}`);
-          return;
-        }
-        break;
-      default:
-        console.warn(`Unexpected field: ${field}`);
-        return;
-    }
-    
-    onUpdateAssessment(updatedAssessment);
-  };
-
-  const handleDelete = (assessment: RiskAssessment) => {
-    onDeleteAssessment?.(assessment.id);
-  };
-
-  const baseColumns: Column<RiskAssessment>[] = [
-    { 
-      id: 'description', 
-      label: 'Risk Description', 
-      minWidth: 170, 
-      editable: viewMode === 'edit',
-      type: 'text'
-    }
-  ];
-
-  const columns: Column<RiskAssessment>[] = [
-    ...baseColumns,
-    { 
-      id: 'likelihood', 
-      label: 'Likelihood (1-5)', 
-      minWidth: 100, 
-      editable: viewMode === 'edit',
-      type: 'text',
-      getValue: (item: RiskAssessment) => item.likelihood.toString(),
-      format: (value: number) => `${value}/5`
-    },
-    { 
-      id: 'impact', 
-      label: 'Impact (1-5)', 
-      minWidth: 100, 
-      editable: viewMode === 'edit',
-      type: 'text',
-      getValue: (item: RiskAssessment) => item.impact.toString(),
-      format: (value: number) => `${value}/5`
-    },
-    { 
-      id: 'mitigation', 
-      label: 'Mitigation Strategy', 
-      minWidth: 200, 
-      editable: viewMode === 'edit',
-      type: 'text'
-    }
-  ];
+  // Get the first assessment (we typically only have one per scenario)
+  const assessment = filteredAssessments[0];
 
   return (
     <Box>
-      {viewMode === 'edit' && (
-        <Box sx={{ mb: 2 }}>
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={handleAddNew}
-            size="small"
-          >
-            Add New Risk Assessment
-          </Button>
-        </Box>
-      )}
+      {/* Short Term and Long Term Impact Section */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={6}>
+          <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+            <Typography variant="h6" gutterBottom>
+              Short Term Impact
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            
+            <TableContainer>
+              <Table size="small">
+                <TableBody>
+                  <TableRow>
+                    <TableCell component="th" sx={{ fontWeight: 'bold', width: '30%' }}>
+                      Impact
+                    </TableCell>
+                    <TableCell>
+                      {assessment.shortTermImpact || 'Not specified'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell component="th" sx={{ fontWeight: 'bold' }}>
+                      Mitigation Strategy
+                    </TableCell>
+                    <TableCell>
+                      {assessment.shortTermMitigation || 'Not specified'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell component="th" sx={{ fontWeight: 'bold' }}>
+                      Risk After Mitigation
+                    </TableCell>
+                    <TableCell>
+                      {assessment.shortTermRiskAfterMitigation || 'Not specified'}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        </Grid>
+        
+        <Grid item xs={12} md={6}>
+          <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+            <Typography variant="h6" gutterBottom>
+              Long Term Impact
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            
+            <TableContainer>
+              <Table size="small">
+                <TableBody>
+                  <TableRow>
+                    <TableCell component="th" sx={{ fontWeight: 'bold', width: '30%' }}>
+                      Impact
+                    </TableCell>
+                    <TableCell>
+                      {assessment.longTermImpact || 'Not specified'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell component="th" sx={{ fontWeight: 'bold' }}>
+                      Mitigation Strategy
+                    </TableCell>
+                    <TableCell>
+                      {assessment.longTermMitigation || 'Not specified'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell component="th" sx={{ fontWeight: 'bold' }}>
+                      Risk After Mitigation
+                    </TableCell>
+                    <TableCell>
+                      {assessment.longTermRiskAfterMitigation || 'Not specified'}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        </Grid>
+      </Grid>
 
-      <TableSection
-        title="Risk Assessment"
-        columns={columns}
-        data={filteredAssessments}
-        onUpdate={handleUpdate}
-        onDelete={handleDelete}
-        getRowId={assessment => assessment.id}
-      />
+      {/* Overall Assessment Section */}
+      <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Overall Assessment
+        </Typography>
+        <Divider sx={{ mb: 2 }} />
+        
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <Accordion defaultExpanded>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1">Security of Field Teams</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Typography variant="body2">
+                  {assessment.securityAssessment || 'Not specified'}
+                </Typography>
+              </AccordionDetails>
+            </Accordion>
+            
+            <Accordion>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1">Relationship with Counterpart</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Typography variant="body2">
+                  {assessment.relationshipAssessment || 'Not specified'}
+                </Typography>
+              </AccordionDetails>
+            </Accordion>
+            
+            <Accordion>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1">Leverage of Counterpart</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Typography variant="body2">
+                  {assessment.leverageAssessment || 'Not specified'}
+                </Typography>
+              </AccordionDetails>
+            </Accordion>
+          </Grid>
+          
+          <Grid item xs={12} md={6}>
+            <Accordion>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1">Impact on Other Organizations/Actors</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Typography variant="body2">
+                  {assessment.organizationsImpactAssessment || 'Not specified'}
+                </Typography>
+              </AccordionDetails>
+            </Accordion>
+            
+            <Accordion>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1">Beneficiaries/Communities</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Typography variant="body2">
+                  {assessment.beneficiariesAssessment || 'Not specified'}
+                </Typography>
+              </AccordionDetails>
+            </Accordion>
+            
+            <Accordion>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1">Reputation</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Typography variant="body2">
+                  {assessment.reputationAssessment || 'Not specified'}
+                </Typography>
+              </AccordionDetails>
+            </Accordion>
+          </Grid>
+        </Grid>
+      </Paper>
+      
+      {/* Legacy Format Support (if needed) */}
+      {assessment.type && assessment.description && (
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Legacy Risk Assessment
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Description</TableCell>
+                  <TableCell>Likelihood</TableCell>
+                  <TableCell>Impact</TableCell>
+                  <TableCell>Mitigation</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                <TableRow>
+                  <TableCell>{assessment.type}</TableCell>
+                  <TableCell>{assessment.description}</TableCell>
+                  <TableCell>{assessment.likelihood}/5</TableCell>
+                  <TableCell>{assessment.impact}/5</TableCell>
+                  <TableCell>{assessment.mitigation}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
     </Box>
   );
 };

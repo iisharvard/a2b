@@ -64,11 +64,24 @@ export interface Scenario {
 export interface RiskAssessment {
   id: string;
   scenarioId: string;
-  type: 'short_term' | 'long_term';
-  description: string;
-  likelihood: number;
-  impact: number;
-  mitigation: string;
+  shortTermImpact?: string;
+  shortTermMitigation?: string;
+  shortTermRiskAfterMitigation?: string;
+  longTermImpact?: string;
+  longTermMitigation?: string;
+  longTermRiskAfterMitigation?: string;
+  securityAssessment?: string;
+  relationshipAssessment?: string;
+  leverageAssessment?: string;
+  organizationsImpactAssessment?: string;
+  beneficiariesAssessment?: string;
+  reputationAssessment?: string;
+  // Keep these for backward compatibility
+  type?: 'short_term' | 'long_term';
+  description?: string;
+  likelihood?: number;
+  impact?: number;
+  mitigation?: string;
 }
 
 export interface Analysis {

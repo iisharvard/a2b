@@ -65,7 +65,6 @@ const NegotiationScenario = () => {
   const [selectedIssueId, setSelectedIssueId] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingRisk, setIsGeneratingRisk] = useState(false);
-  const [showRiskAssessment, setShowRiskAssessment] = useState(false);
   
   // Get filtered scenarios for the selected issue
   const filteredScenarios = currentCase?.scenarios.filter(
@@ -146,9 +145,8 @@ const NegotiationScenario = () => {
 
   // Debug effect for showRiskAssessment state
   useEffect(() => {
-    console.log('showRiskAssessment state changed:', showRiskAssessment);
     console.log('selectedScenario:', selectedScenario?.id);
-  }, [showRiskAssessment, selectedScenario]);
+  }, [selectedScenario]);
 
   const handleIssueChange = (issueId: string) => {
     if (isGenerating) {
@@ -158,7 +156,6 @@ const NegotiationScenario = () => {
     setSelectedIssueId(issueId);
     // Reset selected scenario when changing issues
     dispatch(selectScenario(null));
-    setShowRiskAssessment(false);
   };
 
   const handleSelectScenario = (scenario: Scenario) => {
@@ -168,23 +165,10 @@ const NegotiationScenario = () => {
       // If clicking the same scenario, deselect it
       console.log('Deselecting current scenario');
       dispatch(selectScenario(null));
-      setShowRiskAssessment(false);
     } else {
       // If selecting a different scenario
       console.log('Selecting new scenario, previous:', selectedScenario?.id);
       dispatch(selectScenario(scenario));
-      
-      // Only reset showRiskAssessment if we're selecting a completely different scenario
-      // Keep it visible if there's already a risk assessment for this scenario
-      const hasRiskAssessment = currentCase?.riskAssessments.some(ra => ra.scenarioId === scenario.id);
-      console.log('Has risk assessment:', hasRiskAssessment);
-      
-      // If there's a risk assessment, show it automatically
-      if (hasRiskAssessment) {
-        setShowRiskAssessment(true);
-      } else {
-        setShowRiskAssessment(false);
-      }
     }
   };
 
@@ -226,34 +210,37 @@ const NegotiationScenario = () => {
       return;
     }
     
-    // Toggle visibility of risk assessment
-    const newShowState = !showRiskAssessment;
-    console.log('Toggling risk assessment visibility:', { current: showRiskAssessment, new: newShowState });
-    setShowRiskAssessment(newShowState);
-    
-    // If we're showing the risk assessment and it doesn't exist yet, generate it
-    if (newShowState && !currentCase.riskAssessments.some(ra => ra.scenarioId === selectedScenario.id)) {
-      try {
-        console.log('Generating new risk assessment for scenario:', selectedScenario.id);
-        setIsGeneratingRisk(true);
-        setError(null);
-        
-        // Generate risk assessment
-        const riskAssessment = await api.generateRiskAssessment(selectedScenario.id);
-        console.log('Risk assessment generated:', riskAssessment);
-        
-        // Add to Redux
-        dispatch(setRiskAssessments([...currentCase.riskAssessments, riskAssessment]));
-        
-        // Mark risk assessments as recalculated
-        dispatch(setRiskAssessmentsRecalculated(true));
-      } catch (err) {
-        console.error('Error generating risk assessment:', err);
-        setError('Failed to generate risk assessment. Please try again.');
-        setShowRiskAssessment(false); // Hide on error
-      } finally {
-        setIsGeneratingRisk(false);
-      }
+    try {
+      console.log('Generating new risk assessment for scenario:', selectedScenario.id);
+      setIsGeneratingRisk(true);
+      setError(null);
+      
+      // Generate risk assessment with the specific format requested
+      const riskAssessmentPrompt = `According to the above, filling the following analysis for this selection:
+Short Term Impact, Mitigation Strategy, Risk After Mitigation, Long Term Impact, Mitigation Strategy, Risk After Mitigation, Overall Assessment of:
+Security of Field Teams
+Relationship with Counterpart
+Leverage of Counterpart 
+Impact on other organizations/ actors
+Beneficiaries/ Communities
+Reputation
+
+Keep the analysis specific with examples.`;
+      
+      // Generate risk assessment
+      const riskAssessment = await api.generateRiskAssessment(selectedScenario.id, riskAssessmentPrompt);
+      console.log('Risk assessment generated:', riskAssessment);
+      
+      // Add to Redux
+      dispatch(setRiskAssessments([...currentCase.riskAssessments, riskAssessment]));
+      
+      // Mark risk assessments as recalculated
+      dispatch(setRiskAssessmentsRecalculated(true));
+    } catch (err) {
+      console.error('Error generating risk assessment:', err);
+      setError('Failed to generate risk assessment. Please try again.');
+    } finally {
+      setIsGeneratingRisk(false);
     }
   };
 
@@ -421,46 +408,36 @@ const NegotiationScenario = () => {
                     selectedScenarioId={selectedScenario?.id}
                     riskAssessmentContent={
                       selectedScenario && (
-                        <Box sx={{ mt: 2 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-                            <Button
-                              variant="outlined"
-                              color="primary"
-                              onClick={(e) => {
-                                e.stopPropagation(); // Prevent event bubbling
-                                handleGenerateRiskAssessment(e);
-                              }}
-                              disabled={isGeneratingRisk}
-                              startIcon={isGeneratingRisk ? <CircularProgress size={16} /> : null}
-                              sx={{ fontSize: '0.8rem' }}
-                              size="small"
-                            >
-                              {isGeneratingRisk 
-                                ? 'Generating Risk Assessment...' 
-                                : showRiskAssessment 
-                                  ? 'Hide Risk Assessment' 
-                                  : currentCase.riskAssessments.some(ra => ra.scenarioId === selectedScenario.id)
-                                    ? 'Show Risk Assessment'
-                                    : 'Generate Risk Assessment'}
-                            </Button>
-                          </Box>
+                        <Box sx={{ mt: 3, border: '1px solid #e0e0e0', borderRadius: 1, p: 2, bgcolor: '#fafafa' }}>
+                          <Typography variant="h6" gutterBottom sx={{ borderBottom: '1px solid #e0e0e0', pb: 1 }}>
+                            Risk Assessment
+                          </Typography>
                           
-                          {/* Force the risk assessment to be visible when showRiskAssessment is true */}
-                          <Collapse in={showRiskAssessment} timeout={150} unmountOnExit>
-                            <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2, bgcolor: '#fafafa' }}>
-                              <Typography variant="h6" gutterBottom>
-                                Risk Assessment
-                              </Typography>
-                              <RiskAssessmentTable
-                                assessments={currentCase.riskAssessments}
-                                scenarioId={selectedScenario.id}
-                                viewMode="edit"
-                                onAddAssessment={handleAddAssessment}
-                                onUpdateAssessment={handleUpdateRiskAssessment}
-                                onDeleteAssessment={handleDeleteAssessment}
-                              />
+                          {!currentCase.riskAssessments.some(ra => ra.scenarioId === selectedScenario.id) ? (
+                            <Box sx={{ textAlign: 'center', py: 2 }}>
+                              <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleGenerateRiskAssessment(e);
+                                }}
+                                disabled={isGeneratingRisk}
+                                startIcon={isGeneratingRisk ? <CircularProgress size={16} /> : null}
+                              >
+                                {isGeneratingRisk ? 'Generating Risk Assessment...' : 'Generate Risk Assessment'}
+                              </Button>
                             </Box>
-                          </Collapse>
+                          ) : (
+                            <RiskAssessmentTable
+                              assessments={currentCase.riskAssessments}
+                              scenarioId={selectedScenario.id}
+                              viewMode="edit"
+                              onAddAssessment={handleAddAssessment}
+                              onUpdateAssessment={handleUpdateRiskAssessment}
+                              onDeleteAssessment={handleDeleteAssessment}
+                            />
+                          )}
                         </Box>
                       )
                     }
