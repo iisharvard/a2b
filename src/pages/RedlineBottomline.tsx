@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import {
@@ -148,7 +148,7 @@ const RedlineBottomline = () => {
     }
   }, [currentCase?.analysis?.components, selectedComponentId]);
 
-  const handleComponentChange = (updatedComponent: any) => {
+  const handleComponentChange = useCallback((updatedComponent: Component) => {
     if (!currentCase?.analysis) return;
     
     const updatedComponents = currentCase.analysis.components.map((component) =>
@@ -156,13 +156,13 @@ const RedlineBottomline = () => {
     );
     
     dispatch(updateComponents(updatedComponents));
-  };
+  }, [currentCase, dispatch]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     navigate('/scenarios');
-  };
+  }, [navigate]);
 
-  const handleComponentSelect = (componentId: string) => {
+  const handleComponentSelect = useCallback((componentId: string) => {
     setSelectedComponents(prev => {
       if (prev.includes(componentId)) {
         return prev.filter(id => id !== componentId);
@@ -170,13 +170,10 @@ const RedlineBottomline = () => {
         return [...prev, componentId];
       }
     });
-  };
+  }, []);
 
-  const moveComponentUp = (index: number) => {
-    if (index <= 0) return;
-    
-    // Get the current components
-    if (!currentCase?.analysis?.components) return;
+  const moveComponentUp = useCallback((index: number) => {
+    if (index <= 0 || !currentCase?.analysis?.components) return;
     
     // Create a deep copy of the components array
     const components = JSON.parse(JSON.stringify(currentCase.analysis.components));
@@ -202,9 +199,9 @@ const RedlineBottomline = () => {
     if (selectedComponentId === components[index - 1].id) {
       setSelectedComponentId(components[index - 1].id);
     }
-  };
+  }, [currentCase, dispatch, selectedComponentId]);
 
-  const moveComponentDown = (index: number) => {
+  const moveComponentDown = useCallback((index: number) => {
     if (!currentCase?.analysis?.components) return;
     if (index >= currentCase.analysis.components.length - 1) return;
     
@@ -232,9 +229,9 @@ const RedlineBottomline = () => {
     if (selectedComponentId === components[index + 1].id) {
       setSelectedComponentId(components[index + 1].id);
     }
-  };
+  }, [currentCase, dispatch, selectedComponentId]);
 
-  const handleReorderComponent = (componentId: string, newPosition: number) => {
+  const handleReorderComponent = useCallback((componentId: string, newPosition: number) => {
     if (!currentCase?.analysis?.components) return;
     
     const currentIndex = componentOrder.findIndex(id => id === componentId);
@@ -255,10 +252,10 @@ const RedlineBottomline = () => {
     });
     
     dispatch(updateComponents(updatedComponents));
-  };
+  }, [currentCase, componentOrder, dispatch]);
 
   // Function to handle recalculation of analysis
-  const handleRecalculateAnalysis = async () => {
+  const handleRecalculateAnalysis = useCallback(async () => {
     if (!currentCase) return;
     
     try {
@@ -286,9 +283,9 @@ const RedlineBottomline = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentCase, dispatch]);
 
-  const handleReanalyze = async () => {
+  const handleReanalyze = useCallback(async () => {
     if (!currentCase || !currentCase.suggestedParties.length) return;
     
     try {
@@ -312,14 +309,14 @@ const RedlineBottomline = () => {
       dispatch(setAnalysisRecalculated(true));
       setError('Analysis has been successfully recalculated.');
     } catch (err) {
-      console.error(err);
+      console.error('Error reanalyzing case:', err);
       setError('Failed to recalculate analysis. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentCase, dispatch]);
 
-  const handleDownloadContent = () => {
+  const handleDownloadContent = useCallback(() => {
     if (!currentCase || !currentCase.analysis) return;
 
     const formatDate = (date: string) => {
@@ -382,7 +379,7 @@ ${index + 1}. ${comp.name.toUpperCase()}
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  };
+  }, [currentCase]);
 
   if (!currentCase || !currentCase.analysis) {
     return null; // Will redirect in useEffect
@@ -391,7 +388,7 @@ ${index + 1}. ${comp.name.toUpperCase()}
   // Get components in the current order
   const orderedComponents = componentOrder
     .map(id => currentCase.analysis?.components.find(comp => comp.id === id))
-    .filter(Boolean);
+    .filter(Boolean) as Component[];
 
   return (
     <Container maxWidth="xl">
@@ -453,7 +450,7 @@ ${index + 1}. ${comp.name.toUpperCase()}
               </Typography>
               
               <List dense sx={{ bgcolor: 'background.paper', border: '1px solid #eee', borderRadius: 1 }}>
-                {currentCase?.analysis?.components.map((component, index) => (
+                {currentCase.analysis.components.map((component, index) => (
                   <ListItem 
                     key={component.id}
                     sx={{ 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -27,7 +27,9 @@ import {
 import { setCase, setParties, clearState, setCaseProcessed } from '../store/negotiationSlice';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { api } from '../services/api';
+import { RootState } from '../store';
 
+// Types
 interface PartyOption {
   name: string;
   description: string;
@@ -44,21 +46,15 @@ const InitialSetup = () => {
   const dispatch = useDispatch();
   
   // Get current case from Redux
-  const { currentCase } = useSelector((state: any) => state.negotiation);
+  const { currentCase } = useSelector((state: RootState) => state.negotiation);
   
-  // Initialize state with values from localStorage if available
-  const [caseContent, setCaseContentLocal] = useState(() => {
-    return localStorage.getItem(STORAGE_KEY_CASE_CONTENT) || '';
-  });
-  
-  const [party1Name, setParty1Name] = useState(() => {
-    return localStorage.getItem(STORAGE_KEY_PARTY1_NAME) || '';
-  });
-  
-  const [party2Name, setParty2Name] = useState(() => {
-    return localStorage.getItem(STORAGE_KEY_PARTY2_NAME) || '';
-  });
-  
+  // State management
+  const [caseContent, setCaseContentLocal] = useState(() => 
+    localStorage.getItem(STORAGE_KEY_CASE_CONTENT) || '');
+  const [party1Name, setParty1Name] = useState(() => 
+    localStorage.getItem(STORAGE_KEY_PARTY1_NAME) || '');
+  const [party2Name, setParty2Name] = useState(() => 
+    localStorage.getItem(STORAGE_KEY_PARTY2_NAME) || '');
   const [party1Description, setParty1Description] = useState('');
   const [party2Description, setParty2Description] = useState('');
   const [suggestedParties, setSuggestedParties] = useState<PartyOption[]>([]);
@@ -67,12 +63,12 @@ const InitialSetup = () => {
   const [error, setError] = useState<string | null>(null);
   const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
 
-  // Check if case content has been processed and load suggested parties from Redux
+  // Load suggested parties from Redux when available
   useEffect(() => {
-    if (currentCase && currentCase.processed && currentCase.suggestedParties.length > 0) {
+    if (currentCase?.processed && currentCase.suggestedParties?.length > 0) {
       setSuggestedParties(currentCase.suggestedParties);
       
-      // If parties were found, pre-select the first two
+      // Pre-select the first two parties if available
       if (currentCase.suggestedParties.length >= 2) {
         setParty1Name(currentCase.suggestedParties[0].name);
         setParty1Description(currentCase.suggestedParties[0].description);
@@ -82,7 +78,7 @@ const InitialSetup = () => {
     }
   }, [currentCase]);
 
-  // Save values to localStorage whenever they change
+  // Persist values to localStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_CASE_CONTENT, caseContent);
   }, [caseContent]);
@@ -95,8 +91,8 @@ const InitialSetup = () => {
     localStorage.setItem(STORAGE_KEY_PARTY2_NAME, party2Name);
   }, [party2Name]);
 
-  // Function to identify parties from case content
-  const identifyPartiesFromContent = async () => {
+  // Identify parties from case content
+  const identifyPartiesFromContent = useCallback(async () => {
     if (!caseContent.trim()) {
       setError('Please enter case content first');
       return;
@@ -109,13 +105,13 @@ const InitialSetup = () => {
       const parties = await api.identifyParties(caseContent);
       setSuggestedParties(parties);
       
-      // Save the processed flag and suggested parties to Redux
+      // Save to Redux
       dispatch(setCaseProcessed({
         processed: true,
         suggestedParties: parties
       }));
       
-      // If parties were found, pre-select the first two
+      // Pre-select the first two parties if available
       if (parties.length >= 2) {
         setParty1Name(parties[0].name);
         setParty1Description(parties[0].description);
@@ -128,35 +124,35 @@ const InitialSetup = () => {
     } finally {
       setPartyIdentificationLoading(false);
     }
-  };
+  }, [caseContent, dispatch]);
 
-  const handleParty1SelectionChange = (e: SelectChangeEvent) => {
+  // Handle party selection changes
+  const handleParty1SelectionChange = useCallback((e: SelectChangeEvent) => {
     const selectedName = e.target.value;
     setParty1Name(selectedName);
     
-    // Update description
     const selectedParty = suggestedParties.find(party => party.name === selectedName);
     if (selectedParty) {
       setParty1Description(selectedParty.description);
     } else {
       setParty1Description('');
     }
-  };
+  }, [suggestedParties]);
 
-  const handleParty2SelectionChange = (e: SelectChangeEvent) => {
+  const handleParty2SelectionChange = useCallback((e: SelectChangeEvent) => {
     const selectedName = e.target.value;
     setParty2Name(selectedName);
     
-    // Update description
     const selectedParty = suggestedParties.find(party => party.name === selectedName);
     if (selectedParty) {
       setParty2Description(selectedParty.description);
     } else {
       setParty2Description('');
     }
-  };
+  }, [suggestedParties]);
 
-  const validateParties = () => {
+  // Validate party information
+  const validateParties = useCallback(() => {
     // Check if both party names are provided
     if (!party1Name.trim() || !party2Name.trim()) {
       setError('Please provide names for both parties');
@@ -169,7 +165,7 @@ const InitialSetup = () => {
       return false;
     }
 
-    // Check if party names are meaningful (not just numbers or special characters)
+    // Check if party names are meaningful
     const meaningfulNameRegex = /^[a-zA-Z].*$/;
     if (!meaningfulNameRegex.test(party1Name.trim()) || !meaningfulNameRegex.test(party2Name.trim())) {
       setError('Party names must start with a letter and be meaningful');
@@ -177,9 +173,10 @@ const InitialSetup = () => {
     }
 
     return true;
-  };
+  }, [party1Name, party2Name]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Form submission handler
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!caseContent.trim()) {
@@ -200,22 +197,17 @@ const InitialSetup = () => {
       localStorage.setItem(STORAGE_KEY_PARTY1_NAME, party1Name);
       localStorage.setItem(STORAGE_KEY_PARTY2_NAME, party2Name);
       
-      // Create parties object
-      const parties = {
-        party1: {
-          id: '1',
-          name: party1Name.trim(),
-          description: party1Description || `${party1Name.trim()} is one of the parties in this negotiation.`,
-          isUserSide: true,
-          idealOutcomes: []
-        },
-        party2: {
-          id: '2',
-          name: party2Name.trim(),
-          description: party2Description || `${party2Name.trim()} is one of the parties in this negotiation.`,
-          isUserSide: false,
-          idealOutcomes: []
-        }
+      // Create party objects
+      const party1 = {
+        name: party1Name.trim(),
+        description: party1Description || `${party1Name.trim()} is one of the parties in this negotiation.`,
+        isPrimary: true
+      };
+      
+      const party2 = {
+        name: party2Name.trim(),
+        description: party2Description || `${party2Name.trim()} is one of the parties in this negotiation.`,
+        isPrimary: true
       };
       
       // Update Redux state
@@ -223,20 +215,10 @@ const InitialSetup = () => {
         id: Date.now().toString(), 
         content: caseContent 
       }));
-      dispatch(setParties([
-        {
-          name: party1Name.trim(),
-          description: party1Description || `${party1Name.trim()} is one of the parties in this negotiation.`,
-          isPrimary: true
-        },
-        {
-          name: party2Name.trim(),
-          description: party2Description || `${party2Name.trim()} is one of the parties in this negotiation.`,
-          isPrimary: true
-        }
-      ]));
       
-      // If we haven't processed the content yet, just mark it as processed without identifying parties
+      dispatch(setParties([party1, party2]));
+      
+      // Mark as processed if not already
       if (!currentCase?.processed) {
         dispatch(setCaseProcessed({
           processed: true,
@@ -251,13 +233,14 @@ const InitialSetup = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [caseContent, party1Name, party2Name, party1Description, party2Description, validateParties, currentCase, dispatch, navigate]);
 
-  const handleClearSavedData = () => {
+  // Clear data handlers
+  const handleClearSavedData = useCallback(() => {
     setOpenConfirmDialog(true);
-  };
+  }, []);
 
-  const confirmClearData = () => {
+  const confirmClearData = useCallback(() => {
     // Clear localStorage
     localStorage.removeItem(STORAGE_KEY_CASE_CONTENT);
     localStorage.removeItem(STORAGE_KEY_PARTY1_NAME);
@@ -275,6 +258,73 @@ const InitialSetup = () => {
     dispatch(clearState());
     
     setOpenConfirmDialog(false);
+  }, [dispatch]);
+
+  // Render party selection form
+  const renderPartySelection = (
+    partyNumber: 1 | 2,
+    partyName: string,
+    partyDescription: string,
+    handleChange: (e: SelectChangeEvent) => void
+  ) => {
+    const label = partyNumber === 1 ? 'Party 1 (Your Side)' : 'Party 2 (Other Side)';
+    const helperText = partyNumber === 1 
+      ? 'This is your side in the negotiation'
+      : 'This is the other side in the negotiation';
+    const selectLabel = partyNumber === 1 ? 'Select Party 1' : 'Select Party 2';
+    const otherPartyName = partyNumber === 1 ? party2Name : party1Name;
+    
+    return (
+      <Grid item xs={12} md={6}>
+        <Box component="div" sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            {label}
+          </Typography>
+          {suggestedParties.length > 0 ? (
+            <FormControl fullWidth error={!!error && error.includes('Party names')}>
+              <InputLabel id={`party${partyNumber}-select-label`}>{selectLabel}</InputLabel>
+              <Select
+                labelId={`party${partyNumber}-select-label`}
+                value={partyName}
+                onChange={handleChange}
+                label={selectLabel}
+                required
+              >
+                {suggestedParties.map((party) => (
+                  <MenuItem 
+                    key={party.name} 
+                    value={party.name}
+                    disabled={party.name === otherPartyName} // Disable if already selected by other party
+                  >
+                    {party.name} {party.isPrimary ? "(Primary)" : ""}
+                  </MenuItem>
+                ))}
+              </Select>
+              <FormHelperText>{helperText}</FormHelperText>
+            </FormControl>
+          ) : (
+            <TextField
+              label={`Party ${partyNumber} Name`}
+              fullWidth
+              value={partyName}
+              onChange={(e) => partyNumber === 1 ? setParty1Name(e.target.value) : setParty2Name(e.target.value)}
+              variant="outlined"
+              required
+              error={!!error && error.includes('Party names')}
+              helperText={error && error.includes('Party names') ? error : helperText}
+            />
+          )}
+          
+          {partyDescription && (
+            <Paper variant="outlined" sx={{ p: 2, mt: 2, bgcolor: '#f8f9fa' }}>
+              <Typography variant="body2">
+                {partyDescription}
+              </Typography>
+            </Paper>
+          )}
+        </Box>
+      </Grid>
+    );
   };
 
   return (
@@ -310,7 +360,7 @@ const InitialSetup = () => {
                   sx={{ mb: 2 }}
                 />
                 
-                {currentCase && currentCase.processed && (
+                {currentCase?.processed && (
                   <Alert severity="success" sx={{ mb: 2 }}>
                     Case content has been processed and parties have been identified.
                   </Alert>
@@ -337,105 +387,8 @@ const InitialSetup = () => {
               </Box>
             </Grid>
             
-            <Grid item xs={12} md={6}>
-              <Box component="div" sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Party 1 (Your Side)
-                </Typography>
-                {suggestedParties.length > 0 ? (
-                  <FormControl fullWidth error={!!error && error.includes('Party names')}>
-                    <InputLabel id="party1-select-label">Select Party 1</InputLabel>
-                    <Select
-                      labelId="party1-select-label"
-                      value={party1Name}
-                      onChange={handleParty1SelectionChange}
-                      label="Select Party 1"
-                      required
-                    >
-                      {suggestedParties.map((party) => (
-                        <MenuItem 
-                          key={party.name} 
-                          value={party.name}
-                          disabled={party.name === party2Name} // Disable if already selected by Party 2
-                        >
-                          {party.name} {party.isPrimary ? "(Primary)" : ""}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    <FormHelperText>This is your side in the negotiation</FormHelperText>
-                  </FormControl>
-                ) : (
-                  <TextField
-                    label="Party 1 Name"
-                    fullWidth
-                    value={party1Name}
-                    onChange={(e) => setParty1Name(e.target.value)}
-                    variant="outlined"
-                    required
-                    error={!!error && error.includes('Party names')}
-                    helperText={error && error.includes('Party names') ? error : "This is your side in the negotiation"}
-                  />
-                )}
-                
-                {party1Description && (
-                  <Paper variant="outlined" sx={{ p: 2, mt: 2, bgcolor: '#f8f9fa' }}>
-                    <Typography variant="body2">
-                      {party1Description}
-                    </Typography>
-                  </Paper>
-                )}
-              </Box>
-            </Grid>
-            
-            <Grid item xs={12} md={6}>
-              <Box component="div" sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Party 2 (Other Side)
-                </Typography>
-                {suggestedParties.length > 0 ? (
-                  <FormControl fullWidth error={!!error && error.includes('Party names')}>
-                    <InputLabel id="party2-select-label">Select Party 2</InputLabel>
-                    <Select
-                      labelId="party2-select-label"
-                      value={party2Name}
-                      onChange={handleParty2SelectionChange}
-                      label="Select Party 2"
-                      required
-                    >
-                      {suggestedParties.map((party) => (
-                        <MenuItem 
-                          key={party.name} 
-                          value={party.name}
-                          disabled={party.name === party1Name} // Disable if already selected by Party 1
-                        >
-                          {party.name} {party.isPrimary ? "(Primary)" : ""}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    <FormHelperText>This is the other side in the negotiation</FormHelperText>
-                  </FormControl>
-                ) : (
-                  <TextField
-                    label="Party 2 Name"
-                    fullWidth
-                    value={party2Name}
-                    onChange={(e) => setParty2Name(e.target.value)}
-                    variant="outlined"
-                    required
-                    error={!!error && error.includes('Party names')}
-                    helperText={error && error.includes('Party names') ? error : "This is the other side in the negotiation"}
-                  />
-                )}
-                
-                {party2Description && (
-                  <Paper variant="outlined" sx={{ p: 2, mt: 2, bgcolor: '#f8f9fa' }}>
-                    <Typography variant="body2">
-                      {party2Description}
-                    </Typography>
-                  </Paper>
-                )}
-              </Box>
-            </Grid>
+            {renderPartySelection(1, party1Name, party1Description, handleParty1SelectionChange)}
+            {renderPartySelection(2, party2Name, party2Description, handleParty2SelectionChange)}
             
             <Grid item xs={12} sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
               <Button

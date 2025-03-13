@@ -34,7 +34,7 @@ import LoadingOverlay from '../components/LoadingOverlay';
 import MarkdownEditor from '../components/MarkdownEditor';
 import { parseComponentsFromMarkdown, componentsToMarkdown } from '../utils/componentParser';
 
-// Define API types locally
+// Types
 type ApiResponse<T> = T | { rateLimited: true };
 
 interface AnalysisResponse extends Analysis {
@@ -46,27 +46,42 @@ interface AnalysisResponse extends Analysis {
   updatedAt: string;
 }
 
+interface AnalysisProgressState {
+  step: number;
+  message: string;
+  substep: number;
+}
+
+/**
+ * ReviewAndRevise component handles the analysis of case content
+ * and allows users to review and revise the analysis results.
+ */
 const ReviewAndRevise = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const analysisInProgress = useRef(false);
   
+  // Redux state
   const { currentCase, loading: stateLoading } = useSelector(
     (state: RootState) => state.negotiation
   );
   const recalculationStatus = useSelector((state: RootState) => state.recalculation);
   
+  // Local state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ioa, setIoa] = useState('');
   const [iceberg, setIceberg] = useState('');
   const [componentsMarkdown, setComponentsMarkdown] = useState('');
-  const [analysisProgress, setAnalysisProgress] = useState({
+  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgressState>({
     step: 0,
     message: '',
     substep: 0
   });
   
+  /**
+   * Wrapper for the API analyzeCase function that handles progress updates
+   */
   const analyzeWithProgress = useCallback(
     async (
       content: string,
@@ -79,6 +94,25 @@ const ReviewAndRevise = () => {
     []
   );
 
+  /**
+   * Validates that the parties are properly set up
+   */
+  const validateParties = useCallback(() => {
+    if (!currentCase?.suggestedParties || 
+        !Array.isArray(currentCase.suggestedParties) || 
+        currentCase.suggestedParties.length < 2) {
+      return false;
+    }
+    
+    const party1 = currentCase.suggestedParties[0];
+    const party2 = currentCase.suggestedParties[1];
+    
+    return !!(party1?.name && party2?.name);
+  }, [currentCase]);
+
+  /**
+   * Fetches analysis data from the API or uses existing analysis
+   */
   const fetchAnalysis = useCallback(async () => {
     if (!currentCase || analysisInProgress.current) return;
     
@@ -87,22 +121,13 @@ const ReviewAndRevise = () => {
       setIoa(currentCase.analysis.ioa);
       setIceberg(currentCase.analysis.iceberg);
       
-      const componentsText = currentCase.analysis.components
-        .map((comp: Component) => `## ${comp.name}\n${comp.description}`)
-        .join('\n\n');
-      
+      const componentsText = componentsToMarkdown(currentCase.analysis.components);
       setComponentsMarkdown(componentsText);
       return;
     }
 
     // Validate parties before analysis
-    const hasValidParties = currentCase.suggestedParties && 
-      Array.isArray(currentCase.suggestedParties) && 
-      currentCase.suggestedParties.length >= 2 &&
-      currentCase.suggestedParties[0]?.name &&
-      currentCase.suggestedParties[1]?.name;
-
-    if (!hasValidParties) {
+    if (!validateParties()) {
       setError('Please set up both parties with names before proceeding with analysis.');
       return;
     }
@@ -121,92 +146,6 @@ const ReviewAndRevise = () => {
       
       // Check if we hit a rate limit
       if ('rateLimited' in analysisResult) {
-        console.log('Rate limit hit, keeping loading screen visible');
-        return;
-      }
-      
-      dispatch(setAnalysis(analysisResult));
-      setIoa(analysisResult.ioa);
-      setIceberg(analysisResult.iceberg);
-      
-      const componentsText = analysisResult.components
-        .map((comp: Component) => `## ${comp.name}\n${comp.description}`)
-        .join('\n\n');
-      
-      setComponentsMarkdown(componentsText);
-    } catch (err) {
-      console.error(err);
-      setError('Failed to analyze case. Please try again.');
-    } finally {
-      setLoading(false);
-      analysisInProgress.current = false;
-    }
-  }, [currentCase, dispatch, analyzeWithProgress]);
-
-  useEffect(() => {
-    if (!currentCase) {
-      navigate('/');
-      return;
-    }
-
-    // More robust party validation
-    const hasValidParties = currentCase.suggestedParties && 
-      Array.isArray(currentCase.suggestedParties) && 
-      currentCase.suggestedParties.length >= 2 &&
-      currentCase.suggestedParties[0]?.name &&
-      currentCase.suggestedParties[1]?.name;
-
-    if (!hasValidParties) {
-      setError('Please set up both parties with names before proceeding with analysis.');
-      navigate('/');
-      return;
-    }
-
-    fetchAnalysis();
-  }, [currentCase, fetchAnalysis, navigate]);
-
-  const handleIoaChange = (value: string) => {
-    setIoa(value);
-    dispatch(updateIoA(value));
-  };
-
-  const handleIcebergChange = (value: string) => {
-    setIceberg(value);
-    dispatch(updateIceberg(value));
-  };
-
-  const handleComponentsChange = (value: string) => {
-    setComponentsMarkdown(value);
-    
-    const parsedComponents = parseComponentsFromMarkdown(
-      value,
-      currentCase?.analysis?.components || []
-    );
-    
-    dispatch(updateComponents(parsedComponents));
-  };
-
-  const handleNext = () => {
-    dispatch(updateIoA(ioa));
-    dispatch(updateIceberg(iceberg));
-    
-    navigate('/boundaries');
-  };
-
-  const handleRecalculate = async () => {
-    if (!currentCase || !currentCase.suggestedParties.length) return;
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const analysisResult = await analyzeWithProgress(
-        currentCase.content,
-        currentCase.suggestedParties[0],
-        currentCase.suggestedParties[1]
-      );
-      
-      if ('rateLimited' in analysisResult) {
         setError('Rate limit reached. Please try again in a few moments.');
         return;
       }
@@ -215,22 +154,76 @@ const ReviewAndRevise = () => {
       setIoa(analysisResult.ioa);
       setIceberg(analysisResult.iceberg);
       
-      const componentsText = analysisResult.components
-        .map((comp: Component) => `## ${comp.name}\n${comp.description}`)
-        .join('\n\n');
-      
+      const componentsText = componentsToMarkdown(analysisResult.components);
       setComponentsMarkdown(componentsText);
-      setError('Analysis has been successfully recalculated.');
     } catch (err) {
-      console.error(err);
-      setError('Failed to recalculate analysis. Please try again.');
+      console.error('Error fetching analysis:', err);
+      setError('Failed to analyze case. Please try again.');
     } finally {
       setLoading(false);
+      analysisInProgress.current = false;
     }
-  };
+  }, [currentCase, dispatch, analyzeWithProgress, validateParties]);
 
-  const handleAnalyze = async () => {
-    if (!currentCase || analysisInProgress.current || !currentCase.suggestedParties.length) return;
+  // Load analysis when component mounts
+  useEffect(() => {
+    if (!currentCase) {
+      navigate('/');
+      return;
+    }
+
+    if (!validateParties()) {
+      setError('Please set up both parties with names before proceeding with analysis.');
+      navigate('/');
+      return;
+    }
+
+    fetchAnalysis();
+  }, [currentCase, fetchAnalysis, navigate, validateParties]);
+
+  /**
+   * Handlers for updating analysis content
+   */
+  const handleIoaChange = useCallback((value: string) => {
+    setIoa(value);
+    dispatch(updateIoA(value));
+  }, [dispatch]);
+
+  const handleIcebergChange = useCallback((value: string) => {
+    setIceberg(value);
+    dispatch(updateIceberg(value));
+  }, [dispatch]);
+
+  const handleComponentsChange = useCallback((value: string) => {
+    setComponentsMarkdown(value);
+    
+    const parsedComponents = parseComponentsFromMarkdown(
+      value,
+      currentCase?.analysis?.components || []
+    );
+    
+    dispatch(updateComponents(parsedComponents));
+  }, [currentCase, dispatch]);
+
+  /**
+   * Navigate to the next page
+   */
+  const handleNext = useCallback(() => {
+    dispatch(updateIoA(ioa));
+    dispatch(updateIceberg(iceberg));
+    navigate('/boundaries');
+  }, [dispatch, ioa, iceberg, navigate]);
+
+  /**
+   * Recalculate the analysis
+   */
+  const handleAnalyze = useCallback(async () => {
+    if (!currentCase || analysisInProgress.current) return;
+    
+    if (!validateParties()) {
+      setError('Please set up both parties with names before proceeding with analysis.');
+      return;
+    }
     
     try {
       setLoading(true);
@@ -253,16 +246,60 @@ const ReviewAndRevise = () => {
 
       dispatch(setAnalysis(analysisResult));
       dispatch(setAnalysisRecalculated(true));
+      
+      setIoa(analysisResult.ioa);
+      setIceberg(analysisResult.iceberg);
+      
+      const componentsText = componentsToMarkdown(analysisResult.components);
+      setComponentsMarkdown(componentsText);
+      
       setError('Analysis completed successfully.');
     } catch (err) {
-      setError('Failed to analyze case. Please try again.');
       console.error('Analysis error:', err);
+      setError('Failed to analyze case. Please try again.');
     } finally {
       setLoading(false);
       analysisInProgress.current = false;
     }
-  };
+  }, [currentCase, analyzeWithProgress, validateParties, dispatch]);
 
+  /**
+   * Render the analysis section
+   */
+  const renderAnalysisSection = useCallback((
+    title: string,
+    id: string,
+    value: string,
+    onChange: (value: string) => void,
+    defaultExpanded = false,
+    placeholder = ''
+  ) => (
+    <Grid item xs={12}>
+      <Accordion defaultExpanded={defaultExpanded}>
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon />}
+          aria-controls={`${id}-content`}
+          id={`${id}-header`}
+          tabIndex={0}
+        >
+          <Typography variant="h6">{title}</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Box role="region" aria-labelledby={`${id}-header`}>
+            <MarkdownEditor
+              value={value}
+              onChange={onChange}
+              label=""
+              height="700px"
+              placeholder={placeholder}
+            />
+          </Box>
+        </AccordionDetails>
+      </Accordion>
+    </Grid>
+  ), []);
+
+  // If no case is available, don't render anything
   if (!currentCase) {
     return null;
   }
@@ -323,76 +360,29 @@ const ReviewAndRevise = () => {
         )}
 
         <Grid container spacing={4}>
-          <Grid item xs={12}>
-            <Accordion defaultExpanded>
-              <AccordionSummary
-                expandIcon={<ExpandMoreIcon />}
-                aria-controls="ioa-content"
-                id="ioa-header"
-                tabIndex={0}
-              >
-                <Typography variant="h6">Issues of Agreement (IoA)</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Box role="region" aria-labelledby="ioa-header">
-                  <MarkdownEditor
-                    value={ioa}
-                    onChange={handleIoaChange}
-                    label=""
-                    height="700px"
-                  />
-                </Box>
-              </AccordionDetails>
-            </Accordion>
-          </Grid>
+          {renderAnalysisSection(
+            'Issues of Agreement (IoA)',
+            'ioa',
+            ioa,
+            handleIoaChange,
+            true
+          )}
           
-          <Grid item xs={12}>
-            <Accordion>
-              <AccordionSummary
-                expandIcon={<ExpandMoreIcon />}
-                aria-controls="iceberg-content"
-                id="iceberg-header"
-                tabIndex={0}
-              >
-                <Typography variant="h6">Iceberg Analysis</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Box role="region" aria-labelledby="iceberg-header">
-                  <MarkdownEditor
-                    value={iceberg}
-                    onChange={handleIcebergChange}
-                    label=""
-                    height="700px"
-                  />
-                </Box>
-              </AccordionDetails>
-            </Accordion>
-          </Grid>
+          {renderAnalysisSection(
+            'Iceberg Analysis',
+            'iceberg',
+            iceberg,
+            handleIcebergChange
+          )}
           
-          <Grid item xs={12}>
-            <Accordion>
-              <AccordionSummary
-                expandIcon={<ExpandMoreIcon />}
-                aria-controls="issues-content"
-                id="issues-header"
-                tabIndex={0}
-              >
-                <Typography variant="h6">Issues to Negotiate</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Box role="region" aria-labelledby="issues-header">
-                  <MarkdownEditor
-                    value={componentsMarkdown}
-                    onChange={handleComponentsChange}
-                    placeholder="## Component Name
-
-Component description and details..."
-                    height="700px"
-                  />
-                </Box>
-              </AccordionDetails>
-            </Accordion>
-          </Grid>
+          {renderAnalysisSection(
+            'Issues to Negotiate',
+            'issues',
+            componentsMarkdown,
+            handleComponentsChange,
+            false,
+            "## Component Name\n\nComponent description and details..."
+          )}
           
           <Grid item xs={12} sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
             <Button
