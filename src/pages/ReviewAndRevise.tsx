@@ -29,7 +29,7 @@ import {
   Party,
 } from '../store/negotiationSlice';
 import { setAnalysisRecalculated } from '../store/recalculationSlice';
-import { api } from '../services/api';
+import { api } from '../services/api.ts';
 import LoadingOverlay from '../components/LoadingOverlay';
 import MarkdownEditor from '../components/MarkdownEditor';
 import { parseComponentsFromMarkdown, componentsToMarkdown } from '../utils/componentParser';
