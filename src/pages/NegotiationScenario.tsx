@@ -215,7 +215,12 @@ const NegotiationScenario = () => {
     }
   };
 
-  const handleGenerateRiskAssessment = async () => {
+  const handleGenerateRiskAssessment = async (e?: React.MouseEvent) => {
+    // Prevent event propagation if event is provided
+    if (e) {
+      e.stopPropagation();
+    }
+    
     if (!currentCase || !selectedScenario) {
       setError('Please select a scenario first.');
       return;
@@ -423,7 +428,7 @@ const NegotiationScenario = () => {
                               color="primary"
                               onClick={(e) => {
                                 e.stopPropagation(); // Prevent event bubbling
-                                handleGenerateRiskAssessment();
+                                handleGenerateRiskAssessment(e);
                               }}
                               disabled={isGeneratingRisk}
                               startIcon={isGeneratingRisk ? <CircularProgress size={16} /> : null}
@@ -441,7 +446,7 @@ const NegotiationScenario = () => {
                           </Box>
                           
                           {/* Force the risk assessment to be visible when showRiskAssessment is true */}
-                          {showRiskAssessment && (
+                          <Collapse in={showRiskAssessment} timeout={150} unmountOnExit>
                             <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2, bgcolor: '#fafafa' }}>
                               <Typography variant="h6" gutterBottom>
                                 Risk Assessment
@@ -455,7 +460,7 @@ const NegotiationScenario = () => {
                                 onDeleteAssessment={handleDeleteAssessment}
                               />
                             </Box>
-                          )}
+                          </Collapse>
                         </Box>
                       )
                     }

@@ -336,7 +336,7 @@ const ScenarioSpectrum = ({
                     )}
 
                     {/* Show risk assessment content if this scenario is selected */}
-                    <Collapse in={isSelected} timeout="auto" unmountOnExit>
+                    <Collapse in={isSelected} timeout={150} unmountOnExit>
                       {isSelected && riskAssessmentContent}
                     </Collapse>
                   </Paper>
