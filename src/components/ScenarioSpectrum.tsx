@@ -13,7 +13,6 @@ interface ScenarioSpectrumProps {
   selectedScenarioId?: string;
   party1Name?: string;
   party2Name?: string;
-  riskAssessmentContent?: ReactNode;
 }
 
 // Scenario type names mapping
@@ -49,8 +48,7 @@ const ScenarioSpectrum = ({
   onUpdateScenario,
   selectedScenarioId,
   party1Name = 'Party 1',
-  party2Name = 'Party 2',
-  riskAssessmentContent
+  party2Name = 'Party 2'
 }: ScenarioSpectrumProps) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -334,11 +332,6 @@ const ScenarioSpectrum = ({
                         {scenario.description}
                       </Typography>
                     )}
-
-                    {/* Show risk assessment content if this scenario is selected */}
-                    <Collapse in={isSelected} timeout={150} unmountOnExit>
-                      {isSelected && riskAssessmentContent}
-                    </Collapse>
                   </Paper>
                 </div>
               </Tooltip>

@@ -1,4 +1,4 @@
-import { Analysis, Component, Party, RiskAssessment, Scenario } from '../../store/negotiationSlice';
+import { Analysis, Component, Party, Scenario } from '../../store/negotiationSlice';
 import { ApiResponse, AnalysisResponse } from '../../types/api';
 
 // OpenAI API types
@@ -51,7 +51,6 @@ export interface OpenAIError {
 // Cache types
 export interface ApiCache {
   scenarios: Map<string, Scenario[]>;
-  riskAssessments: Map<string, RiskAssessment[]>;
 }
 
 // Language model input types
@@ -85,11 +84,6 @@ export interface ScenarioInput {
   bottomlineParty2: string;
   party1Name: string;
   party2Name: string;
-}
-
-export interface RiskAssessmentInput {
-  scenarioId: string;
-  customPrompt?: string;
 }
 
 export interface RecalculateBoundariesInput {

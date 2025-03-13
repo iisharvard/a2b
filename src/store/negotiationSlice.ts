@@ -61,29 +61,6 @@ export interface Scenario {
   description: string;
 }
 
-export interface RiskAssessment {
-  id: string;
-  scenarioId: string;
-  shortTermImpact?: string;
-  shortTermMitigation?: string;
-  shortTermRiskAfterMitigation?: string;
-  longTermImpact?: string;
-  longTermMitigation?: string;
-  longTermRiskAfterMitigation?: string;
-  securityAssessment?: string;
-  relationshipAssessment?: string;
-  leverageAssessment?: string;
-  organizationsImpactAssessment?: string;
-  beneficiariesAssessment?: string;
-  reputationAssessment?: string;
-  // Keep these for backward compatibility
-  type?: 'short_term' | 'long_term';
-  description?: string;
-  likelihood?: number;
-  impact?: number;
-  mitigation?: string;
-}
-
 export interface Analysis {
   id: string;
   ioa: string;
@@ -101,16 +78,13 @@ export interface Case {
   suggestedParties: Party[];
   analysis: Analysis | null;
   scenarios: Scenario[];
-  riskAssessments: RiskAssessment[];
   recalculationStatus: {
     analysisRecalculated: boolean;
     scenariosRecalculated: boolean;
-    riskAssessmentsRecalculated: boolean;
   };
   originalContent: {
     analysis: Analysis | null;
     scenarios: Scenario[];
-    riskAssessments: RiskAssessment[];
   };
 }
 
@@ -147,16 +121,13 @@ export const negotiationSlice = createSlice({
         suggestedParties: [],
         analysis: null,
         scenarios: [],
-        riskAssessments: [],
         recalculationStatus: {
           analysisRecalculated: false,
           scenariosRecalculated: false,
-          riskAssessmentsRecalculated: false,
         },
         originalContent: {
           analysis: null,
           scenarios: [],
-          riskAssessments: []
         }
       };
       saveStateToStorage(state);
@@ -267,60 +238,12 @@ export const negotiationSlice = createSlice({
       state.selectedScenario = action.payload;
       saveStateToStorage(state);
     },
-    setRiskAssessments: (state, action: PayloadAction<RiskAssessment[]>) => {
-      if (state.currentCase) {
-        state.currentCase.riskAssessments = action.payload;
-        
-        // Store the original risk assessments for diff comparison
-        if (state.currentCase.originalContent.riskAssessments.length === 0) {
-          state.currentCase.originalContent.riskAssessments = JSON.parse(JSON.stringify(action.payload));
-        }
-        
-        saveStateToStorage(state);
-      }
-    },
-    addRiskAssessment: (state, action: PayloadAction<RiskAssessment>) => {
-      if (state.currentCase) {
-        // Remove any existing assessment with the same ID
-        state.currentCase.riskAssessments = state.currentCase.riskAssessments.filter(
-          (ra) => ra.id !== action.payload.id
-        );
-        
-        // Add the new assessment
-        state.currentCase.riskAssessments.push(action.payload);
-        saveStateToStorage(state);
-      }
-    },
-    updateRiskAssessment: (state, action: PayloadAction<RiskAssessment>) => {
-      if (state.currentCase) {
-        const index = state.currentCase.riskAssessments.findIndex(
-          (ra) => ra.id === action.payload.id
-        );
-        if (index !== -1) {
-          state.currentCase.riskAssessments[index] = action.payload;
-          saveStateToStorage(state);
-        }
-      }
-    },
-    deleteRiskAssessment: (state, action: PayloadAction<string>) => {
-      if (state.currentCase) {
-        state.currentCase.riskAssessments = state.currentCase.riskAssessments.filter(
-          (ra) => ra.id !== action.payload
-        );
-        saveStateToStorage(state);
-      }
-    },
     clearState: (state) => {
       localStorage.removeItem(STORAGE_KEY_CURRENT_CASE);
       state.currentCase = null;
       state.loading = false;
       state.error = null;
       state.selectedScenario = null;
-    },
-    setRiskAssessmentsRecalculated: (state, action: PayloadAction<boolean>) => {
-      if (state.currentCase) {
-        state.currentCase.recalculationStatus.riskAssessmentsRecalculated = action.payload;
-      }
     },
   },
 });
@@ -338,12 +261,7 @@ export const {
   setScenarios,
   setCaseProcessed,
   selectScenario,
-  setRiskAssessments,
-  addRiskAssessment,
-  updateRiskAssessment,
-  deleteRiskAssessment,
   clearState,
-  setRiskAssessmentsRecalculated,
 } = negotiationSlice.actions;
 
 export default negotiationSlice.reducer; 

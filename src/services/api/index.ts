@@ -1,5 +1,5 @@
 import { store } from '../../store';
-import { Analysis, Component, Party, RiskAssessment, Scenario } from '../../store/negotiationSlice';
+import { Analysis, Component, Party, Scenario } from '../../store/negotiationSlice';
 import { ApiResponse, AnalysisResponse } from '../../types/api';
 import { callLanguageModel } from './promptHandler';
 import { callOpenAI } from './openaiClient';
@@ -9,7 +9,6 @@ import {
   IcebergInput, 
   ComponentsInput,
   ScenarioInput,
-  RiskAssessmentInput,
   RecalculateBoundariesInput,
   IdentifyPartiesInput
 } from './types';
@@ -190,67 +189,6 @@ export const api = {
   },
   
   /**
-   * Generate risk assessment for a scenario
-   * @param scenarioId ID of the scenario
-   * @param customPrompt Optional custom prompt to use for generation
-   * @returns Promise that resolves with a risk assessment
-   */
-  async generateRiskAssessment(scenarioId: string, customPrompt?: string): Promise<RiskAssessment> {
-    console.log('Generating risk assessment with LLM for scenario:', scenarioId);
-    
-    try {
-      // Call the language model with the risk assessment prompt
-      const riskInput: RiskAssessmentInput = {
-        scenarioId,
-        customPrompt
-      };
-      const result = await callLanguageModel('riskAssessment.txt', riskInput);
-      
-      // Parse the response into our new format
-      const riskAssessment: RiskAssessment = {
-        id: Date.now().toString(),
-        scenarioId,
-        // Default values for backward compatibility
-        type: 'short_term',
-        description: 'Security Risk',
-        likelihood: 3,
-        impact: 3,
-        mitigation: '',
-        // New format fields
-        shortTermImpact: extractSection(result, 'Short Term Impact'),
-        shortTermMitigation: extractSection(result, 'Mitigation Strategy', 'Short Term'),
-        shortTermRiskAfterMitigation: extractSection(result, 'Risk After Mitigation', 'Short Term'),
-        longTermImpact: extractSection(result, 'Long Term Impact'),
-        longTermMitigation: extractSection(result, 'Mitigation Strategy', 'Long Term'),
-        longTermRiskAfterMitigation: extractSection(result, 'Risk After Mitigation', 'Long Term'),
-        securityAssessment: extractSection(result, 'Security of Field Teams'),
-        relationshipAssessment: extractSection(result, 'Relationship with Counterpart'),
-        leverageAssessment: extractSection(result, 'Leverage of Counterpart'),
-        organizationsImpactAssessment: extractSection(result, 'Impact on other organizations/ actors'),
-        beneficiariesAssessment: extractSection(result, 'Beneficiaries/ Communities'),
-        reputationAssessment: extractSection(result, 'Reputation')
-      };
-      
-      return riskAssessment;
-    } catch (error) {
-      console.error('Error generating risk assessment:', error);
-      
-      // Fallback to basic risk assessment if API call fails
-      const riskAssessment: RiskAssessment = {
-        id: Date.now().toString(),
-        scenarioId,
-        type: 'short_term',
-        description: 'Security Risk',
-        likelihood: 3,
-        impact: 3,
-        mitigation: 'Error generating risk assessment. Please try again.'
-      };
-      
-      return riskAssessment;
-    }
-  },
-  
-  /**
    * Recalculate boundaries for components
    * @param analysis Current analysis
    * @returns Promise that resolves with updated components
@@ -314,35 +252,6 @@ export const api = {
     }
   }
 };
-
-/**
- * Helper function to extract sections from the risk assessment response
- * @param text The full text response
- * @param sectionName The name of the section to extract
- * @param context Optional context to disambiguate sections with the same name
- * @returns The extracted section text or undefined if not found
- */
-function extractSection(text: string, sectionName: string, context?: string): string | undefined {
-  // Simple extraction logic - can be enhanced for more complex responses
-  const regex = new RegExp(`${sectionName}[:\\s]+(.*?)(?=\\n\\n|\\n[A-Z]|$)`, 'is');
-  const match = text.match(regex);
-  
-  if (match && match[1]) {
-    return match[1].trim();
-  }
-  
-  // If context is provided, try to find the section within that context
-  if (context) {
-    const contextRegex = new RegExp(`${context}[\\s\\S]*?${sectionName}[:\\s]+(.*?)(?=\\n\\n|\\n[A-Z]|$)`, 'is');
-    const contextMatch = text.match(contextRegex);
-    
-    if (contextMatch && contextMatch[1]) {
-      return contextMatch[1].trim();
-    }
-  }
-  
-  return undefined;
-}
 
 // Export individual modules for testing
 export * from './config';
