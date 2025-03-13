@@ -388,46 +388,48 @@ const NegotiationScenario = () => {
                     onUpdateScenario={handleUpdateScenario}
                     selectedScenarioId={selectedScenario?.id}
                     riskAssessmentContent={
-                      selectedScenario && showRiskAssessment && (
+                      selectedScenario && (
                         <Box sx={{ mt: 2 }}>
-                          <Typography variant="h6" gutterBottom>
-                            Risk Assessment
-                          </Typography>
-                          <RiskAssessmentTable
-                            assessments={currentCase.riskAssessments}
-                            scenarioId={selectedScenario.id}
-                            viewMode="edit"
-                            onAddAssessment={handleAddAssessment}
-                            onUpdateAssessment={handleUpdateRiskAssessment}
-                            onDeleteAssessment={handleDeleteAssessment}
-                          />
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                            <Button
+                              variant="outlined"
+                              color="primary"
+                              onClick={handleGenerateRiskAssessment}
+                              disabled={isGeneratingRisk}
+                              startIcon={isGeneratingRisk ? <CircularProgress size={16} /> : null}
+                              sx={{ fontSize: '0.8rem' }}
+                              size="small"
+                            >
+                              {isGeneratingRisk 
+                                ? 'Generating Risk Assessment...' 
+                                : showRiskAssessment 
+                                  ? 'Hide Risk Assessment' 
+                                  : currentCase.riskAssessments.some(ra => ra.scenarioId === selectedScenario.id)
+                                    ? 'Show Risk Assessment'
+                                    : 'Generate Risk Assessment'}
+                            </Button>
+                          </Box>
+                          
+                          {showRiskAssessment && (
+                            <>
+                              <Typography variant="h6" gutterBottom>
+                                Risk Assessment
+                              </Typography>
+                              <RiskAssessmentTable
+                                assessments={currentCase.riskAssessments}
+                                scenarioId={selectedScenario.id}
+                                viewMode="edit"
+                                onAddAssessment={handleAddAssessment}
+                                onUpdateAssessment={handleUpdateRiskAssessment}
+                                onDeleteAssessment={handleDeleteAssessment}
+                              />
+                            </>
+                          )}
                         </Box>
                       )
                     }
                   />
                 </Box>
-
-                {selectedScenario && (
-                  <Box sx={{ mt: 3, mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button
-                      variant="outlined"
-                      color="primary"
-                      onClick={handleGenerateRiskAssessment}
-                      disabled={isGeneratingRisk}
-                      startIcon={isGeneratingRisk ? <CircularProgress size={16} /> : null}
-                      sx={{ fontSize: '0.8rem' }}
-                      size="small"
-                    >
-                      {isGeneratingRisk 
-                        ? 'Generating Risk Assessment...' 
-                        : showRiskAssessment 
-                          ? 'Hide Risk Assessment' 
-                          : currentCase.riskAssessments.some(ra => ra.scenarioId === selectedScenario.id)
-                            ? 'Show Risk Assessment'
-                            : 'Generate Risk Assessment'}
-                    </Button>
-                  </Box>
-                )}
               </>
             ) : (
               <Paper elevation={0} sx={{ p: 3, textAlign: 'center', bgcolor: '#f5f5f5' }}>
