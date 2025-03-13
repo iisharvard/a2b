@@ -295,6 +295,73 @@ export const api = {
     }
   },
   
+  async *analyzeCaseStreaming(
+    content: string,
+    party1: Party,
+    party2: Party,
+    onProgress?: (step: number, message: string, substep: number) => void
+  ): AsyncGenerator<Partial<AnalysisResponse> | { rateLimited: true }, ApiResponse<AnalysisResponse>, unknown> {
+    const requestId = Date.now().toString();
+    
+    try {
+      onProgress?.(1, 'Analyzing Island of Agreements...', 33);
+      const ioaResponse = await callLanguageModel('islandOfAgreement.txt', {
+        caseContent: content,
+        party1Name: party1.name,
+        party2Name: party2.name
+      });
+      
+      // Yield partial result with IoA
+      yield {
+        id: requestId,
+        ioa: ioaResponse.ioa,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      onProgress?.(2, 'Performing Iceberg Analysis...', 66);
+      const icebergResponse = await callLanguageModel('iceberg.txt', {
+        caseContent: content,
+        party1Name: party1.name,
+        party2Name: party2.name
+      });
+      
+      // Yield partial result with IoA and Iceberg
+      yield {
+        id: requestId,
+        ioa: ioaResponse.ioa,
+        iceberg: icebergResponse.iceberg,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      onProgress?.(3, 'Identifying Components and Boundaries...', 90);
+      const componentsResponse = await callLanguageModel('redlinebottomlineRequirements.txt', {
+        caseContent: content,
+        party1Name: party1.name,
+        party2Name: party2.name,
+        ioa: ioaResponse.ioa,
+        iceberg: icebergResponse.iceberg
+      });
+      
+      const analysis: AnalysisResponse = {
+        id: requestId,
+        ioa: ioaResponse.ioa,
+        iceberg: icebergResponse.iceberg,
+        components: componentsResponse.components,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      return analysis;
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('rate limit')) {
+        return { rateLimited: true };
+      }
+      throw error;
+    }
+  },
+  
   async generateScenarios(componentId: string): Promise<Scenario[]> {
     try {
       // Get the current state

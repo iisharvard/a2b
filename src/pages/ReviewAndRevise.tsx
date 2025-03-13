@@ -33,6 +33,7 @@ import { api } from '../services/api';
 import LoadingOverlay from '../components/LoadingOverlay';
 import MarkdownEditor from '../components/MarkdownEditor';
 import { parseComponentsFromMarkdown, componentsToMarkdown } from '../utils/componentParser';
+import TypewriterText from '../components/TypewriterText';
 
 // Types
 type ApiResponse<T> = T | { rateLimited: true };
@@ -77,6 +78,27 @@ const ReviewAndRevise = () => {
     message: '',
     substep: 0
   });
+  const [retryCountdown, setRetryCountdown] = useState(0);
+  const retryTimeoutRef = useRef<number | null>(null);
+  const [streaming, setStreaming] = useState(false);
+  const [streamedText, setStreamedText] = useState<{
+    ioa: string;
+    iceberg: string;
+  }>({ ioa: '', iceberg: '' });
+  const analyzerRef = useRef<AsyncGenerator<any> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  
+  // Clear timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) {
+        window.clearTimeout(retryTimeoutRef.current);
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
   
   /**
    * Wrapper for the API analyzeCase function that handles progress updates
@@ -88,9 +110,58 @@ const ReviewAndRevise = () => {
       p2: Party,
       onProgress?: (step: number, message: string, substep: number) => void
     ): Promise<ApiResponse<AnalysisResponse>> => {
-      return api.analyzeCase(content, p1, p2, onProgress);
+      // If streaming is not enabled, use the original implementation
+      if (!streaming) {
+        return api.analyzeCase(content, p1, p2, onProgress);
+      }
+      
+      // Create a new abort controller for this request
+      abortControllerRef.current = new AbortController();
+      
+      try {
+        // Get the generator
+        analyzerRef.current = api.analyzeCaseStreaming(content, p1, p2, onProgress);
+        
+        // Process the stream
+        let lastResult: any = null;
+        
+        while (!abortControllerRef.current.signal.aborted) {
+          const result = await analyzerRef.current.next();
+          
+          if (result.done) {
+            return result.value;
+          }
+          
+          // Store the partial result
+          lastResult = result.value;
+          
+          // Update the streamed text
+          if ('ioa' in result.value) {
+            setStreamedText(prev => ({
+              ...prev,
+              ioa: result.value.ioa || prev.ioa
+            }));
+          }
+          
+          if ('iceberg' in result.value) {
+            setStreamedText(prev => ({
+              ...prev,
+              iceberg: result.value.iceberg || prev.iceberg
+            }));
+          }
+        }
+        
+        // If aborted, return the last result or a rate limited response
+        return lastResult || { rateLimited: true };
+      } catch (error) {
+        console.error('Error in streaming analysis:', error);
+        if (error instanceof Error && error.message.includes('rate limit')) {
+          return { rateLimited: true };
+        }
+        throw error;
+      }
     },
-    []
+    [streaming]
   );
 
   /**
@@ -214,9 +285,75 @@ const ReviewAndRevise = () => {
   }, [dispatch, ioa, iceberg, navigate]);
 
   /**
+   * Start a retry countdown timer
+   */
+  const startRetryCountdown = useCallback((seconds: number) => {
+    // Clear any existing timeout
+    if (retryTimeoutRef.current) {
+      window.clearTimeout(retryTimeoutRef.current);
+    }
+    
+    setRetryCountdown(seconds);
+    
+    const countDown = () => {
+      setRetryCountdown(prev => {
+        if (prev <= 1) {
+          // When countdown reaches 0, retry the analysis
+          handleAnalyze();
+          return 0;
+        }
+        
+        // Continue countdown
+        retryTimeoutRef.current = window.setTimeout(countDown, 1000);
+        return prev - 1;
+      });
+    };
+    
+    // Start the countdown
+    retryTimeoutRef.current = window.setTimeout(countDown, 1000);
+  }, []);
+  
+  /**
+   * Cancel the retry countdown
+   */
+  const cancelRetryCountdown = useCallback(() => {
+    if (retryTimeoutRef.current) {
+      window.clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+    setRetryCountdown(0);
+  }, []);
+
+  /**
+   * Stops the streaming process
+   */
+  const handleStopStreaming = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    
+    setStreaming(false);
+    
+    // Use the current streamed text as the final result
+    if (streamedText.ioa) {
+      setIoa(streamedText.ioa);
+      dispatch(updateIoA(streamedText.ioa));
+    }
+    
+    if (streamedText.iceberg) {
+      setIceberg(streamedText.iceberg);
+      dispatch(updateIceberg(streamedText.iceberg));
+    }
+  }, [dispatch, streamedText]);
+
+  /**
    * Recalculate the analysis
    */
   const handleAnalyze = useCallback(async () => {
+    // Cancel any existing retry countdown
+    cancelRetryCountdown();
+    
     if (!currentCase || analysisInProgress.current) return;
     
     if (!validateParties()) {
@@ -228,6 +365,10 @@ const ReviewAndRevise = () => {
       setLoading(true);
       setError(null);
       analysisInProgress.current = true;
+      
+      // Enable streaming for this analysis
+      setStreaming(true);
+      setStreamedText({ ioa: '', iceberg: '' });
 
       const analysisResult = await analyzeWithProgress(
         currentCase.content,
@@ -239,7 +380,8 @@ const ReviewAndRevise = () => {
       );
 
       if ('rateLimited' in analysisResult) {
-        setError('Rate limit reached. Please try again in a few moments.');
+        setError('Rate limit reached. The system will automatically retry in 60 seconds.');
+        startRetryCountdown(60);
         return;
       }
 
@@ -259,8 +401,9 @@ const ReviewAndRevise = () => {
     } finally {
       setLoading(false);
       analysisInProgress.current = false;
+      setStreaming(false);
     }
-  }, [currentCase, analyzeWithProgress, validateParties, dispatch]);
+  }, [currentCase, analyzeWithProgress, validateParties, dispatch, startRetryCountdown, cancelRetryCountdown]);
 
   /**
    * Render the analysis section
@@ -285,18 +428,36 @@ const ReviewAndRevise = () => {
         </AccordionSummary>
         <AccordionDetails>
           <Box role="region" aria-labelledby={`${id}-header`}>
-            <MarkdownEditor
-              value={value}
-              onChange={onChange}
-              label=""
-              height="700px"
-              placeholder={placeholder}
-            />
+            {streaming && id === 'ioa' && streamedText.ioa ? (
+              <Box mb={2}>
+                <TypewriterText 
+                  text={streamedText.ioa} 
+                  speed={20}
+                  variant="body1"
+                />
+              </Box>
+            ) : streaming && id === 'iceberg' && streamedText.iceberg ? (
+              <Box mb={2}>
+                <TypewriterText 
+                  text={streamedText.iceberg} 
+                  speed={20}
+                  variant="body1"
+                />
+              </Box>
+            ) : (
+              <MarkdownEditor
+                value={value}
+                onChange={onChange}
+                label=""
+                height="700px"
+                placeholder={placeholder}
+              />
+            )}
           </Box>
         </AccordionDetails>
       </Accordion>
     </Grid>
-  ), []);
+  ), [streaming, streamedText]);
 
   // If no case is available, don't render anything
   if (!currentCase) {
@@ -315,20 +476,50 @@ const ReviewAndRevise = () => {
         {error && (
           <Alert severity={error.includes('successfully') ? 'success' : 'error'} sx={{ mb: 3 }}>
             {error}
+            {retryCountdown > 0 && (
+              <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="body2">
+                  Retrying in {retryCountdown} seconds...
+                </Typography>
+                <Button 
+                  size="small" 
+                  variant="outlined" 
+                  color="inherit" 
+                  onClick={cancelRetryCountdown}
+                  sx={{ ml: 2 }}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            )}
           </Alert>
         )}
         
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between' }}>
+          <Box>
+            {streaming && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={handleStopStreaming}
+                sx={{ fontSize: '0.8rem' }}
+                size="small"
+              >
+                Stop Streaming
+              </Button>
+            )}
+          </Box>
+          
           <Button
             variant="outlined"
             color="primary"
             onClick={handleAnalyze}
-            disabled={loading}
+            disabled={loading || retryCountdown > 0 || streaming}
             startIcon={loading ? <CircularProgress size={16} /> : null}
             sx={{ fontSize: '0.8rem' }}
             size="small"
           >
-            Reevaluate Analysis
+            {loading ? 'Analyzing...' : retryCountdown > 0 ? `Retry in ${retryCountdown}s` : 'Reevaluate Analysis'}
           </Button>
         </Box>
         
