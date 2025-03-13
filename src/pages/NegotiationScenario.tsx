@@ -26,6 +26,9 @@ import {
   AccordionSummary,
   AccordionDetails,
   Tooltip,
+  Card,
+  CardContent,
+  ListItemButton,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { RootState } from '../store';
@@ -273,6 +276,58 @@ const NegotiationScenario = () => {
   const party1Name = currentCase?.suggestedParties[0]?.name || 'Party 1';
   const party2Name = currentCase?.suggestedParties[1]?.name || 'Party 2';
 
+  /**
+   * Renders the issue selection panel
+   */
+  const renderIssueSelectionPanel = () => {
+    if (!currentCase || !currentCase.analysis) return null;
+    
+    return (
+      <Card variant="outlined" sx={{ height: '100%' }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Select Issue
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          <List component="nav" aria-label="issue selection">
+            {currentCase.analysis.components.map((component) => {
+              // Check if this component has scenarios
+              const hasScenarios = currentCase.scenarios.some(s => s.componentId === component.id);
+              
+              return (
+                <ListItemButton
+                  key={component.id}
+                  selected={selectedIssueId === component.id}
+                  onClick={() => handleIssueChange(component.id)}
+                  sx={{
+                    borderLeft: selectedIssueId === component.id 
+                      ? '4px solid #1976d2' 
+                      : '4px solid transparent',
+                    bgcolor: hasScenarios ? 'rgba(76, 175, 80, 0.1)' : 'transparent',
+                    '&:hover': {
+                      bgcolor: hasScenarios ? 'rgba(76, 175, 80, 0.2)' : 'rgba(0, 0, 0, 0.04)',
+                    },
+                  }}
+                >
+                  <ListItemText 
+                    primary={component.name} 
+                    secondary={hasScenarios ? "Scenarios available" : "No scenarios yet"}
+                    primaryTypographyProps={{
+                      fontWeight: selectedIssueId === component.id ? 'bold' : 'normal',
+                    }}
+                    secondaryTypographyProps={{
+                      color: hasScenarios ? 'success.main' : 'text.secondary',
+                    }}
+                  />
+                </ListItemButton>
+              );
+            })}
+          </List>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <Container maxWidth="xl">
       <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
@@ -295,43 +350,17 @@ const NegotiationScenario = () => {
           />
         )}
         
-        <Grid container spacing={4}>
-          <Grid item xs={12} md={4}>
-            <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
-              <Typography variant="h6" gutterBottom>
-                Select Issue
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Choose an issue to view its potential scenarios
-              </Typography>
-              
-              <List dense sx={{ bgcolor: 'background.paper', border: '1px solid #eee', borderRadius: 1 }}>
-                {currentCase.analysis.components.map((component) => (
-                  <ListItem
-                    key={component.id}
-                    button
-                    selected={selectedIssueId === component.id}
-                    onClick={() => handleIssueChange(component.id)}
-                  >
-                    <ListItemText
-                      primary={component.name}
-                      primaryTypographyProps={{
-                        variant: 'body2',
-                        fontWeight: selectedIssueId === component.id ? 'bold' : 'normal'
-                      }}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </Paper>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={3}>
+            {renderIssueSelectionPanel()}
           </Grid>
           
-          <Grid item xs={12} md={8}>
+          <Grid item xs={12} md={9}>
             {selectedIssueId ? (
               <>
                 <Box sx={{ mb: 3 }}>
-                  <Typography variant="h6" gutterBottom>
-                    Scenario Spectrum
+                  <Typography variant="h5" gutterBottom>
+                    {selectedIssue?.name} Scenarios
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     Click on a scenario to view its risk assessment. Click the edit icon to modify a scenario's description.
