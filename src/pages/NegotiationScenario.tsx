@@ -144,6 +144,12 @@ const NegotiationScenario = () => {
     fetchScenarios();
   }, [selectedIssueId, currentCase, dispatch, recalculationStatus.scenariosRecalculated, isGenerating]);
 
+  // Debug effect for showRiskAssessment state
+  useEffect(() => {
+    console.log('showRiskAssessment state changed:', showRiskAssessment);
+    console.log('selectedScenario:', selectedScenario?.id);
+  }, [showRiskAssessment, selectedScenario]);
+
   const handleIssueChange = (issueId: string) => {
     if (isGenerating) {
       setError('Please wait for the current scenario generation to complete');
@@ -156,12 +162,29 @@ const NegotiationScenario = () => {
   };
 
   const handleSelectScenario = (scenario: Scenario) => {
+    console.log('Selecting scenario:', scenario.id);
+    
     if (selectedScenario && selectedScenario.id === scenario.id) {
+      // If clicking the same scenario, deselect it
+      console.log('Deselecting current scenario');
       dispatch(selectScenario(null));
       setShowRiskAssessment(false);
     } else {
+      // If selecting a different scenario
+      console.log('Selecting new scenario, previous:', selectedScenario?.id);
       dispatch(selectScenario(scenario));
-      // Don't reset showRiskAssessment here to maintain its state
+      
+      // Only reset showRiskAssessment if we're selecting a completely different scenario
+      // Keep it visible if there's already a risk assessment for this scenario
+      const hasRiskAssessment = currentCase?.riskAssessments.some(ra => ra.scenarioId === scenario.id);
+      console.log('Has risk assessment:', hasRiskAssessment);
+      
+      // If there's a risk assessment, show it automatically
+      if (hasRiskAssessment) {
+        setShowRiskAssessment(true);
+      } else {
+        setShowRiskAssessment(false);
+      }
     }
   };
 
@@ -199,16 +222,20 @@ const NegotiationScenario = () => {
     }
     
     // Toggle visibility of risk assessment
-    setShowRiskAssessment(!showRiskAssessment);
+    const newShowState = !showRiskAssessment;
+    console.log('Toggling risk assessment visibility:', { current: showRiskAssessment, new: newShowState });
+    setShowRiskAssessment(newShowState);
     
     // If we're showing the risk assessment and it doesn't exist yet, generate it
-    if (!showRiskAssessment && !currentCase.riskAssessments.some(ra => ra.scenarioId === selectedScenario.id)) {
+    if (newShowState && !currentCase.riskAssessments.some(ra => ra.scenarioId === selectedScenario.id)) {
       try {
+        console.log('Generating new risk assessment for scenario:', selectedScenario.id);
         setIsGeneratingRisk(true);
         setError(null);
         
         // Generate risk assessment
         const riskAssessment = await api.generateRiskAssessment(selectedScenario.id);
+        console.log('Risk assessment generated:', riskAssessment);
         
         // Add to Redux
         dispatch(setRiskAssessments([...currentCase.riskAssessments, riskAssessment]));
@@ -394,7 +421,10 @@ const NegotiationScenario = () => {
                             <Button
                               variant="outlined"
                               color="primary"
-                              onClick={handleGenerateRiskAssessment}
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent event bubbling
+                                handleGenerateRiskAssessment();
+                              }}
                               disabled={isGeneratingRisk}
                               startIcon={isGeneratingRisk ? <CircularProgress size={16} /> : null}
                               sx={{ fontSize: '0.8rem' }}
@@ -410,8 +440,9 @@ const NegotiationScenario = () => {
                             </Button>
                           </Box>
                           
+                          {/* Force the risk assessment to be visible when showRiskAssessment is true */}
                           {showRiskAssessment && (
-                            <>
+                            <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2, bgcolor: '#fafafa' }}>
                               <Typography variant="h6" gutterBottom>
                                 Risk Assessment
                               </Typography>
@@ -423,7 +454,7 @@ const NegotiationScenario = () => {
                                 onUpdateAssessment={handleUpdateRiskAssessment}
                                 onDeleteAssessment={handleDeleteAssessment}
                               />
-                            </>
+                            </Box>
                           )}
                         </Box>
                       )
