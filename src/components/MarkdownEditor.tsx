@@ -12,9 +12,10 @@ interface MarkdownEditorProps {
   label?: string;
   height?: string;
   placeholder?: string;
+  disabled?: boolean;
 }
 
-const MarkdownEditor = ({ value, onChange, label, placeholder, height = '400px' }: MarkdownEditorProps) => {
+const MarkdownEditor = ({ value, onChange, label, placeholder, height = '400px', disabled = false }: MarkdownEditorProps) => {
   const [tab, setTab] = useState(0);
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
@@ -41,7 +42,9 @@ const MarkdownEditor = ({ value, onChange, label, placeholder, height = '400px' 
           mb: 3,
           borderRadius: 2,
           overflow: 'hidden',
-          boxShadow: 1
+          boxShadow: 1,
+          opacity: disabled ? 0.7 : 1,
+          position: 'relative'
         }}
       >
         <Tabs 
@@ -65,18 +68,21 @@ const MarkdownEditor = ({ value, onChange, label, placeholder, height = '400px' 
             '& .MuiTabs-indicator': {
               height: 3,
               borderRadius: '3px 3px 0 0',
-            }
+            },
+            pointerEvents: disabled ? 'none' : 'auto'
           }}
         >
           <Tab 
             icon={<EditIcon fontSize="small" />} 
             iconPosition="start" 
             label="Edit" 
+            disabled={disabled}
           />
           <Tab 
             icon={<VisibilityIcon fontSize="small" />} 
             iconPosition="start" 
             label="Preview" 
+            disabled={disabled}
           />
         </Tabs>
         
@@ -98,6 +104,7 @@ const MarkdownEditor = ({ value, onChange, label, placeholder, height = '400px' 
                   bracketMatching: true,
                 }}
                 placeholder={placeholder}
+                editable={!disabled}
                 style={{
                   fontSize: '0.95rem',
                   fontFamily: '"Roboto Mono", monospace',

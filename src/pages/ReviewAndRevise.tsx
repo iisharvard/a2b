@@ -11,8 +11,6 @@ import {
   Alert,
   CircularProgress,
   Divider,
-  LinearProgress,
-  Stack,
   Accordion,
   AccordionSummary,
   AccordionDetails,
@@ -30,7 +28,6 @@ import {
 } from '../store/negotiationSlice';
 import { setAnalysisRecalculated } from '../store/recalculationSlice';
 import { api } from '../services/api';
-import LoadingOverlay from '../components/LoadingOverlay';
 import MarkdownEditor from '../components/MarkdownEditor';
 import { parseComponentsFromMarkdown, componentsToMarkdown } from '../utils/componentParser';
 
@@ -46,10 +43,10 @@ interface AnalysisResponse extends Analysis {
   updatedAt: string;
 }
 
+// Simplified progress state
 interface AnalysisProgressState {
-  step: number;
   message: string;
-  substep: number;
+  progress: number; // 0-100
 }
 
 /**
@@ -73,9 +70,8 @@ const ReviewAndRevise = () => {
   const [iceberg, setIceberg] = useState('');
   const [componentsMarkdown, setComponentsMarkdown] = useState('');
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgressState>({
-    step: 0,
     message: '',
-    substep: 0
+    progress: 0
   });
   const [retryCountdown, setRetryCountdown] = useState(0);
   const retryTimeoutRef = useRef<number | null>(null);
@@ -97,20 +93,22 @@ const ReviewAndRevise = () => {
       content: string,
       p1: Party,
       p2: Party,
-      onProgress?: (step: number, message: string, substep: number) => void
+      onProgress?: (message: string, progress: number) => void
     ): Promise<ApiResponse<AnalysisResponse>> => {
       // Set initial progress
-      onProgress?.(1, 'Analyzing Island of Agreements...', 33);
+      onProgress?.('Analyzing Island of Agreements...', 10);
       
-      // Call API without progress callback
+      // Call API
       const result = await api.analyzeCase(content, p1, p2);
       
       // If we got a result (not rate limited), simulate intermediate and completion steps
       if (!('rateLimited' in result)) {
-        onProgress?.(2, 'Performing Iceberg Analysis...', 66);
+        onProgress?.('Performing Iceberg Analysis...', 50);
         // Small delay to simulate processing
         await new Promise(resolve => setTimeout(resolve, 500));
-        onProgress?.(3, 'Identifying Components and Boundaries...', 100);
+        onProgress?.('Identifying Components and Boundaries...', 90);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        onProgress?.('Analysis complete', 100);
       }
       
       return result;
@@ -296,13 +294,17 @@ const ReviewAndRevise = () => {
       setLoading(true);
       setError(null);
       analysisInProgress.current = true;
-
+      
+      // Reset progress state
+      setAnalysisProgress({ message: 'Starting analysis...', progress: 0 });
+      
       const analysisResult = await analyzeWithProgress(
         currentCase.content,
         currentCase.suggestedParties[0],
         currentCase.suggestedParties[1],
-        (step, message, substep) => {
-          setAnalysisProgress({ step, message, substep });
+        (message, progress) => {
+          console.log(`Progress update: ${message}, ${progress}%`);
+          setAnalysisProgress({ message, progress });
         }
       );
 
@@ -360,17 +362,32 @@ const ReviewAndRevise = () => {
               label=""
               height="700px"
               placeholder={placeholder}
+              disabled={loading}
             />
           </Box>
         </AccordionDetails>
       </Accordion>
     </Grid>
-  ), []);
+  ), [loading]);
 
   // If no case is available, don't render anything
   if (!currentCase) {
     return null;
   }
+
+  // Simple progress bar component
+  const ProgressBar = ({ progress }: { progress: number }) => (
+    <Box sx={{ width: '100%', height: 8, bgcolor: 'rgba(0,0,0,0.1)', borderRadius: 4, overflow: 'hidden' }}>
+      <Box 
+        sx={{ 
+          height: '100%', 
+          width: `${progress}%`, 
+          bgcolor: 'primary.main',
+          transition: 'width 0.5s ease-in-out'
+        }} 
+      />
+    </Box>
+  );
 
   return (
     <Container maxWidth="xl">
@@ -403,43 +420,37 @@ const ReviewAndRevise = () => {
           </Alert>
         )}
         
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={handleAnalyze}
-            disabled={loading || retryCountdown > 0}
-            startIcon={loading ? <CircularProgress size={16} /> : null}
-            sx={{ fontSize: '0.8rem' }}
-            size="small"
-          >
-            {loading ? 'Analyzing...' : retryCountdown > 0 ? `Retry in ${retryCountdown}s` : 'Reevaluate Analysis'}
-          </Button>
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {loading && (
+            <Typography variant="body2" color="text.secondary">
+              {analysisProgress.message}
+            </Typography>
+          )}
+          <Box sx={{ ml: 'auto' }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleAnalyze}
+              disabled={loading || retryCountdown > 0}
+              startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
+              sx={{ 
+                fontSize: '0.9rem',
+                minWidth: '160px'
+              }}
+            >
+              {loading ? 'Analyzing...' : retryCountdown > 0 ? `Retry in ${retryCountdown}s` : 'Reevaluate Analysis'}
+            </Button>
+          </Box>
         </Box>
         
         {loading && (
           <Box sx={{ width: '100%', mb: 4 }}>
-            <Stack spacing={2}>
-              <Typography variant="body2" color="text.secondary">
-                {analysisProgress.message}
+            <ProgressBar progress={analysisProgress.progress} />
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                {analysisProgress.progress}%
               </Typography>
-              <LinearProgress 
-                variant="determinate" 
-                value={analysisProgress.substep} 
-                sx={{
-                  height: 10,
-                  borderRadius: 5,
-                  backgroundColor: 'rgba(0, 0, 0, 0.1)',
-                  '& .MuiLinearProgress-bar': {
-                    borderRadius: 5,
-                    backgroundColor: '#1a90ff',
-                  }
-                }}
-              />
-              <Typography variant="caption" color="text.secondary" align="right">
-                Step {analysisProgress.step} of 3
-              </Typography>
-            </Stack>
+            </Box>
           </Box>
         )}
 
@@ -481,8 +492,6 @@ const ReviewAndRevise = () => {
           </Grid>
         </Grid>
       </Paper>
-      
-      {loading && <LoadingOverlay open={loading} message={analysisProgress.message} />}
     </Container>
   );
 };
