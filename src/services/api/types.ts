@@ -7,29 +7,28 @@ export interface OpenAIMessage {
   content: string;
 }
 
-export interface OpenAIRequestBody {
+export interface OpenAICompletionRequest {
   model: string;
   messages: OpenAIMessage[];
-  temperature: number;
-  max_tokens: number;
+  temperature?: number;
+  max_tokens?: number;
+  top_p?: number;
+  frequency_penalty?: number;
+  presence_penalty?: number;
+  stream?: boolean;
   response_format?: { type: string };
 }
 
-export interface OpenAIChoice {
-  message: {
-    content: string;
-    role: string;
-  };
-  finish_reason: string;
-  index: number;
-}
-
-export interface OpenAIResponse {
+export interface OpenAICompletionResponse {
   id: string;
   object: string;
   created: number;
   model: string;
-  choices: OpenAIChoice[];
+  choices: {
+    index: number;
+    message: OpenAIMessage;
+    finish_reason: string;
+  }[];
   usage: {
     prompt_tokens: number;
     completion_tokens: number;
@@ -37,20 +36,36 @@ export interface OpenAIResponse {
   };
 }
 
-export interface OpenAIError {
-  response?: {
-    status: number;
-    data: any;
-    headers: {
-      'retry-after'?: string;
-    };
-  };
-  message: string;
+export interface OpenAIStreamChunk {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: {
+    index: number;
+    delta: Partial<OpenAIMessage>;
+    finish_reason: string | null;
+  }[];
 }
 
-// Cache types
-export interface ApiCache {
-  scenarios: Map<string, Scenario[]>;
+// Request queue types
+export interface QueuedRequest {
+  id: string;
+  priority: number;
+  execute: () => Promise<any>;
+  resolve: (value: any) => void;
+  reject: (reason: any) => void;
+}
+
+// Progress callback types
+export interface ProgressCallback {
+  (progress: ProgressUpdate): void;
+}
+
+export interface ProgressUpdate {
+  step: number;
+  substep: number;
+  message: string;
 }
 
 // Language model input types

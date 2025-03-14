@@ -1,7 +1,19 @@
 import axios from 'axios';
 import { OPENAI_API_URL, OPENAI_API_KEY, MODEL, TEMPERATURE } from './config';
 import { requestQueue } from './requestQueue';
-import { OpenAIMessage, OpenAIRequestBody, OpenAIError } from './types';
+import { OpenAIMessage, OpenAICompletionRequest } from './types';
+
+// Define OpenAIError interface locally since it was removed from types.ts
+interface OpenAIError {
+  response?: {
+    status: number;
+    data: any;
+    headers: {
+      'retry-after'?: string;
+    };
+  };
+  message: string;
+}
 
 /**
  * Call the OpenAI API with retry logic for rate limiting
@@ -23,7 +35,7 @@ export const callOpenAI = async (
         throw new Error('OpenAI API key is not set. Please check your .env file.');
       }
 
-      const requestBody: OpenAIRequestBody = {
+      const requestBody: OpenAICompletionRequest = {
         model: MODEL,
         messages,
         temperature: TEMPERATURE,

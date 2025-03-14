@@ -1,24 +1,28 @@
 import { Scenario } from '../../store/negotiationSlice';
-import { ApiCache } from './types';
 
-/**
- * Cache for API responses
- * Stores scenarios to avoid redundant API calls
- */
+// Define the cache structure
+export interface ApiCache {
+  scenarios: Map<string, Scenario[]>; // componentId -> scenarios
+  analysis: Map<string, any>; // caseId -> analysis
+}
+
+// Create the cache
 export const apiCache: ApiCache = {
-  scenarios: new Map<string, Scenario[]>(),
+  scenarios: new Map(),
+  analysis: new Map(),
 };
 
 /**
- * Clear the entire cache
+ * Clear all caches
  */
 export const clearCache = (): void => {
   apiCache.scenarios.clear();
+  apiCache.analysis.clear();
 };
 
 /**
  * Clear scenarios for a specific component
- * @param componentId ID of the component
+ * @param componentId The component ID
  */
 export const clearScenariosForComponent = (componentId: string): void => {
   apiCache.scenarios.delete(componentId);
