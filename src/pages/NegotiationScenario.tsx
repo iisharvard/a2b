@@ -227,13 +227,13 @@ const NegotiationScenario = () => {
     if (!currentCase || !currentCase.analysis) return null;
     
     return (
-      <Card variant="outlined" sx={{ height: '100%' }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
+      <Card variant="outlined" sx={{ height: '100%', borderRadius: 2, boxShadow: 1 }}>
+        <CardContent sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom sx={{ fontWeight: 'medium', color: 'primary.main' }}>
             Select Issue
           </Typography>
           <Divider sx={{ mb: 2 }} />
-          <List component="nav" aria-label="issue selection">
+          <List component="nav" aria-label="issue selection" sx={{ px: 0 }}>
             {currentCase.analysis.components.map((component) => {
               // Check if this component has scenarios
               const hasScenarios = currentCase.scenarios.some(s => s.componentId === component.id);
@@ -247,9 +247,17 @@ const NegotiationScenario = () => {
                     borderLeft: selectedIssueId === component.id 
                       ? '4px solid #1976d2' 
                       : '4px solid transparent',
-                    bgcolor: hasScenarios ? 'rgba(76, 175, 80, 0.1)' : 'transparent',
+                    borderRadius: 1,
+                    mb: 1,
+                    bgcolor: hasScenarios ? 'rgba(76, 175, 80, 0.08)' : 'transparent',
                     '&:hover': {
-                      bgcolor: hasScenarios ? 'rgba(76, 175, 80, 0.2)' : 'rgba(0, 0, 0, 0.04)',
+                      bgcolor: hasScenarios ? 'rgba(76, 175, 80, 0.15)' : 'rgba(0, 0, 0, 0.04)',
+                    },
+                    '&.Mui-selected': {
+                      bgcolor: 'rgba(25, 118, 210, 0.12)',
+                      '&:hover': {
+                        bgcolor: 'rgba(25, 118, 210, 0.18)',
+                      },
                     },
                   }}
                 >
@@ -257,10 +265,12 @@ const NegotiationScenario = () => {
                     primary={component.name} 
                     secondary={hasScenarios ? "Scenarios available" : "No scenarios yet"}
                     primaryTypographyProps={{
-                      fontWeight: selectedIssueId === component.id ? 'bold' : 'normal',
+                      fontWeight: selectedIssueId === component.id ? 'bold' : 'medium',
+                      fontSize: '0.95rem',
                     }}
                     secondaryTypographyProps={{
                       color: hasScenarios ? 'success.main' : 'text.secondary',
+                      fontSize: '0.8rem',
                     }}
                   />
                 </ListItemButton>
@@ -274,15 +284,19 @@ const NegotiationScenario = () => {
 
   return (
     <Container maxWidth="xl">
-      <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom align="center">
+      <Paper elevation={3} sx={{ p: { xs: 2, md: 4 }, mb: 4, borderRadius: 2 }}>
+        <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ fontWeight: 'bold', color: 'primary.dark', mb: 2 }}>
           Negotiation Scenarios
         </Typography>
         
         <Divider sx={{ mb: 4 }} />
         
         {error && (
-          <Alert severity={error.includes('successfully') ? 'success' : 'error'} sx={{ mb: 3 }}>
+          <Alert 
+            severity={error.includes('successfully') ? 'success' : 'error'} 
+            sx={{ mb: 3, borderRadius: 1 }}
+            variant="filled"
+          >
             {error}
           </Alert>
         )}
@@ -303,24 +317,29 @@ const NegotiationScenario = () => {
             {selectedIssueId ? (
               <>
                 <Box sx={{ mb: 3 }}>
-                  <Typography variant="h5" gutterBottom>
+                  <Typography variant="h5" gutterBottom sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>
                     {selectedIssue?.name} Scenarios
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3, fontSize: '0.9rem' }}>
                     Click on a scenario to select it. Click the edit icon to modify a scenario's description.
                   </Typography>
                   
-                  <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                  <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
                     <Button
-                      variant="outlined"
+                      variant="contained"
                       color="primary"
                       onClick={handleGenerateScenarios}
                       disabled={isGenerating}
                       startIcon={isGenerating ? <CircularProgress size={16} /> : null}
-                      sx={{ fontSize: '0.8rem' }}
-                      size="small"
+                      size="medium"
+                      sx={{ 
+                        borderRadius: 1.5,
+                        textTransform: 'none',
+                        fontWeight: 'medium',
+                        boxShadow: 2
+                      }}
                     >
-                      Regenerate Scenarios
+                      {isGenerating ? 'Generating...' : 'Regenerate Scenarios'}
                     </Button>
                   </Box>
                   
@@ -335,7 +354,7 @@ const NegotiationScenario = () => {
                 </Box>
               </>
             ) : (
-              <Paper elevation={0} sx={{ p: 3, textAlign: 'center', bgcolor: '#f5f5f5' }}>
+              <Paper elevation={0} sx={{ p: 4, textAlign: 'center', bgcolor: '#f5f5f5', borderRadius: 2, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Typography variant="body1" color="text.secondary">
                   Select an issue from the list to view its scenarios
                 </Typography>

@@ -229,52 +229,59 @@ const ScenarioSpectrum = ({
   
   return (
     <Box ref={containerRef} sx={{ position: 'relative' }}>
-      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+      <Paper variant="outlined" sx={{ p: 3, mb: 3, borderRadius: 2 }}>
         {/* Spectrum visualization */}
+        <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'medium', color: 'text.primary', mb: 2 }}>
+          Scenario Spectrum
+        </Typography>
         <svg ref={svgRef} style={{ width: '100%', height: '120px' }} />
       </Paper>
       
       {/* Scenario boxes - vertically stacked */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {scenarios.map((scenario, index) => {  {/* Removed reverse() */}
+        {scenarios.map((scenario, index) => {
           const isSelected = selectedScenarioId === scenario.id;
           const isEditing = editingScenario === scenario.id;
+          const scenarioColor = getColorForType(scenario.type);
           
           return (
             <Box key={scenario.id}>
-              <Tooltip title={isSelected ? "Click to deselect" : ""} placement="top">
+              <Tooltip title={isSelected ? "Click to deselect" : "Click to select"} placement="top">
                 <div>
                   <Paper 
                     variant="outlined" 
                     sx={{ 
-                      p: 2,
+                      p: 3,
                       cursor: isEditing ? 'default' : 'pointer',
                       borderColor: isSelected ? 'primary.main' : 'divider',
                       borderWidth: isSelected ? 2 : 1,
-                      bgcolor: 'background.paper',
-                      opacity: selectedScenarioId && !isSelected ? 0.6 : 1,
-                      transition: 'opacity 0.3s, border-color 0.3s',
+                      borderRadius: 2,
+                      bgcolor: isSelected ? 'rgba(25, 118, 210, 0.04)' : 'background.paper',
+                      opacity: selectedScenarioId && !isSelected ? 0.8 : 1,
+                      transition: 'all 0.2s ease-in-out',
                       position: 'relative',
                       '&:hover': {
                         opacity: 1,
                         borderColor: isSelected ? 'primary.dark' : 'primary.light',
-                        bgcolor: 'background.paper',
+                        boxShadow: 1,
+                        transform: 'translateY(-2px)',
                       }
                     }}
                     onClick={() => !isEditing && onSelectScenario(scenario)}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5, justifyContent: 'space-between' }}>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <Box 
                           sx={{ 
                             width: 16, 
                             height: 16, 
                             borderRadius: '50%', 
-                            bgcolor: getColorForType(scenario.type),
-                            mr: 2 
+                            bgcolor: scenarioColor,
+                            mr: 2,
+                            boxShadow: isSelected ? `0 0 0 3px rgba(${scenarioColor === '#4caf50' ? '76, 175, 80' : scenarioColor === '#ff9800' ? '255, 152, 0' : '255, 82, 82'}, 0.2)` : 'none'
                           }} 
                         />
-                        <Typography variant="subtitle1">
+                        <Typography variant="subtitle1" sx={{ fontWeight: isSelected ? 'bold' : 'medium' }}>
                           {getScenarioName(scenario.type, index)}
                         </Typography>
                       </Box>
@@ -284,6 +291,10 @@ const ScenarioSpectrum = ({
                           onClick={(e) => {
                             e.stopPropagation();
                             handleEditClick(scenario);
+                          }}
+                          sx={{ 
+                            color: 'text.secondary',
+                            '&:hover': { color: 'primary.main' }
                           }}
                         >
                           <EditIcon fontSize="small" />
@@ -325,10 +336,18 @@ const ScenarioSpectrum = ({
                         onClick={(e) => e.stopPropagation()}
                         variant="outlined"
                         size="small"
-                        sx={{ mb: 2 }}
+                        sx={{ mb: 1 }}
                       />
                     ) : (
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary" 
+                        sx={{ 
+                          mb: 1,
+                          lineHeight: 1.6,
+                          fontSize: '0.9rem'
+                        }}
+                      >
                         {scenario.description}
                       </Typography>
                     )}

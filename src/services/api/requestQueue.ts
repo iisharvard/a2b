@@ -1,0 +1,78 @@
+import { RATE_LIMIT } from './config';
+
+/**
+ * Request queue for handling API rate limiting
+ * Ensures requests are processed in order and within rate limits
+ */
+export class RequestQueue {
+  private queue: Array<() => Promise<any>> = [];
+  private processing = false;
+  private requestTimes: number[] = [];
+
+  /**
+   * Add a request to the queue
+   * @param request Function that returns a promise
+   * @returns Promise that resolves with the result of the request
+   */
+  async add<T>(request: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      this.queue.push(async () => {
+        try {
+          const result = await this.executeWithRateLimit(request);
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      });
+      this.process();
+    });
+  }
+
+  /**
+   * Execute a request with rate limiting
+   * @param request Function that returns a promise
+   * @returns Promise that resolves with the result of the request
+   */
+  private async executeWithRateLimit<T>(request: () => Promise<T>): Promise<T> {
+    // Remove old request times
+    const now = Date.now();
+    this.requestTimes = this.requestTimes.filter(time => now - time < RATE_LIMIT.interval);
+
+    // If we've hit the rate limit, wait until we can make another request
+    if (this.requestTimes.length >= RATE_LIMIT.requests) {
+      const oldestRequest = this.requestTimes[0];
+      const waitTime = Math.max(
+        RATE_LIMIT.interval - (now - oldestRequest),
+        RATE_LIMIT.minDelay
+      );
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+
+    // Add current request time
+    this.requestTimes.push(Date.now());
+
+    // Execute request
+    return await request();
+  }
+
+  /**
+   * Process the queue
+   */
+  private async process() {
+    if (this.processing || this.queue.length === 0) return;
+
+    this.processing = true;
+    while (this.queue.length > 0) {
+      const request = this.queue.shift();
+      if (request) {
+        await request();
+        // Add minimum delay between requests
+        await new Promise(resolve => setTimeout(resolve, RATE_LIMIT.minDelay));
+      }
+    }
+    this.processing = false;
+  }
+}
+
+// Create a single instance of the request queue
+export const requestQueue = new RequestQueue(); 

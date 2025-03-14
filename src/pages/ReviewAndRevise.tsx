@@ -33,7 +33,6 @@ import { api } from '../services/api';
 import LoadingOverlay from '../components/LoadingOverlay';
 import MarkdownEditor from '../components/MarkdownEditor';
 import { parseComponentsFromMarkdown, componentsToMarkdown } from '../utils/componentParser';
-import TypewriterText from '../components/TypewriterText';
 
 // Types
 type ApiResponse<T> = T | { rateLimited: true };
@@ -80,22 +79,12 @@ const ReviewAndRevise = () => {
   });
   const [retryCountdown, setRetryCountdown] = useState(0);
   const retryTimeoutRef = useRef<number | null>(null);
-  const [streaming, setStreaming] = useState(false);
-  const [streamedText, setStreamedText] = useState<{
-    ioa: string;
-    iceberg: string;
-  }>({ ioa: '', iceberg: '' });
-  const analyzerRef = useRef<AsyncGenerator<any> | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
   
   // Clear timeout on unmount
   useEffect(() => {
     return () => {
       if (retryTimeoutRef.current) {
         window.clearTimeout(retryTimeoutRef.current);
-      }
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
       }
     };
   }, []);
@@ -110,58 +99,23 @@ const ReviewAndRevise = () => {
       p2: Party,
       onProgress?: (step: number, message: string, substep: number) => void
     ): Promise<ApiResponse<AnalysisResponse>> => {
-      // If streaming is not enabled, use the original implementation
-      if (!streaming) {
-        return api.analyzeCase(content, p1, p2, onProgress);
+      // Set initial progress
+      onProgress?.(1, 'Analyzing Island of Agreements...', 33);
+      
+      // Call API without progress callback
+      const result = await api.analyzeCase(content, p1, p2);
+      
+      // If we got a result (not rate limited), simulate intermediate and completion steps
+      if (!('rateLimited' in result)) {
+        onProgress?.(2, 'Performing Iceberg Analysis...', 66);
+        // Small delay to simulate processing
+        await new Promise(resolve => setTimeout(resolve, 500));
+        onProgress?.(3, 'Identifying Components and Boundaries...', 100);
       }
       
-      // Create a new abort controller for this request
-      abortControllerRef.current = new AbortController();
-      
-      try {
-        // Get the generator
-        analyzerRef.current = api.analyzeCaseStreaming(content, p1, p2, onProgress);
-        
-        // Process the stream
-        let lastResult: any = null;
-        
-        while (!abortControllerRef.current.signal.aborted) {
-          const result = await analyzerRef.current.next();
-          
-          if (result.done) {
-            return result.value;
-          }
-          
-          // Store the partial result
-          lastResult = result.value;
-          
-          // Update the streamed text
-          if ('ioa' in result.value) {
-            setStreamedText(prev => ({
-              ...prev,
-              ioa: result.value.ioa || prev.ioa
-            }));
-          }
-          
-          if ('iceberg' in result.value) {
-            setStreamedText(prev => ({
-              ...prev,
-              iceberg: result.value.iceberg || prev.iceberg
-            }));
-          }
-        }
-        
-        // If aborted, return the last result or a rate limited response
-        return lastResult || { rateLimited: true };
-      } catch (error) {
-        console.error('Error in streaming analysis:', error);
-        if (error instanceof Error && error.message.includes('rate limit')) {
-          return { rateLimited: true };
-        }
-        throw error;
-      }
+      return result;
     },
-    [streaming]
+    []
   );
 
   /**
@@ -325,29 +279,6 @@ const ReviewAndRevise = () => {
   }, []);
 
   /**
-   * Stops the streaming process
-   */
-  const handleStopStreaming = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    
-    setStreaming(false);
-    
-    // Use the current streamed text as the final result
-    if (streamedText.ioa) {
-      setIoa(streamedText.ioa);
-      dispatch(updateIoA(streamedText.ioa));
-    }
-    
-    if (streamedText.iceberg) {
-      setIceberg(streamedText.iceberg);
-      dispatch(updateIceberg(streamedText.iceberg));
-    }
-  }, [dispatch, streamedText]);
-
-  /**
    * Recalculate the analysis
    */
   const handleAnalyze = useCallback(async () => {
@@ -365,10 +296,6 @@ const ReviewAndRevise = () => {
       setLoading(true);
       setError(null);
       analysisInProgress.current = true;
-      
-      // Enable streaming for this analysis
-      setStreaming(true);
-      setStreamedText({ ioa: '', iceberg: '' });
 
       const analysisResult = await analyzeWithProgress(
         currentCase.content,
@@ -401,7 +328,6 @@ const ReviewAndRevise = () => {
     } finally {
       setLoading(false);
       analysisInProgress.current = false;
-      setStreaming(false);
     }
   }, [currentCase, analyzeWithProgress, validateParties, dispatch, startRetryCountdown, cancelRetryCountdown]);
 
@@ -428,36 +354,18 @@ const ReviewAndRevise = () => {
         </AccordionSummary>
         <AccordionDetails>
           <Box role="region" aria-labelledby={`${id}-header`}>
-            {streaming && id === 'ioa' && streamedText.ioa ? (
-              <Box mb={2}>
-                <TypewriterText 
-                  text={streamedText.ioa} 
-                  speed={20}
-                  variant="body1"
-                />
-              </Box>
-            ) : streaming && id === 'iceberg' && streamedText.iceberg ? (
-              <Box mb={2}>
-                <TypewriterText 
-                  text={streamedText.iceberg} 
-                  speed={20}
-                  variant="body1"
-                />
-              </Box>
-            ) : (
-              <MarkdownEditor
-                value={value}
-                onChange={onChange}
-                label=""
-                height="700px"
-                placeholder={placeholder}
-              />
-            )}
+            <MarkdownEditor
+              value={value}
+              onChange={onChange}
+              label=""
+              height="700px"
+              placeholder={placeholder}
+            />
           </Box>
         </AccordionDetails>
       </Accordion>
     </Grid>
-  ), [streaming, streamedText]);
+  ), []);
 
   // If no case is available, don't render anything
   if (!currentCase) {
@@ -495,26 +403,12 @@ const ReviewAndRevise = () => {
           </Alert>
         )}
         
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between' }}>
-          <Box>
-            {streaming && (
-              <Button
-                variant="outlined"
-                color="secondary"
-                onClick={handleStopStreaming}
-                sx={{ fontSize: '0.8rem' }}
-                size="small"
-              >
-                Stop Streaming
-              </Button>
-            )}
-          </Box>
-          
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
           <Button
             variant="outlined"
             color="primary"
             onClick={handleAnalyze}
-            disabled={loading || retryCountdown > 0 || streaming}
+            disabled={loading || retryCountdown > 0}
             startIcon={loading ? <CircularProgress size={16} /> : null}
             sx={{ fontSize: '0.8rem' }}
             size="small"
