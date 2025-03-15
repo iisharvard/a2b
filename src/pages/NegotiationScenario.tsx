@@ -41,7 +41,6 @@ import {
   setScenariosRecalculated
 } from '../store/recalculationSlice';
 import { api } from '../services/api';
-import LoadingOverlay from '../components/LoadingOverlay';
 import ScenarioSpectrum from '../components/ScenarioSpectrum';
 import RecalculationWarning from '../components/RecalculationWarning';
 
@@ -54,10 +53,10 @@ const NegotiationScenario = () => {
   );
   const recalculationStatus = useSelector((state: RootState) => state.recalculation);
   
-  const [loading, setLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedIssueId, setSelectedIssueId] = useState<string>('');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [loadedScenarios, setLoadedScenarios] = useState<string[]>([]);
   
   // Get filtered scenarios for the selected issue
   const filteredScenarios = currentCase?.scenarios.filter(
@@ -82,8 +81,8 @@ const NegotiationScenario = () => {
 
   // Use a separate effect for scenario generation to prevent infinite loops
   useEffect(() => {
-    // Skip if already generating or no issue selected
-    if (isGenerating || !selectedIssueId || !currentCase) {
+    // Skip if no issue selected
+    if (!selectedIssueId || !currentCase) {
       return;
     }
 
@@ -96,19 +95,31 @@ const NegotiationScenario = () => {
       // If we have scenarios and they don't need recalculation, use them
       if (existingScenarios.length > 0 && recalculationStatus.scenariosRecalculated) {
         console.log(`Using existing scenarios for issue: ${selectedIssueId}`);
+        // Mark all existing scenarios as loaded
+        setLoadedScenarios(prev => {
+          const newLoaded = [...prev];
+          existingScenarios.forEach(scenario => {
+            if (!newLoaded.includes(scenario.id)) {
+              newLoaded.push(scenario.id);
+            }
+          });
+          return newLoaded;
+        });
         return;
       }
 
       // Only proceed with generation if we need to
       setIsGenerating(true);
-      setLoading(true);
       setError(null);
       
       try {
         console.log(`Starting scenario generation for issue: ${selectedIssueId}`);
         
         // Use regular generateScenarios instead of forceGenerateScenarios to use cache if available
-        const newScenarios = await api.generateScenarios(selectedIssueId);
+        const newScenarios = await api.generateScenarios(selectedIssueId, (scenario) => {
+          // Mark each scenario as loaded as it comes in
+          setLoadedScenarios(prev => [...prev, scenario.id]);
+        });
         
         // Ensure newScenarios is an array
         const scenariosArray = Array.isArray(newScenarios) ? newScenarios : [];
@@ -128,13 +139,12 @@ const NegotiationScenario = () => {
           setError('Failed to fetch scenarios. Please try again.');
         }
       } finally {
-        setLoading(false);
         setIsGenerating(false);
       }
     };
 
     fetchScenarios();
-  }, [selectedIssueId, currentCase, dispatch, recalculationStatus.scenariosRecalculated, isGenerating]);
+  }, [selectedIssueId, currentCase, dispatch, recalculationStatus.scenariosRecalculated]);
 
   // Debug effect for selected scenario
   useEffect(() => {
@@ -142,10 +152,6 @@ const NegotiationScenario = () => {
   }, [selectedScenario]);
 
   const handleIssueChange = (issueId: string) => {
-    if (isGenerating) {
-      setError('Please wait for the current scenario generation to complete');
-      return;
-    }
     setSelectedIssueId(issueId);
     // Reset selected scenario when changing issues
     dispatch(selectScenario(null));
@@ -168,15 +174,22 @@ const NegotiationScenario = () => {
   const handleGenerateScenarios = async () => {
     if (!selectedIssueId || isGenerating) return;
     
-    setLoading(true);
     setError(null);
     setIsGenerating(true);
+    // Clear loaded scenarios for this component
+    setLoadedScenarios(prev => prev.filter(id => {
+      const scenario = currentCase?.scenarios.find(s => s.id === id);
+      return scenario?.componentId !== selectedIssueId;
+    }));
     
     try {
       console.log(`Manually triggering scenario generation for issue: ${selectedIssueId}`);
       
       // Force regenerate scenarios
-      const generatedScenarios = await api.forceGenerateScenarios(selectedIssueId);
+      const generatedScenarios = await api.forceGenerateScenarios(selectedIssueId, (scenario) => {
+        // Mark each scenario as loaded as it comes in
+        setLoadedScenarios(prev => [...prev, scenario.id]);
+      });
       
       // Ensure generatedScenarios is an array
       const scenariosArray = Array.isArray(generatedScenarios) ? generatedScenarios : [];
@@ -187,7 +200,6 @@ const NegotiationScenario = () => {
       console.error(`Error manually generating scenarios for issue ${selectedIssueId}:`, err);
       setError('Failed to generate scenarios. Please try again.');
     } finally {
-      setLoading(false);
       setIsGenerating(false);
     }
   };
@@ -350,6 +362,7 @@ const NegotiationScenario = () => {
                     onSelectScenario={handleSelectScenario}
                     onUpdateScenario={handleUpdateScenario}
                     selectedScenarioId={selectedScenario?.id}
+                    loadedScenarios={loadedScenarios}
                   />
                 </Box>
               </>
@@ -363,8 +376,6 @@ const NegotiationScenario = () => {
           </Grid>
         </Grid>
       </Paper>
-      
-      {loading && <LoadingOverlay open={loading} message="Generating scenarios..." />}
     </Container>
   );
 };

@@ -211,7 +211,7 @@ export const api = {
   },
   
   /**
-   * Force regenerate scenarios (bypassing cache)
+   * Force regenerate scenarios for a component, bypassing the cache
    * @param componentId ID of the component
    * @param onScenarioGenerated Optional callback that will be called for each scenario as it's generated
    * @returns Promise that resolves with an array of scenarios
@@ -220,12 +220,10 @@ export const api = {
     componentId: string,
     onScenarioGenerated?: (scenario: Scenario) => void
   ): Promise<Scenario[]> {
-    console.log('Force regenerating scenarios for component:', componentId);
-    
-    // Clear cache for this component
+    // Clear the cache for this component
     clearScenariosForComponent(componentId);
     
-    // Generate new scenarios
+    // Call the regular generateScenarios method
     return this.generateScenarios(componentId, onScenarioGenerated);
   },
   

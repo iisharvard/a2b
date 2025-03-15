@@ -187,16 +187,16 @@ const ScenarioSpectrum = ({
 
     // Add scenario numbers
     spectrumGroup.selectAll("text.scenario-number")
-      .data(displayScenarios)
+      .data(scenarios)
       .enter()
       .append("text")
       .attr("class", "scenario-number")
       .attr("x", (d, i) => xScale(i))
-      .attr("y", -15)
+      .attr("y", -20)
       .attr("text-anchor", "middle")
       .attr("fill", "#666")
       .attr("font-size", "12px")
-      .text(d => d.displayNumber);
+      .text((d, i) => scenarios.length - i);  // Reverse the numbers to display 5,4,3,2,1
 
     // Add labels - party1 on left, party2 on right
     svg.append("text")
