@@ -22,12 +22,14 @@ export const api = {
    * @param content Case content
    * @param party1 First party
    * @param party2 Second party
+   * @param onPartialResult Callback to receive partial results
    * @returns Promise that resolves with the analysis response
    */
   async analyzeCase(
     content: string,
     party1: Party,
-    party2: Party
+    party2: Party,
+    onPartialResult?: (type: 'ioa' | 'iceberg' | 'components', data: any) => void
   ): Promise<ApiResponse<AnalysisResponse>> {
     const requestId = Date.now().toString();
     
@@ -39,12 +41,22 @@ export const api = {
       };
       const ioaResponse = await callLanguageModel('islandOfAgreement.txt', ioaInput);
       
+      // Call the callback with IoA result as soon as it's available
+      if (onPartialResult) {
+        onPartialResult('ioa', ioaResponse.ioa);
+      }
+      
       const icebergInput: IcebergInput = {
         caseContent: content,
         party1Name: party1.name,
         party2Name: party2.name
       };
       const icebergResponse = await callLanguageModel('iceberg.txt', icebergInput);
+      
+      // Call the callback with iceberg result as soon as it's available
+      if (onPartialResult) {
+        onPartialResult('iceberg', icebergResponse.iceberg);
+      }
       
       const componentsInput: ComponentsInput = {
         caseContent: content,
@@ -54,6 +66,11 @@ export const api = {
         iceberg: icebergResponse.iceberg
       };
       const componentsResponse = await callLanguageModel('redlinebottomlineRequirements.txt', componentsInput);
+      
+      // Call the callback with components result as soon as it's available
+      if (onPartialResult) {
+        onPartialResult('components', componentsResponse.components);
+      }
       
       const analysis: AnalysisResponse = {
         id: requestId,
@@ -76,9 +93,13 @@ export const api = {
   /**
    * Generate scenarios for a component
    * @param componentId ID of the component
+   * @param onScenarioGenerated Optional callback that will be called for each scenario as it's generated
    * @returns Promise that resolves with an array of scenarios
    */
-  async generateScenarios(componentId: string): Promise<Scenario[]> {
+  async generateScenarios(
+    componentId: string, 
+    onScenarioGenerated?: (scenario: Scenario) => void
+  ): Promise<Scenario[]> {
     try {
       // Get the current state
       const state = store.getState();
@@ -89,6 +110,14 @@ export const api = {
       const cachedScenarios = apiCache.scenarios.get(componentId);
       if (cachedScenarios && recalculationStatus.scenariosRecalculated) {
         console.log('Using cached scenarios for component:', componentId);
+        
+        // If we have a callback, call it for each cached scenario
+        if (onScenarioGenerated) {
+          cachedScenarios.forEach((scenario: Scenario) => {
+            onScenarioGenerated(scenario);
+          });
+        }
+        
         return cachedScenarios;
       }
       
@@ -126,6 +155,14 @@ export const api = {
       
       const scenarios = result.scenarios || [];
       apiCache.scenarios.set(componentId, scenarios);
+      
+      // If we have a callback, call it for each generated scenario
+      if (onScenarioGenerated) {
+        scenarios.forEach((scenario: Scenario) => {
+          onScenarioGenerated(scenario);
+        });
+      }
+      
       return scenarios;
     } catch (error) {
       console.error('Error generating scenarios:', error);
@@ -176,16 +213,20 @@ export const api = {
   /**
    * Force regenerate scenarios (bypassing cache)
    * @param componentId ID of the component
+   * @param onScenarioGenerated Optional callback that will be called for each scenario as it's generated
    * @returns Promise that resolves with an array of scenarios
    */
-  async forceGenerateScenarios(componentId: string): Promise<Scenario[]> {
+  async forceGenerateScenarios(
+    componentId: string,
+    onScenarioGenerated?: (scenario: Scenario) => void
+  ): Promise<Scenario[]> {
     console.log('Force regenerating scenarios for component:', componentId);
     
     // Clear cache for this component
     clearScenariosForComponent(componentId);
     
     // Generate new scenarios
-    return this.generateScenarios(componentId);
+    return this.generateScenarios(componentId, onScenarioGenerated);
   },
   
   /**

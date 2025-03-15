@@ -34,19 +34,13 @@ import { parseComponentsFromMarkdown, componentsToMarkdown } from '../utils/comp
 // Types
 type ApiResponse<T> = T | { rateLimited: true };
 
-interface AnalysisResponse extends Analysis {
+interface AnalysisResponse {
   id: string;
   ioa: string;
   iceberg: string;
   components: Component[];
   createdAt: string;
   updatedAt: string;
-}
-
-// Simplified progress state
-interface AnalysisProgressState {
-  message: string;
-  progress: number; // 0-100
 }
 
 /**
@@ -69,10 +63,9 @@ const ReviewAndRevise = () => {
   const [ioa, setIoa] = useState('');
   const [iceberg, setIceberg] = useState('');
   const [componentsMarkdown, setComponentsMarkdown] = useState('');
-  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgressState>({
-    message: '',
-    progress: 0
-  });
+  const [ioaLoaded, setIoaLoaded] = useState(false);
+  const [icebergLoaded, setIcebergLoaded] = useState(false);
+  const [componentsLoaded, setComponentsLoaded] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState(0);
   const retryTimeoutRef = useRef<number | null>(null);
   
@@ -92,24 +85,33 @@ const ReviewAndRevise = () => {
     async (
       content: string,
       p1: Party,
-      p2: Party,
-      onProgress?: (message: string, progress: number) => void
+      p2: Party
     ): Promise<ApiResponse<AnalysisResponse>> => {
-      // Set initial progress
-      onProgress?.('Analyzing Island of Agreements...', 10);
+      // Reset loaded states
+      setIoaLoaded(false);
+      setIcebergLoaded(false);
+      setComponentsLoaded(false);
       
-      // Call API
-      const result = await api.analyzeCase(content, p1, p2);
-      
-      // If we got a result (not rate limited), simulate intermediate and completion steps
-      if (!('rateLimited' in result)) {
-        onProgress?.('Performing Iceberg Analysis...', 50);
-        // Small delay to simulate processing
-        await new Promise(resolve => setTimeout(resolve, 500));
-        onProgress?.('Identifying Components and Boundaries...', 90);
-        await new Promise(resolve => setTimeout(resolve, 300));
-        onProgress?.('Analysis complete', 100);
-      }
+      // Call API with partial result handler
+      const result = await api.analyzeCase(
+        content, 
+        p1, 
+        p2,
+        (type, data) => {
+          console.log(`Received partial result for ${type}`);
+          if (type === 'ioa') {
+            setIoa(data);
+            setIoaLoaded(true);
+          } else if (type === 'iceberg') {
+            setIceberg(data);
+            setIcebergLoaded(true);
+          } else if (type === 'components') {
+            const componentsText = componentsToMarkdown(data);
+            setComponentsMarkdown(componentsText);
+            setComponentsLoaded(true);
+          }
+        }
+      );
       
       return result;
     },
@@ -145,6 +147,11 @@ const ReviewAndRevise = () => {
       
       const componentsText = componentsToMarkdown(currentCase.analysis.components);
       setComponentsMarkdown(componentsText);
+      
+      // Set all sections as loaded
+      setIoaLoaded(true);
+      setIcebergLoaded(true);
+      setComponentsLoaded(true);
       return;
     }
 
@@ -295,17 +302,10 @@ const ReviewAndRevise = () => {
       setError(null);
       analysisInProgress.current = true;
       
-      // Reset progress state
-      setAnalysisProgress({ message: 'Starting analysis...', progress: 0 });
-      
       const analysisResult = await analyzeWithProgress(
         currentCase.content,
         currentCase.suggestedParties[0],
-        currentCase.suggestedParties[1],
-        (message, progress) => {
-          console.log(`Progress update: ${message}, ${progress}%`);
-          setAnalysisProgress({ message, progress });
-        }
+        currentCase.suggestedParties[1]
       );
 
       if ('rateLimited' in analysisResult) {
@@ -343,51 +343,61 @@ const ReviewAndRevise = () => {
     onChange: (value: string) => void,
     defaultExpanded = false,
     placeholder = ''
-  ) => (
-    <Grid item xs={12}>
-      <Accordion defaultExpanded={defaultExpanded}>
-        <AccordionSummary
-          expandIcon={<ExpandMoreIcon />}
-          aria-controls={`${id}-content`}
-          id={`${id}-header`}
-          tabIndex={0}
-        >
-          <Typography variant="h6">{title}</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Box role="region" aria-labelledby={`${id}-header`}>
-            <MarkdownEditor
-              value={value}
-              onChange={onChange}
-              label=""
-              height="700px"
-              placeholder={placeholder}
-              disabled={loading}
-            />
-          </Box>
-        </AccordionDetails>
-      </Accordion>
-    </Grid>
-  ), [loading]);
+  ) => {
+    // Determine if this section is loaded and editable
+    const isLoaded = 
+      (id === 'ioa' && ioaLoaded) || 
+      (id === 'iceberg' && icebergLoaded) || 
+      (id === 'issues' && componentsLoaded) ||
+      (currentCase?.analysis !== null); // If we have an existing analysis, all sections are loaded
+    
+    // Show loading state if not loaded
+    const sectionContent = !isLoaded ? (
+      <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress size={24} sx={{ mr: 2 }} />
+        <Typography variant="body2" color="text.secondary">
+          {`Loading ${title}...`}
+        </Typography>
+      </Box>
+    ) : (
+      <Box role="region" aria-labelledby={`${id}-header`}>
+        <MarkdownEditor
+          value={value}
+          onChange={onChange}
+          label=""
+          height="700px"
+          placeholder={placeholder}
+          disabled={loading}
+        />
+      </Box>
+    );
+    
+    return (
+      <Grid item xs={12}>
+        <Accordion defaultExpanded={defaultExpanded}>
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            aria-controls={`${id}-content`}
+            id={`${id}-header`}
+            tabIndex={0}
+          >
+            <Typography variant="h6">{title}</Typography>
+            {!isLoaded && (
+              <CircularProgress size={16} sx={{ ml: 2 }} />
+            )}
+          </AccordionSummary>
+          <AccordionDetails>
+            {sectionContent}
+          </AccordionDetails>
+        </Accordion>
+      </Grid>
+    );
+  }, [loading, ioaLoaded, icebergLoaded, componentsLoaded, currentCase?.analysis]);
 
   // If no case is available, don't render anything
   if (!currentCase) {
     return null;
   }
-
-  // Simple progress bar component
-  const ProgressBar = ({ progress }: { progress: number }) => (
-    <Box sx={{ width: '100%', height: 8, bgcolor: 'rgba(0,0,0,0.1)', borderRadius: 4, overflow: 'hidden' }}>
-      <Box 
-        sx={{ 
-          height: '100%', 
-          width: `${progress}%`, 
-          bgcolor: 'primary.main',
-          transition: 'width 0.5s ease-in-out'
-        }} 
-      />
-    </Box>
-  );
 
   return (
     <Container maxWidth="xl">
@@ -423,7 +433,7 @@ const ReviewAndRevise = () => {
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {loading && (
             <Typography variant="body2" color="text.secondary">
-              {analysisProgress.message}
+              {ioaLoaded ? (icebergLoaded ? (componentsLoaded ? 'Analysis complete' : 'Identifying Components and Boundaries...') : 'Performing Iceberg Analysis...') : 'Analyzing Island of Agreements...'}
             </Typography>
           )}
           <Box sx={{ ml: 'auto' }}>
@@ -442,21 +452,10 @@ const ReviewAndRevise = () => {
             </Button>
           </Box>
         </Box>
-        
-        {loading && (
-          <Box sx={{ width: '100%', mb: 4 }}>
-            <ProgressBar progress={analysisProgress.progress} />
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-              <Typography variant="caption" color="text.secondary">
-                {analysisProgress.progress}%
-              </Typography>
-            </Box>
-          </Box>
-        )}
 
         <Grid container spacing={4}>
           {renderAnalysisSection(
-            'Issues of Agreement (IoA)',
+            'Island of Agreements (IoA)',
             'ioa',
             ioa,
             handleIoaChange,

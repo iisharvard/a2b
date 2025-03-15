@@ -274,16 +274,22 @@ const InitialSetup = () => {
             />
           )}
           
-          <TextField
-            fullWidth
-            label={`Party ${partyNumber} Description`}
-            value={partyDescription}
-            onChange={(e) => partyNumber === 1 ? setParty1Description(e.target.value) : setParty2Description(e.target.value)}
-            margin="normal"
-            variant="outlined"
-            multiline
-            rows={4}
-          />
+          <Box sx={{ 
+            mt: 2, 
+            p: 2, 
+            bgcolor: 'background.default', 
+            borderRadius: 1
+          }}>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                whiteSpace: 'pre-wrap',
+                color: 'text.primary'
+              }}
+            >
+              {partyDescription || 'No description available.'}
+            </Typography>
+          </Box>
         </Box>
       </Grid>
     );
