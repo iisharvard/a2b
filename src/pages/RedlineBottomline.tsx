@@ -20,13 +20,17 @@ import {
   Card,
   CardContent,
   ListItemButton,
+  CircularProgress
 } from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { RootState } from '../store';
 import { 
-  updateComponent, 
+  updateComponent,
   Component,
+  updateComponents
 } from '../store/negotiationSlice';
+import { api } from '../services/api';
 
 /**
  * RedlineBottomline component for setting redlines and bottomlines for each component
@@ -42,6 +46,8 @@ const RedlineBottomline = () => {
   const [components, setComponents] = useState<Component[]>([]);
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  const [recalculationSuccess, setRecalculationSuccess] = useState<string | null>(null);
 
   // Load components from Redux when component mounts
   useEffect(() => {
@@ -111,6 +117,35 @@ const RedlineBottomline = () => {
     setError(null);
     navigate('/scenarios');
   }, [navigate, validateComponents]);
+  
+  /**
+   * Handle recalculating boundaries only
+   */
+  const handleRecalculateBoundaries = useCallback(async () => {
+    if (!currentCase || !currentCase.analysis) return;
+    
+    try {
+      setIsRecalculating(true);
+      setError(null);
+      setRecalculationSuccess(null);
+      
+      // Call the API to recalculate boundaries
+      const updatedComponents = await api.recalculateBoundaries(currentCase.analysis);
+      
+      // Update the local state
+      setComponents(updatedComponents);
+      
+      // Update Redux store
+      dispatch(updateComponents(updatedComponents));
+      
+      setRecalculationSuccess('Boundaries recalculated successfully.');
+    } catch (err) {
+      console.error('Error recalculating boundaries:', err);
+      setError('Failed to recalculate boundaries. Please try again.');
+    } finally {
+      setIsRecalculating(false);
+    }
+  }, [currentCase, dispatch]);
   
   /**
    * Renders a component card with redline and bottomline inputs
@@ -268,6 +303,12 @@ const RedlineBottomline = () => {
           </Alert>
         )}
         
+        {recalculationSuccess && (
+          <Alert severity="success" sx={{ mb: 3 }}>
+            {recalculationSuccess}
+          </Alert>
+        )}
+        
         <Box sx={{ mb: 4 }}>
           <Typography variant="body1" paragraph>
             For each component, define the redlines (positions beyond which you won't accept) 
@@ -288,6 +329,22 @@ const RedlineBottomline = () => {
               />
             </ListItem>
           </List>
+        </Box>
+        
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={handleRecalculateBoundaries}
+            disabled={isRecalculating}
+            startIcon={isRecalculating ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
+            sx={{ 
+              fontSize: '0.9rem',
+              minWidth: '160px'
+            }}
+          >
+            {isRecalculating ? 'Recalculating...' : 'Recalculate Boundaries'}
+          </Button>
         </Box>
         
         <Grid container spacing={3}>
