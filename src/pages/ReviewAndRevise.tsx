@@ -336,88 +336,6 @@ const ReviewAndRevise = () => {
     }
   }, [currentCase, analyzeWithProgress, validateParties, dispatch, startRetryCountdown, cancelRetryCountdown]);
 
-  /**
-   * Render the analysis section
-   */
-  const renderAnalysisSection = useCallback((
-    title: string,
-    id: string,
-    value: string,
-    onChange: (value: string) => void,
-    defaultExpanded = false,
-    placeholder = ''
-  ) => {
-    // Determine if this section is loaded and editable
-    const isLoaded = 
-      (id === 'ioa' && ioaLoaded) || 
-      (id === 'iceberg' && icebergLoaded) || 
-      (id === 'issues' && componentsLoaded) ||
-      (currentCase?.analysis !== null); // If we have an existing analysis, all sections are loaded
-    
-    // Show loading state if not loaded
-    const sectionContent = !isLoaded ? (
-      <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <CircularProgress size={24} sx={{ mr: 2 }} />
-        <Typography variant="body2" color="text.secondary">
-          {`Loading ${title}...`}
-        </Typography>
-      </Box>
-    ) : (
-      <Box role="region" aria-labelledby={`${id}-header`}>
-        {id === 'ioa' ? (
-          // Use the IslandOfAgreementsTable component for the IoA section
-          <IslandOfAgreementsTable
-            value={value}
-            onChange={onChange}
-          />
-        ) : id === 'iceberg' ? (
-          // Use the IcebergVisualization component for the Iceberg section
-          <IcebergVisualization
-            value={value}
-            onChange={onChange}
-          />
-        ) : id === 'issues' ? (
-          // Use the NegotiationIssuesTable component for the Issues section
-          <NegotiationIssuesTable
-            value={value}
-            onChange={onChange}
-          />
-        ) : (
-          // Use the MarkdownEditor for any other sections
-          <MarkdownEditor
-            value={value}
-            onChange={onChange}
-            label=""
-            height="700px"
-            placeholder={placeholder}
-            disabled={loading}
-          />
-        )}
-      </Box>
-    );
-    
-    return (
-      <Grid item xs={12}>
-        <Accordion defaultExpanded={defaultExpanded}>
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            aria-controls={`${id}-content`}
-            id={`${id}-header`}
-            tabIndex={0}
-          >
-            <Typography variant="h6">{title}</Typography>
-            {!isLoaded && (
-              <CircularProgress size={16} sx={{ ml: 2 }} />
-            )}
-          </AccordionSummary>
-          <AccordionDetails>
-            {sectionContent}
-          </AccordionDetails>
-        </Accordion>
-      </Grid>
-    );
-  }, [loading, ioaLoaded, icebergLoaded, componentsLoaded, currentCase?.analysis]);
-
   // If no case is available, don't render anything
   if (!currentCase) {
     return null;
@@ -426,12 +344,6 @@ const ReviewAndRevise = () => {
   return (
     <Container maxWidth="xl">
       <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom align="center">
-          Analysis and Issues
-        </Typography>
-        
-        <Divider sx={{ mb: 4 }} />
-        
         {error && (
           <Alert severity={error.includes('successfully') ? 'success' : 'error'} sx={{ mb: 3 }}>
             {error}
@@ -478,29 +390,56 @@ const ReviewAndRevise = () => {
         </Box>
 
         <Grid container spacing={4}>
-          {renderAnalysisSection(
-            'Island of Agreements (IoA)',
-            'ioa',
-            ioa,
-            handleIoaChange,
-            true
-          )}
+          {/* Island of Agreements Section */}
+          <Grid item xs={12}>
+            {!ioaLoaded && !currentCase?.analysis ? (
+              <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CircularProgress size={24} sx={{ mr: 2 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Loading Island of Agreements...
+                </Typography>
+              </Box>
+            ) : (
+              <IslandOfAgreementsTable
+                value={ioa}
+                onChange={handleIoaChange}
+              />
+            )}
+          </Grid>
           
-          {renderAnalysisSection(
-            'Iceberg Analysis',
-            'iceberg',
-            iceberg,
-            handleIcebergChange
-          )}
+          {/* Iceberg Analysis Section */}
+          <Grid item xs={12}>
+            {!icebergLoaded && !currentCase?.analysis ? (
+              <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CircularProgress size={24} sx={{ mr: 2 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Loading Iceberg Analysis...
+                </Typography>
+              </Box>
+            ) : (
+              <IcebergVisualization
+                value={iceberg}
+                onChange={handleIcebergChange}
+              />
+            )}
+          </Grid>
           
-          {renderAnalysisSection(
-            'Issues to Negotiate',
-            'issues',
-            componentsMarkdown,
-            handleComponentsChange,
-            false,
-            "## Component Name\n\nComponent description and details..."
-          )}
+          {/* Issues to Negotiate Section */}
+          <Grid item xs={12}>
+            {!componentsLoaded && !currentCase?.analysis ? (
+              <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CircularProgress size={24} sx={{ mr: 2 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Loading Issues to Negotiate...
+                </Typography>
+              </Box>
+            ) : (
+              <NegotiationIssuesTable
+                value={componentsMarkdown}
+                onChange={handleComponentsChange}
+              />
+            )}
+          </Grid>
           
           <Grid item xs={12} sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
             <Button

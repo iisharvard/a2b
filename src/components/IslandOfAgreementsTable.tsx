@@ -195,10 +195,6 @@ ${newData.divergentNorms.map(norm => `- ${norm}`).join('\n')}
 
   return (
     <TableWrapper>
-      <Typography variant="h5" gutterBottom align="center">
-        Island of Agreements
-      </Typography>
-      
       <TableContainer>
         <Table sx={{ tableLayout: 'fixed' }}>
           <TableHead>
