@@ -505,10 +505,6 @@ ${newData.shared.values.map(v => `- ${v}`).join('\n')}
 
   return (
     <VisualizationContainer>
-      <Typography variant="h5" gutterBottom align="center">
-        Iceberg Analysis
-      </Typography>
-      
       <TableContainer>
         <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
           <TableHead>
