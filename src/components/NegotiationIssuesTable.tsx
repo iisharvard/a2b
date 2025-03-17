@@ -141,7 +141,7 @@ const NegotiationIssuesTable: React.FC<NegotiationIssuesTableProps> = ({ value, 
   return (
     <TableWrapper>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" gutterBottom>
+        <Typography variant="h5">
           Issues to Negotiate
         </Typography>
         <Tooltip title="Add a new issue to negotiate">
