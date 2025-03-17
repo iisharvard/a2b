@@ -31,6 +31,7 @@ import { api } from '../services/api';
 import MarkdownEditor from '../components/MarkdownEditor';
 import IslandOfAgreementsTable from '../components/IslandOfAgreementsTable';
 import IcebergVisualization from '../components/IcebergVisualization';
+import NegotiationIssuesTable from '../components/NegotiationIssuesTable';
 import { parseComponentsFromMarkdown, componentsToMarkdown } from '../utils/componentParser';
 
 // Types
@@ -375,8 +376,14 @@ const ReviewAndRevise = () => {
             value={value}
             onChange={onChange}
           />
+        ) : id === 'issues' ? (
+          // Use the NegotiationIssuesTable component for the Issues section
+          <NegotiationIssuesTable
+            value={value}
+            onChange={onChange}
+          />
         ) : (
-          // Use the MarkdownEditor for other sections
+          // Use the MarkdownEditor for any other sections
           <MarkdownEditor
             value={value}
             onChange={onChange}
