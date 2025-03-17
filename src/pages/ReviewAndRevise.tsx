@@ -29,6 +29,8 @@ import {
 import { setAnalysisRecalculated } from '../store/recalculationSlice';
 import { api } from '../services/api';
 import MarkdownEditor from '../components/MarkdownEditor';
+import IslandOfAgreementsTable from '../components/IslandOfAgreementsTable';
+import IcebergVisualization from '../components/IcebergVisualization';
 import { parseComponentsFromMarkdown, componentsToMarkdown } from '../utils/componentParser';
 
 // Types
@@ -361,14 +363,29 @@ const ReviewAndRevise = () => {
       </Box>
     ) : (
       <Box role="region" aria-labelledby={`${id}-header`}>
-        <MarkdownEditor
-          value={value}
-          onChange={onChange}
-          label=""
-          height="700px"
-          placeholder={placeholder}
-          disabled={loading}
-        />
+        {id === 'ioa' ? (
+          // Use the IslandOfAgreementsTable component for the IoA section
+          <IslandOfAgreementsTable
+            value={value}
+            onChange={onChange}
+          />
+        ) : id === 'iceberg' ? (
+          // Use the IcebergVisualization component for the Iceberg section
+          <IcebergVisualization
+            value={value}
+            onChange={onChange}
+          />
+        ) : (
+          // Use the MarkdownEditor for other sections
+          <MarkdownEditor
+            value={value}
+            onChange={onChange}
+            label=""
+            height="700px"
+            placeholder={placeholder}
+            disabled={loading}
+          />
+        )}
       </Box>
     );
     
