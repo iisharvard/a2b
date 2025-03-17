@@ -13,6 +13,7 @@ interface ScenarioSpectrumProps {
   selectedScenarioId?: string;
   party1Name?: string;
   party2Name?: string;
+  loadedScenarios?: string[];
 }
 
 // Scenario type names mapping
@@ -48,7 +49,8 @@ const ScenarioSpectrum = ({
   onUpdateScenario,
   selectedScenarioId,
   party1Name = 'Party 1',
-  party2Name = 'Party 2'
+  party2Name = 'Party 2',
+  loadedScenarios
 }: ScenarioSpectrumProps) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
