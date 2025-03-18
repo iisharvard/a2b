@@ -23,6 +23,9 @@
     "@uiw/react-codemirror": "^4.21.9",
     "axios": "^1.4.0",
     "d3": "^7.8.5",
+    "docx": "^9.3.0",
+    "mammoth": "^1.9.0",
+    "pdfjs-dist": "^5.0.375",
     "react": "^18.2.0",
     "react-beautiful-dnd": "^13.1.1",
     "react-dom": "^18.2.0",
@@ -36,6 +39,7 @@
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
+    "@types/pdf-parse": "^1.1.4",
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
     "@typescript-eslint/eslint-plugin": "^6.0.0",

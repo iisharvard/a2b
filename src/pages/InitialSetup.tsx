@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, ChangeEvent, DragEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -22,7 +22,15 @@ import {
   Alert,
   Divider,
   SelectChangeEvent,
+  IconButton,
+  CircularProgress,
+  Tooltip,
+  Chip,
+  Stack,
 } from '@mui/material';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import DescriptionIcon from '@mui/icons-material/Description';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { RootState } from '../store';
 import {
   setCase,
@@ -31,6 +39,7 @@ import {
   Party,
 } from '../store/negotiationSlice';
 import { api } from '../services/api';
+import { extractTextFromFile, getFileTypeDescription } from '../utils/fileExtractor';
 
 /**
  * InitialSetup component for entering case details and party information
@@ -53,6 +62,13 @@ const InitialSetup = () => {
   const [error, setError] = useState<string | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [partiesIdentified, setPartiesIdentified] = useState(false);
+  const [fileProcessing, setFileProcessing] = useState(false);
+  const [fileInfo, setFileInfo] = useState<Array<{name: string; type: string}>>([]);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  
+  // File input ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Load case content from Redux if available
   useEffect(() => {
@@ -186,13 +202,160 @@ const InitialSetup = () => {
   ]);
   
   /**
-   * Clears all data
+   * Process a collection of files
+   */
+  const processFiles = async (files: FileList | File[]) => {
+    if (files.length === 0) return;
+    
+    setFileProcessing(true);
+    setError(null);
+    setSuccessMessage(null);
+    
+    try {
+      let extractedTextResult = '';
+      let processedFileInfo: Array<{name: string; type: string}> = [];
+      
+      // Process each file in sequence
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        try {
+          // Check file size for PDFs - warn if large
+          if (file.type === 'application/pdf' && file.size > 10 * 1024 * 1024) {
+            // More than 10MB
+            setSuccessMessage(`Processing large PDF ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)}MB)...`);
+          }
+          
+          const extractedText = await extractTextFromFile(file);
+          
+          if (!extractedText.trim()) {
+            console.warn(`No text extracted from ${file.name}`);
+            continue;
+          }
+          
+          // Add file info
+          processedFileInfo.push({
+            name: file.name,
+            type: getFileTypeDescription(file)
+          });
+          
+          // Append text with separator
+          if (extractedTextResult) {
+            extractedTextResult += '\n\n-------------------\n\n';
+          }
+          extractedTextResult += `[Content from: ${file.name}]\n\n${extractedText}`;
+        } catch (err) {
+          console.error(`Error processing file ${file.name}:`, err);
+          // Continue with other files if possible
+        }
+      }
+      
+      if (!extractedTextResult) {
+        throw new Error("No text could be extracted from the uploaded file(s). They might be image-based or protected documents.");
+      }
+      
+      // Append to existing content
+      setCaseContent(prev => {
+        // If there's existing content, add a separator
+        if (prev.trim()) {
+          return `${prev.trim()}\n\n-------------------\n\n${extractedTextResult}`;
+        }
+        return extractedTextResult;
+      });
+      
+      // Update file info
+      setFileInfo(prev => [...prev, ...processedFileInfo]);
+      
+      if (files.length === 1) {
+        setSuccessMessage(`Successfully extracted text from ${files[0].name}`);
+      } else {
+        setSuccessMessage(`Successfully extracted text from ${files.length} files`);
+      }
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (err) {
+      console.error('Error extracting text from files:', err);
+      setError(`Failed to extract text: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setFileProcessing(false);
+    }
+  };
+
+  /**
+   * Handles file selection for text extraction
+   */
+  const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) {
+      return;
+    }
+    
+    await processFiles(files);
+  };
+
+  /**
+   * Triggers file input click
+   */
+  const triggerFileUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+  
+  /**
+   * Handles drag events
+   */
+  const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+  
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+  
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+  
+  const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      await processFiles(e.dataTransfer.files);
+    }
+  };
+  
+  /**
+   * Clear all file info
+   */
+  const clearFileInfo = () => {
+    setFileInfo([]);
+  };
+  
+  /**
+   * Handles text change in the case content field
+   */
+  const handleCaseContentChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setCaseContent(e.target.value);
+    // Clear success message when user edits content manually
+    setSuccessMessage(null);
+  }, []);
+  
+  /**
+   * Clear all data including case content and party information
    */
   const handleClearData = useCallback(() => {
-    // Clear Redux state
-    dispatch(clearState());
-    
-    // Clear component state
     setCaseContent('');
     setParty1Name('');
     setParty2Name('');
@@ -201,9 +364,14 @@ const InitialSetup = () => {
     setSuggestedPartiesState([]);
     setPartiesIdentified(false);
     setError(null);
+    setFileInfo([]);
+    setSuccessMessage(null);
     
     // Close dialog
     setConfirmDialogOpen(false);
+    
+    // Clear Redux state
+    dispatch(clearState());
   }, [dispatch]);
   
   /**
@@ -310,18 +478,113 @@ const InitialSetup = () => {
           </Alert>
         )}
         
+        {successMessage && (
+          <Alert severity="success" sx={{ mb: 3 }}>
+            {successMessage}
+          </Alert>
+        )}
+        
         <Grid container spacing={4}>
           <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom>
-              Case Content
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Case Content
+              </Typography>
+              <Box>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  onChange={handleFileUpload}
+                  accept=".txt,.pdf,.doc,.docx,.rtf"
+                  multiple
+                />
+                <Tooltip title="Upload files (PDF, TXT, DOC, DOCX, RTF)">
+                  <span>
+                    <IconButton 
+                      color="primary"
+                      onClick={triggerFileUpload}
+                      disabled={fileProcessing}
+                      sx={{ mr: 1 }}
+                    >
+                      {fileProcessing ? (
+                        <CircularProgress size={24} />
+                      ) : (
+                        <UploadFileIcon />
+                      )}
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                {fileInfo.length > 0 && (
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+                    <Typography variant="caption" sx={{ mr: 1 }}>
+                      Files: {fileInfo.length}
+                    </Typography>
+                    <IconButton 
+                      size="small" 
+                      color="default" 
+                      onClick={clearFileInfo}
+                      title="Clear file list"
+                    >
+                      ×
+                    </IconButton>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+            
+            {/* Drag and drop area */}
+            <Box
+              sx={{
+                border: isDragging 
+                  ? '2px dashed #2196f3'
+                  : '2px dashed #cccccc',
+                borderRadius: 1,
+                p: 1,
+                mb: 2,
+                minHeight: '60px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundColor: isDragging ? 'rgba(33, 150, 243, 0.1)' : 'transparent',
+                transition: 'all 0.2s ease'
+              }}
+              onDragEnter={handleDragEnter}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <Box sx={{ textAlign: 'center', color: isDragging ? '#2196f3' : '#666' }}>
+                <CloudUploadIcon sx={{ fontSize: 32, mb: 1 }} />
+                <Typography variant="body2">
+                  Drag and drop files here to append to case content
+                </Typography>
+              </Box>
+            </Box>
+            
+            {/* File chips */}
+            {fileInfo.length > 0 && (
+              <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                {fileInfo.map((file, index) => (
+                  <Chip
+                    key={`${file.name}-${index}`}
+                    icon={<DescriptionIcon />}
+                    label={`${file.name} (${file.type})`}
+                    variant="outlined"
+                    size="small"
+                    color="primary"
+                  />
+                ))}
+              </Stack>
+            )}
+            
             <TextField
               fullWidth
               multiline
               rows={12}
               value={caseContent}
-              onChange={(e) => setCaseContent(e.target.value)}
-              placeholder="Enter or paste your case content here"
+              onChange={handleCaseContentChange}
+              placeholder="Enter or paste your case content here, or upload files using the button above or drag and drop"
               variant="outlined"
             />
           </Grid>
@@ -334,7 +597,7 @@ const InitialSetup = () => {
               <Button
                 variant="outlined"
                 onClick={identifyParties}
-                disabled={loading || !caseContent.trim()}
+                disabled={loading || !caseContent.trim() || fileProcessing}
               >
                 {loading ? 'Identifying...' : 'Identify Parties'}
               </Button>
@@ -359,7 +622,7 @@ const InitialSetup = () => {
               variant="contained"
               color="primary"
               onClick={handleSubmit}
-              disabled={!caseContent.trim() || !party1Name.trim() || !party2Name.trim()}
+              disabled={!caseContent.trim() || !party1Name.trim() || !party2Name.trim() || fileProcessing}
             >
               Continue to Analysis
             </Button>
