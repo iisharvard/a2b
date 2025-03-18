@@ -217,96 +217,14 @@ export const api = {
    * @returns Promise that resolves with an array of scenarios
    */
   async forceGenerateScenarios(
-    componentId: string, 
+    componentId: string,
     onScenarioGenerated?: (scenario: Scenario) => void
   ): Promise<Scenario[]> {
-    // Clear component scenarios from cache
+    // Clear the cache for this component
     clearScenariosForComponent(componentId);
     
-    // Call regular generate scenarios
+    // Call the regular generateScenarios method
     return this.generateScenarios(componentId, onScenarioGenerated);
-  },
-  
-  /**
-   * Generate a single scenario with a specific type
-   * @param componentId The ID of the component to generate a scenario for
-   * @param scenarioType The type of scenario to generate
-   * @returns Promise that resolves with the generated scenario
-   */
-  async generateSingleScenario(
-    componentId: string,
-    scenarioType: 'redline_violated_p1' | 'bottomline_violated_p1' | 'agreement_area' | 'bottomline_violated_p2' | 'redline_violated_p2'
-  ): Promise<Scenario | { rateLimited: true }> {
-    try {
-      // Get the current state
-      const state = store.getState();
-      const currentCase = state.negotiation.currentCase;
-
-      // Get the component details from the store
-      const component = currentCase?.analysis?.components.find(
-        c => c.id === componentId
-      );
-      
-      if (!component || !currentCase?.suggestedParties.length) {
-        throw new Error(`Component with ID ${componentId} not found or party information missing`);
-      }
-      
-      // Get party names
-      const party1Name = currentCase.suggestedParties[0].name;
-      const party2Name = currentCase.suggestedParties[1].name;
-      
-      // Call the language model with the single scenario prompt and component details
-      const scenarioInput: ScenarioInput = {
-        componentId,
-        componentName: component.name,
-        componentDescription: component.description,
-        redlineParty1: component.redlineParty1,
-        bottomlineParty1: component.bottomlineParty1,
-        redlineParty2: component.redlineParty2,
-        bottomlineParty2: component.bottomlineParty2,
-        party1Name,
-        party2Name,
-        scenarioType // Now properly typed
-      };
-      
-      const result = await callLanguageModel('singleScenario.txt', scenarioInput);
-      
-      if ('rateLimited' in result) {
-        return { rateLimited: true };
-      }
-      
-      // Return the single scenario
-      return {
-        id: `${componentId}-${Date.now()}`,
-        componentId,
-        type: scenarioType,
-        description: result.description || `${scenarioType} scenario`,
-        ...result
-      };
-    } catch (error) {
-      console.error('Error generating single scenario:', error);
-      
-      if (error instanceof Error && error.message.includes('rate limit')) {
-        throw error;
-      }
-      
-      // Fallback descriptions based on scenario type
-      const fallbackDescriptions: Record<string, string> = {
-        'redline_violated_p1': 'Party 1\'s redline is violated, creating a worst-case scenario for them. This would likely result in operational failure and potential withdrawal.',
-        'bottomline_violated_p1': 'Party 1\'s bottomline is violated, creating a challenging situation that may be workable but with significant compromises.',
-        'agreement_area': 'Both parties are operating within their acceptable ranges, creating a viable agreement area.',
-        'bottomline_violated_p2': 'Party 2\'s bottomline is violated, creating a challenging situation that may be workable but with significant compromises.',
-        'redline_violated_p2': 'Party 2\'s redline is violated, creating a worst-case scenario for them. This would likely result in operational failure and potential withdrawal.'
-      };
-      
-      // Return a fallback scenario
-      return {
-        id: `${componentId}-${Date.now()}`,
-        componentId,
-        type: scenarioType,
-        description: fallbackDescriptions[scenarioType] || `Scenario with type ${scenarioType}`
-      };
-    }
   },
   
   /**

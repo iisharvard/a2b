@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import {
@@ -57,10 +57,6 @@ const NegotiationScenario = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedIssueId, setSelectedIssueId] = useState<string>('');
   const [loadedScenarios, setLoadedScenarios] = useState<string[]>([]);
-  const [currentScenarioIndex, setCurrentScenarioIndex] = useState(0);
-  const generationIntervalRef = useRef<number | null>(null);
-  const [autoGenerateActive, setAutoGenerateActive] = useState(false);
-  const maxScenariosToGenerate = 5; // Maximum number of scenarios to generate
   
   // Get filtered scenarios for the selected issue
   const filteredScenarios = currentCase?.scenarios.filter(
@@ -82,15 +78,6 @@ const NegotiationScenario = () => {
       setSelectedIssueId(currentCase.analysis.components[0].id);
     }
   }, [currentCase, navigate, selectedIssueId]);
-
-  // Clear interval when component unmounts
-  useEffect(() => {
-    return () => {
-      if (generationIntervalRef.current) {
-        window.clearInterval(generationIntervalRef.current);
-      }
-    };
-  }, []);
 
   // Use a separate effect for scenario generation to prevent infinite loops
   useEffect(() => {
@@ -121,135 +108,100 @@ const NegotiationScenario = () => {
         return;
       }
 
-      // Start auto-generation of scenarios
-      handleAutoGenerateScenarios();
+      // Only proceed with generation if we need to
+      setIsGenerating(true);
+      setError(null);
+      
+      try {
+        console.log(`Starting scenario generation for issue: ${selectedIssueId}`);
+        
+        // Use regular generateScenarios instead of forceGenerateScenarios to use cache if available
+        const newScenarios = await api.generateScenarios(selectedIssueId, (scenario) => {
+          // Mark each scenario as loaded as it comes in
+          setLoadedScenarios(prev => [...prev, scenario.id]);
+        });
+        
+        // Ensure newScenarios is an array
+        const scenariosArray = Array.isArray(newScenarios) ? newScenarios : [];
+        console.log(`Generated ${scenariosArray.length} scenarios for issue: ${selectedIssueId}`);
+        
+        dispatch(setScenarios(scenariosArray));
+        
+        // Mark scenarios as recalculated if they were generated due to analysis changes
+        if (!recalculationStatus.scenariosRecalculated) {
+          dispatch(setScenariosRecalculated(true));
+        }
+      } catch (err: any) {
+        if (err.message?.includes('rate limit')) {
+          setError('Rate limit reached. Please wait a moment before trying again.');
+        } else {
+          console.error(`Error generating scenarios for issue ${selectedIssueId}:`, err);
+          setError('Failed to fetch scenarios. Please try again.');
+        }
+      } finally {
+        setIsGenerating(false);
+      }
     };
 
     fetchScenarios();
-  }, [selectedIssueId, currentCase, recalculationStatus.scenariosRecalculated]);
+  }, [selectedIssueId, currentCase, dispatch, recalculationStatus.scenariosRecalculated]);
 
-  /**
-   * Automatically generate scenarios one by one
-   */
-  const handleAutoGenerateScenarios = useCallback(() => {
-    if (!selectedIssueId || isGenerating || autoGenerateActive) return;
+  // Debug effect for selected scenario
+  useEffect(() => {
+    console.log('selectedScenario:', selectedScenario?.id);
+  }, [selectedScenario]);
+
+  const handleIssueChange = (issueId: string) => {
+    setSelectedIssueId(issueId);
+    // Reset selected scenario when changing issues
+    dispatch(selectScenario(null));
+  };
+
+  const handleSelectScenario = (scenario: Scenario) => {
+    console.log('Selecting scenario:', scenario.id);
+    
+    if (selectedScenario && selectedScenario.id === scenario.id) {
+      // If clicking the same scenario, deselect it
+      console.log('Deselecting current scenario');
+      dispatch(selectScenario(null));
+    } else {
+      // If selecting a different scenario
+      console.log('Selecting new scenario, previous:', selectedScenario?.id);
+      dispatch(selectScenario(scenario));
+    }
+  };
+
+  const handleGenerateScenarios = async () => {
+    if (!selectedIssueId || isGenerating) return;
     
     setError(null);
     setIsGenerating(true);
-    setAutoGenerateActive(true);
-    setCurrentScenarioIndex(0);
-    
-    // Clear any existing interval
-    if (generationIntervalRef.current) {
-      window.clearInterval(generationIntervalRef.current);
-    }
-    
     // Clear loaded scenarios for this component
     setLoadedScenarios(prev => prev.filter(id => {
       const scenario = currentCase?.scenarios.find(s => s.id === id);
       return scenario?.componentId !== selectedIssueId;
     }));
     
-    // Start with an empty array of scenarios for this component
-    dispatch(setScenarios(currentCase?.scenarios.filter(
-      s => s.componentId !== selectedIssueId
-    ) || []));
-    
-    // Generate the first scenario
-    generateNextScenario();
-  }, [selectedIssueId, isGenerating, autoGenerateActive, currentCase, dispatch]);
-
-  /**
-   * Generate the next scenario in sequence
-   */
-  const generateNextScenario = useCallback(async () => {
-    if (!selectedIssueId || !currentCase) return;
-    
     try {
-      console.log(`Generating scenario ${currentScenarioIndex + 1} for issue: ${selectedIssueId}`);
+      console.log(`Manually triggering scenario generation for issue: ${selectedIssueId}`);
       
-      const component = currentCase.analysis?.components.find(c => c.id === selectedIssueId);
-      if (!component) throw new Error(`Component not found: ${selectedIssueId}`);
+      // Force regenerate scenarios
+      const generatedScenarios = await api.forceGenerateScenarios(selectedIssueId, (scenario) => {
+        // Mark each scenario as loaded as it comes in
+        setLoadedScenarios(prev => [...prev, scenario.id]);
+      });
       
-      // Create a unique ID for this scenario
-      const scenarioId = `${selectedIssueId}-${Date.now()}-${currentScenarioIndex}`;
+      // Ensure generatedScenarios is an array
+      const scenariosArray = Array.isArray(generatedScenarios) ? generatedScenarios : [];
+      console.log(`Generated ${scenariosArray.length} scenarios for issue: ${selectedIssueId}`);
       
-      // Generate a single scenario
-      const scenarioType = getSingleScenarioType(currentScenarioIndex);
-      const result = await api.generateSingleScenario(selectedIssueId, scenarioType);
-      
-      if (!result || 'rateLimited' in result) {
-        throw new Error('Rate limit reached or empty response');
-      }
-      
-      // Create the new scenario
-      const newScenario: Scenario = {
-        id: scenarioId,
-        componentId: selectedIssueId,
-        type: scenarioType,
-        description: result.description || `Scenario ${currentScenarioIndex + 1}`
-      };
-      
-      // Add to loaded scenarios
-      setLoadedScenarios(prev => [...prev, scenarioId]);
-      
-      // Update Redux store with the new scenario
-      dispatch(setScenarios([...currentCase.scenarios, newScenario]));
-      
-      // Increment the index
-      setCurrentScenarioIndex(prev => prev + 1);
-      
-      // Check if we've generated all the scenarios
-      if (currentScenarioIndex >= maxScenariosToGenerate - 1) {
-        // We're done generating scenarios
-        setIsGenerating(false);
-        setAutoGenerateActive(false);
-        
-        // Mark scenarios as recalculated if they were generated due to analysis changes
-        if (!recalculationStatus.scenariosRecalculated) {
-          dispatch(setScenariosRecalculated(true));
-        }
-      } else {
-        // Schedule the next scenario generation after a short delay
-        setTimeout(() => {
-          generateNextScenario();
-        }, 1000); // 1-second delay between generations
-      }
-    } catch (err: any) {
-      console.error(`Error generating scenario for issue ${selectedIssueId}:`, err);
-      setError(err.message?.includes('rate limit') ? 
-        'Rate limit reached. Please wait a moment before trying again.' : 
-        'Failed to generate scenario. Please try again.');
+      dispatch(setScenarios(scenariosArray));
+    } catch (err) {
+      console.error(`Error manually generating scenarios for issue ${selectedIssueId}:`, err);
+      setError('Failed to generate scenarios. Please try again.');
+    } finally {
       setIsGenerating(false);
-      setAutoGenerateActive(false);
     }
-  }, [selectedIssueId, currentCase, currentScenarioIndex, dispatch, recalculationStatus.scenariosRecalculated]);
-
-  /**
-   * Get a scenario type based on the index in the sequence
-   */
-  const getSingleScenarioType = (index: number): 'redline_violated_p1' | 'bottomline_violated_p1' | 'agreement_area' | 'bottomline_violated_p2' | 'redline_violated_p2' => {
-    const types = [
-      'redline_violated_p1',
-      'bottomline_violated_p1',
-      'agreement_area',
-      'bottomline_violated_p2',
-      'redline_violated_p2'
-    ] as const;
-    return types[index % types.length];
-  };
-
-  const handleIssueChange = (issueId: string) => {
-    setSelectedIssueId(issueId);
-  };
-
-  const handleSelectScenario = (scenario: Scenario) => {
-    dispatch(selectScenario(scenario));
-  };
-
-  const handleGenerateScenarios = async () => {
-    // Call the auto-generate function to start the generation sequence
-    handleAutoGenerateScenarios();
   };
 
   const handleNext = () => {

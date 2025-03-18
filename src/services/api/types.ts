@@ -99,7 +99,6 @@ export interface ScenarioInput {
   bottomlineParty2: string;
   party1Name: string;
   party2Name: string;
-  scenarioType?: string;
 }
 
 export interface RecalculateBoundariesInput {
