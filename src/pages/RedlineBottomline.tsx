@@ -309,27 +309,6 @@ const RedlineBottomline = () => {
           </Alert>
         )}
         
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="body1" paragraph>
-            For each component, define the redlines (positions beyond which you won't accept) 
-            and bottomlines (positions you're willing to accept) for both parties.
-          </Typography>
-              
-          <List>
-            <ListItem>
-              <ListItemText 
-                primary="Redlines" 
-                secondary="The position beyond which a party will not accept. This is their absolute minimum requirement." 
-              />
-            </ListItem>
-            <ListItem>
-              <ListItemText 
-                primary="Bottomlines" 
-                secondary="The position a party is willing to accept, though it's not their ideal outcome." 
-              />
-            </ListItem>
-          </List>
-        </Box>
         
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
           <Button
@@ -355,6 +334,29 @@ const RedlineBottomline = () => {
             {selectedComponent && renderComponentCard(selectedComponent)}
           </Grid>
         </Grid>
+
+{/* 
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="body1" paragraph>
+            For each component, define the redlines (positions beyond which you won't accept) 
+            and bottomlines (positions you're willing to accept) for both parties.
+          </Typography>
+              
+          <List>
+            <ListItem>
+              <ListItemText 
+                primary="Redlines" 
+                secondary="The position beyond which a party will not accept. This is their absolute minimum requirement." 
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemText 
+                primary="Bottomlines" 
+                secondary="The position a party is willing to accept, though it's not their ideal outcome." 
+              />
+            </ListItem>
+          </List>
+        </Box> */}
         
         <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end' }}>
           <Button
