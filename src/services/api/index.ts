@@ -147,31 +147,59 @@ export const api = {
         party2Name
       };
       
-      const result = await callLanguageModel('scenarios.txt', scenarioInput);
-      
-      if ('rateLimited' in result) {
-        throw new Error('Rate limit exceeded');
+      try {
+        const result = await callLanguageModel('scenarios.txt', scenarioInput);
+        
+        if ('rateLimited' in result) {
+          throw new Error('Rate limit exceeded');
+        }
+        
+        const scenarios = result.scenarios || [];
+        apiCache.scenarios.set(componentId, scenarios);
+        
+        // If we have a callback, call it for each generated scenario
+        if (onScenarioGenerated) {
+          scenarios.forEach((scenario: Scenario) => {
+            onScenarioGenerated(scenario);
+          });
+        }
+        
+        return scenarios;
+      } catch (apiError: any) {
+        // Check for network-specific errors
+        if (apiError.message?.includes('Network Error') || 
+            apiError.code === 'ECONNREFUSED' || 
+            apiError.code === 'ECONNABORTED' ||
+            apiError.code === 'ERR_NETWORK' ||
+            apiError.message?.includes('CORS')) {
+          console.error('Network error connecting to language model:', apiError);
+          throw new Error('Network error: Unable to connect to the language model service. Please check your internet connection and try again.');
+        }
+        
+        // Check for rate limit errors
+        if (apiError.message?.includes('rate limit')) {
+          console.error('Rate limit error:', apiError);
+          throw new Error('Rate limit exceeded. Please wait a moment before trying again.');
+        }
+        
+        // Re-throw any other API-specific errors
+        throw apiError;
       }
-      
-      const scenarios = result.scenarios || [];
-      apiCache.scenarios.set(componentId, scenarios);
-      
-      // If we have a callback, call it for each generated scenario
-      if (onScenarioGenerated) {
-        scenarios.forEach((scenario: Scenario) => {
-          onScenarioGenerated(scenario);
-        });
-      }
-      
-      return scenarios;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating scenarios:', error);
       
-      if (error instanceof Error && error.message.includes('rate limit')) {
+      // If it's a network error, a rate limit error, or some other specific error we want to bubble up
+      if (error.message?.includes('Network error:') || 
+          error.message?.includes('rate limit') || 
+          error.message?.includes('Component with ID') || 
+          error.message?.includes('party information missing')) {
         throw error;
       }
       
-      // Fallback to basic scenarios if API call fails
+      // For other errors, we'll use fallback scenarios
+      console.log('Using fallback scenarios due to error:', error.message);
+      
+      // Create generic fallback scenarios
       const fallbackScenarios: Scenario[] = [
         {
           id: `${componentId}-1`,

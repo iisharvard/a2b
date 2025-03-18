@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, ReactNode } from 'react';
-import { Box, Typography, Paper, Tooltip, Collapse, TextField, IconButton } from '@mui/material';
+import { Box, Typography, Paper, Tooltip, Collapse, TextField, IconButton, CircularProgress } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -13,6 +13,7 @@ interface ScenarioSpectrumProps {
   selectedScenarioId?: string;
   party1Name?: string;
   party2Name?: string;
+  loadedScenarios?: string[];
 }
 
 // Scenario type names mapping
@@ -48,7 +49,8 @@ const ScenarioSpectrum = ({
   onUpdateScenario,
   selectedScenarioId,
   party1Name = 'Party 1',
-  party2Name = 'Party 2'
+  party2Name = 'Party 2',
+  loadedScenarios
 }: ScenarioSpectrumProps) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -57,6 +59,27 @@ const ScenarioSpectrum = ({
   const [editingScenario, setEditingScenario] = useState<string | null>(null);
   const [editedDescription, setEditedDescription] = useState<string>('');
   
+  // Filter out invalid scenarios
+  const validScenarios = scenarios.filter(scenario => {
+    return (
+      scenario.type !== undefined && 
+      scenario.description?.trim() !== '' &&
+      // Filter out placeholder scenarios (if any)
+      !scenario.description?.includes('placeholder')
+    );
+  });
+
+  // Track if scenarios are currently loading
+  const areScenariosLoading = loadedScenarios && 
+    scenarios.length > 0 && 
+    scenarios.some(s => !loadedScenarios.includes(s.id));
+
+  // Ensure we have exactly 5 scenarios maximum
+  const displayedScenarios = validScenarios.slice(0, 5);
+
+  // Check if we have no scenarios to display
+  const hasNoScenarios = displayedScenarios.length === 0 && !areScenariosLoading;
+
   // Get scenario type names with current party names
   const scenarioTypeNames = getScenarioTypeNames(party1Name, party2Name);
 
@@ -103,9 +126,12 @@ const ScenarioSpectrum = ({
       .attr("width", width)
       .attr("height", height);
 
+    // Always show 5 fixed positions for the spectrum
+    const scenarioCount = 5;
+    
     // Create scale - reversed order again
     const xScale = d3.scaleLinear()
-      .domain([0, scenarios.length - 1])
+      .domain([0, scenarioCount - 1])
       .range([width - margin.right, margin.left]);
 
     // Add risk label - moved higher and aligned left with arrow
@@ -149,28 +175,47 @@ const ScenarioSpectrum = ({
       .attr("stroke", "#ccc")
       .attr("stroke-width", 2);
 
-    // Reverse scenarios order
-    const displayScenarios = [...scenarios].reverse().map((scenario, index) => ({
+    // Ensure we handle up to 5 scenarios consistently
+    const displayScenarios = scenarios.slice(0, 5).map((scenario, index) => ({
       ...scenario,
       displayNumber: index + 1
     }));
+    
+    // Fill with empty scenarios if we have less than 5
+    while (displayScenarios.length < 5) {
+      displayScenarios.push({
+        id: `placeholder-${displayScenarios.length}`,
+        componentId: '',
+        type: 'agreement_area',
+        displayNumber: displayScenarios.length + 1,
+        description: ''
+      });
+    }
+    
+    // Reverse order for display
+    const reversedScenarios = [...displayScenarios].reverse();
 
     // Add dots for each scenario
     spectrumGroup.selectAll("circle")
-      .data(displayScenarios)
+      .data(reversedScenarios)
       .enter()
       .append("circle")
       .attr("cx", (d, i) => xScale(i))
       .attr("cy", 0)
       .attr("r", d => d.id === selectedScenarioId ? 8 : 6)
       .attr("fill", d => {
+        // Skip placeholder scenarios
+        if (d.id.startsWith('placeholder')) {
+          return '#cccccc40';
+        }
+        
         const color = d.type.includes('redline') ? '#ff4444' : 
                      d.type.includes('bottomline') ? '#ffaa00' : 
                      '#44aa44';
         return d.id === selectedScenarioId ? color : `${color}80`;
       })
       .attr("class", "scenario-dot")
-      .style("cursor", "pointer")
+      .style("cursor", d => d.id.startsWith('placeholder') ? 'default' : "pointer")
       .style("transition", "all 0.3s ease")
       .style("filter", d => {
         if (d.id === selectedScenarioId) {
@@ -181,22 +226,30 @@ const ScenarioSpectrum = ({
         }
         return "none";
       })
-      .on("click", (event, d) => onSelectScenario(d))
-      .on("mouseover", (event, d) => setHoveredScenario(d.id))
+      .on("click", (event, d) => {
+        if (!d.id.startsWith('placeholder')) {
+          onSelectScenario(d);
+        }
+      })
+      .on("mouseover", (event, d) => {
+        if (!d.id.startsWith('placeholder')) {
+          setHoveredScenario(d.id);
+        }
+      })
       .on("mouseout", () => setHoveredScenario(null));
 
     // Add scenario numbers
     spectrumGroup.selectAll("text.scenario-number")
-      .data(scenarios)
+      .data(reversedScenarios)
       .enter()
       .append("text")
       .attr("class", "scenario-number")
       .attr("x", (d, i) => xScale(i))
       .attr("y", -20)
       .attr("text-anchor", "middle")
-      .attr("fill", "#666")
+      .attr("fill", d => d.id.startsWith('placeholder') ? '#ccc' : "#666")
       .attr("font-size", "12px")
-      .text((d, i) => scenarios.length - i);  // Reverse the numbers to display 5,4,3,2,1
+      .text((d, i) => 5 - i);  // Display 5,4,3,2,1
 
     // Add labels - party1 on left, party2 on right
     svg.append("text")
@@ -215,149 +268,246 @@ const ScenarioSpectrum = ({
       .attr("font-size", "12px")
       .text(party2Name);  // Changed to party2Name
 
-    // Store the positions of the circles for connecting lines
+    // Calculate scenario positions but only update state if they've changed
     const positions: {[key: string]: {x: number, y: number}} = {};
-    scenarios.forEach((scenario, i) => {
-      positions[scenario.id] = {
-        x: xScale(i) + margin.left,
-        y: 30 + margin.top
-      };
-    });
-    setScenarioPositions(positions);
     
+    // Use displayScenarios.slice() to avoid modifying the original array
+    displayScenarios.forEach((scenario, i) => {
+      if (!scenario.id.startsWith('placeholder')) {
+        positions[scenario.id] = {
+          x: xScale(4 - i) + margin.left, // Reversed order: 4-i gives 4,3,2,1,0
+          y: 30 + margin.top
+        };
+      }
+    });
+    
+    // Compare with existing positions to avoid unnecessary state updates
+    let positionsChanged = false;
+    
+    // Check if any positions are different or if we have a different number of scenarios
+    if (Object.keys(positions).length !== Object.keys(scenarioPositions).length) {
+      positionsChanged = true;
+    } else {
+      for (const id in positions) {
+        if (!scenarioPositions[id] || 
+            positions[id].x !== scenarioPositions[id].x ||
+            positions[id].y !== scenarioPositions[id].y) {
+          positionsChanged = true;
+          break;
+        }
+      }
+    }
+    
+    // Only update state if positions have changed
+    if (positionsChanged) {
+      // Use a function form of setState to avoid including scenarioPositions in dependencies
+      setScenarioPositions(() => positions);
+    }
+    
+  // Remove scenarioPositions from dependencies to prevent infinite loop
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenarios, selectedScenarioId, party1Name, party2Name]);
   
   return (
     <Box ref={containerRef} sx={{ position: 'relative' }}>
-      <Paper variant="outlined" sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-        {/* Spectrum visualization */}
-        <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'medium', color: 'text.primary', mb: 2 }}>
-          Scenario Spectrum
-        </Typography>
-        <svg ref={svgRef} style={{ width: '100%', height: '120px' }} />
-      </Paper>
-      
-      {/* Scenario boxes - vertically stacked */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {scenarios.map((scenario, index) => {
-          const isSelected = selectedScenarioId === scenario.id;
-          const isEditing = editingScenario === scenario.id;
-          const scenarioColor = getColorForType(scenario.type);
+      {/* Loading indicator */}
+      {areScenariosLoading && (
+        <Box 
+          sx={{ 
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center',
+            backgroundColor: 'rgba(255, 255, 255, 0.7)',
+            zIndex: 10
+          }}
+        >
+          <Box sx={{ textAlign: 'center' }}>
+            <CircularProgress size={40} />
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              Generating scenarios...
+            </Typography>
+          </Box>
+        </Box>
+      )}
+
+      {/* No scenarios message */}
+      {hasNoScenarios ? (
+        <Box 
+          sx={{ 
+            minHeight: 200, 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center',
+            flexDirection: 'column',
+            p: 3,
+            textAlign: 'center',
+            bgcolor: 'background.paper',
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'divider'
+          }}
+        >
+          <Typography variant="body1" color="text.secondary">
+            No scenarios available for this issue.
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Please select a different issue or try regenerating scenarios.
+          </Typography>
+        </Box>
+      ) : (
+        <>
+          <Paper variant="outlined" sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+            {/* Spectrum visualization */}
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'medium', color: 'text.primary', mb: 2 }}>
+              Scenario Spectrum
+            </Typography>
+            <svg ref={svgRef} style={{ width: '100%', height: '120px' }} />
+          </Paper>
           
-          return (
-            <Box key={scenario.id}>
-              <Tooltip title={isSelected ? "Click to deselect" : "Click to select"} placement="top">
-                <div>
-                  <Paper 
-                    variant="outlined" 
-                    sx={{ 
-                      p: 3,
-                      cursor: isEditing ? 'default' : 'pointer',
-                      borderColor: isSelected ? 'primary.main' : 'divider',
-                      borderWidth: isSelected ? 2 : 1,
-                      borderRadius: 2,
-                      bgcolor: isSelected ? 'rgba(25, 118, 210, 0.04)' : 'background.paper',
-                      opacity: selectedScenarioId && !isSelected ? 0.8 : 1,
-                      transition: 'all 0.2s ease-in-out',
-                      position: 'relative',
-                      '&:hover': {
-                        opacity: 1,
-                        borderColor: isSelected ? 'primary.dark' : 'primary.light',
-                        boxShadow: 1,
-                        transform: 'translateY(-2px)',
-                      }
-                    }}
-                    onClick={() => !isEditing && onSelectScenario(scenario)}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5, justifyContent: 'space-between' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Box 
-                          sx={{ 
-                            width: 16, 
-                            height: 16, 
-                            borderRadius: '50%', 
-                            bgcolor: scenarioColor,
-                            mr: 2,
-                            boxShadow: isSelected ? `0 0 0 3px rgba(${scenarioColor === '#4caf50' ? '76, 175, 80' : scenarioColor === '#ff9800' ? '255, 152, 0' : '255, 82, 82'}, 0.2)` : 'none'
-                          }} 
-                        />
-                        <Typography variant="subtitle1" sx={{ fontWeight: isSelected ? 'bold' : 'medium' }}>
-                          {getScenarioName(scenario.type, index)}
-                        </Typography>
-                      </Box>
-                      {onUpdateScenario && !isEditing && (
-                        <IconButton 
-                          size="small" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditClick(scenario);
-                          }}
-                          sx={{ 
-                            color: 'text.secondary',
-                            '&:hover': { color: 'primary.main' }
-                          }}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      )}
-                      {isEditing && (
-                        <Box>
-                          <IconButton 
-                            size="small" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSaveClick(scenario);
-                            }}
-                            color="primary"
-                          >
-                            <SaveIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton 
-                            size="small" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCancelClick();
-                            }}
-                            color="error"
-                          >
-                            <CancelIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      )}
-                    </Box>
-                    
-                    {isEditing ? (
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={3}
-                        value={editedDescription}
-                        onChange={(e) => setEditedDescription(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        variant="outlined"
-                        size="small"
-                        sx={{ mb: 1 }}
-                      />
-                    ) : (
-                      <Typography 
-                        variant="body2" 
-                        color="text.secondary" 
-                        sx={{ 
-                          mb: 1,
-                          lineHeight: 1.6,
-                          fontSize: '0.9rem'
+          {/* Scenario boxes - vertically stacked */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {displayedScenarios.map((scenario, index) => {
+              const isSelected = selectedScenarioId === scenario.id;
+              const isEditing = editingScenario === scenario.id;
+              const scenarioColor = getColorForType(scenario.type);
+              const isLoaded = !loadedScenarios || loadedScenarios.includes(scenario.id);
+              
+              return (
+                <Box key={scenario.id}>
+                  <Tooltip title={isSelected ? "Click to deselect" : "Click to select"} placement="top">
+                    <div>
+                      <Paper
+                        elevation={isSelected ? 4 : 1}
+                        onClick={() => isLoaded && onSelectScenario(scenario)}
+                        sx={{
+                          p: 3,
+                          borderRadius: 2,
+                          borderLeft: `6px solid ${scenarioColor}`,
+                          opacity: isLoaded ? 1 : 0.7,
+                          transition: 'all 0.3s ease',
+                          cursor: isLoaded ? 'pointer' : 'default',
+                          position: 'relative',
+                          '&:hover': {
+                            boxShadow: isLoaded ? 3 : 1,
+                            bgcolor: isLoaded ? 'rgba(0, 0, 0, 0.02)' : 'inherit',
+                          },
+                          ...(isSelected && {
+                            bgcolor: `${scenarioColor}10`,
+                            borderColor: scenarioColor,
+                            boxShadow: `0 0 8px ${scenarioColor}80`,
+                          }),
                         }}
                       >
-                        {scenario.description}
-                      </Typography>
-                    )}
-                  </Paper>
-                </div>
-              </Tooltip>
-            </Box>
-          );
-        })}
-      </Box>
+                        {!isLoaded && (
+                          <Box 
+                            sx={{ 
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              display: 'flex',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              backgroundColor: 'rgba(255, 255, 255, 0.5)',
+                              zIndex: 1,
+                              borderRadius: 2
+                            }}
+                          >
+                            <CircularProgress size={20} thickness={4} />
+                          </Box>
+                        )}
+                        
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                          <Typography 
+                            variant="subtitle1" 
+                            sx={{ 
+                              fontWeight: 'bold', 
+                              color: isSelected ? scenarioColor : 'text.primary',
+                              mb: 1
+                            }}
+                          >
+                            {getScenarioName(scenario.type, index)}
+                          </Typography>
+                          
+                          {onUpdateScenario && isLoaded && (
+                            <Box>
+                              {isEditing ? (
+                                <>
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSaveClick(scenario);
+                                    }}
+                                    sx={{ mr: 0.5 }}
+                                  >
+                                    <SaveIcon fontSize="small" />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCancelClick();
+                                    }}
+                                  >
+                                    <CancelIcon fontSize="small" />
+                                  </IconButton>
+                                </>
+                              ) : (
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditClick(scenario);
+                                  }}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                            </Box>
+                          )}
+                        </Box>
+                        
+                        {isEditing ? (
+                          <TextField
+                            fullWidth
+                            multiline
+                            rows={3}
+                            value={editedDescription}
+                            onChange={(e) => setEditedDescription(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            variant="outlined"
+                            size="small"
+                            sx={{ mb: 1 }}
+                          />
+                        ) : (
+                          <Typography 
+                            variant="body2" 
+                            color="text.secondary" 
+                            sx={{ 
+                              mb: 1,
+                              lineHeight: 1.6,
+                              fontSize: '0.9rem'
+                            }}
+                          >
+                            {scenario.description}
+                          </Typography>
+                        )}
+                      </Paper>
+                    </div>
+                  </Tooltip>
+                </Box>
+              );
+            })}
+          </Box>
+        </>
+      )}
     </Box>
   );
 };

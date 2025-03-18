@@ -202,9 +202,25 @@ export const negotiationSlice = createSlice({
           (s) => s.componentId !== componentId
         );
         
+        // Ensure the new scenarios have unique IDs from 1-5
+        const dedupedScenarios = action.payload.slice(0, 5).map((scenario, index) => ({
+          ...scenario,
+          id: `${componentId}-${index + 1}`
+        }));
+        
         // Add new scenarios
-        const newScenarios = [...existingScenarios, ...action.payload];
+        const newScenarios = [...existingScenarios, ...dedupedScenarios];
         state.currentCase.scenarios = newScenarios;
+        
+        // If this was the selected scenario's component, reset selection
+        // to avoid issues with potentially deleted scenarios
+        if (state.selectedScenario && state.selectedScenario.componentId === componentId) {
+          // Try to find a scenario with the same id in the new set
+          const found = dedupedScenarios.find(s => s.id === state.selectedScenario?.id);
+          if (!found) {
+            state.selectedScenario = null;
+          }
+        }
         
         // Store the original scenarios for diff comparison
         const originalScenarios = state.currentCase.originalContent.scenarios;
@@ -213,7 +229,7 @@ export const negotiationSlice = createSlice({
         if (!hasComponentScenarios) {
           state.currentCase.originalContent.scenarios = [
             ...originalScenarios,
-            ...action.payload.map(s => JSON.parse(JSON.stringify(s)))
+            ...dedupedScenarios.map(s => JSON.parse(JSON.stringify(s)))
           ];
         }
         
