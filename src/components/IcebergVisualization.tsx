@@ -142,176 +142,156 @@ const IcebergVisualization: React.FC<IcebergVisualizationProps> = ({ value, onCh
 
   // Parse the markdown content when it changes
   useEffect(() => {
-    console.log("Received Iceberg data:", value);
-    
-    const parseMarkdown = (markdown: string) => {
-      const party1 = { name: "User's Organization", positions: [] as string[], reasoning: [] as string[], values: [] as string[] };
-      const party2 = { name: 'Counterparty', positions: [] as string[], reasoning: [] as string[], values: [] as string[] };
-      const shared = { positions: [] as string[], reasoning: [] as string[], values: [] as string[] };
-
-      // Simple parser for the markdown format
-      const lines = markdown.split('\n');
-      let currentParty = '';
-      let currentSection = '';
-
-      console.log("Parsing markdown lines:", lines);
-
-      for (const line of lines) {
-        // Detect party sections - look for different possible formats
-        if (line.match(/^## Party 1/) || line.match(/^## .*Organization/) || line.match(/^## .*User.*/) || line.match(/^## .*Your.*/) || line.match(/^## .*We.*/)) {
-          currentParty = 'party1';
-          // Extract party name if available
-          const nameMatch = line.match(/## (.*?)($|\()/);
-          if (nameMatch && nameMatch[1]) {
-            party1.name = nameMatch[1].trim();
-          }
-          console.log("Found Party 1:", party1.name);
-          continue;
-        } else if (line.match(/^## Party 2/) || line.match(/^## .*Counter.*/) || line.match(/^## .*They.*/) || line.match(/^## .*Them.*/)) {
-          currentParty = 'party2';
-          // Extract party name if available
-          const nameMatch = line.match(/## (.*?)($|\()/);
-          if (nameMatch && nameMatch[1]) {
-            party2.name = nameMatch[1].trim();
-          }
-          console.log("Found Party 2:", party2.name);
-          continue;
-        } else if (line.match(/^## Shared/) || line.match(/^## Common.*/) || line.match(/^## Both.*/)) {
-          currentParty = 'shared';
-          console.log("Found Shared section");
-          continue;
+    if (value) {
+      setIcebergData(parseMarkdown(value));
+    } else {
+      const defaultData = {
+        party1: {
+          name: "User's Organization",
+          positions: ["Position 1 - Click to edit"],
+          reasoning: ["Reasoning 1 - Click to edit"],
+          values: ["Value 1 - Click to edit"],
+        },
+        party2: {
+          name: "Counterparty",
+          positions: ["Position 1 - Click to edit"],
+          reasoning: ["Reasoning 1 - Click to edit"],
+          values: ["Value 1 - Click to edit"],
+        },
+        shared: {
+          positions: ["Potential shared position - Click to edit"],
+          reasoning: ["Potential shared reasoning - Click to edit"],
+          values: ["Potential shared value - Click to edit"],
         }
+      };
+      setIcebergData(defaultData);
+    }
+  }, [value]);
 
-        // Detect section types - now handling ### instead of ## and handling singular forms
-        if (line.match(/^### Position/) || line.match(/^### Positions/) || line.match(/^### What/)) {
-          currentSection = 'positions';
-          console.log(`Setting current section to positions for ${currentParty}`);
-          continue;
-        } else if (line.match(/^### Reasoning/) || line.match(/^### How/)) {
-          currentSection = 'reasoning';
-          console.log(`Setting current section to reasoning for ${currentParty}`);
-          continue;
-        } else if (line.match(/^### Values/) || line.match(/^### Value/) || line.match(/^### Motives/) || line.match(/^### Motive/) || line.match(/^### Why/)) {
-          currentSection = 'values';
-          console.log(`Setting current section to values for ${currentParty}`);
-          continue;
+  // Helper function to parse markdown content
+  const parseMarkdown = (markdown: string) => {
+    const party1 = { name: "User's Organization", positions: [] as string[], reasoning: [] as string[], values: [] as string[] };
+    const party2 = { name: 'Counterparty', positions: [] as string[], reasoning: [] as string[], values: [] as string[] };
+    const shared = { positions: [] as string[], reasoning: [] as string[], values: [] as string[] };
+
+    // Simple parser for the markdown format
+    const lines = markdown.split('\n');
+    let currentParty = '';
+    let currentSection = '';
+
+    for (const line of lines) {
+      // Detect party sections - look for different possible formats
+      if (line.match(/^## Party 1/) || line.match(/^## .*Organization/) || line.match(/^## .*User.*/) || line.match(/^## .*Your.*/) || line.match(/^## .*We.*/)) {
+        currentParty = 'party1';
+        // Extract party name if available
+        const nameMatch = line.match(/## (.*?)($|\()/);
+        if (nameMatch && nameMatch[1]) {
+          party1.name = nameMatch[1].trim();
         }
+        continue;
+      } else if (line.match(/^## Party 2/) || line.match(/^## .*Counter.*/) || line.match(/^## .*They.*/) || line.match(/^## .*Them.*/)) {
+        currentParty = 'party2';
+        // Extract party name if available
+        const nameMatch = line.match(/## (.*?)($|\()/);
+        if (nameMatch && nameMatch[1]) {
+          party2.name = nameMatch[1].trim();
+        }
+        continue;
+      } else if (line.match(/^## Shared/) || line.match(/^## Common.*/) || line.match(/^## Both.*/)) {
+        currentParty = 'shared';
+        continue;
+      }
 
-        // Extract bullet points
-        if (line.trim().startsWith('- ') && currentParty && currentSection) {
-          const item = line.trim().substring(2).trim();
-          if (item) {
-            if (currentParty === 'party1') {
-              if (currentSection === 'positions') {
-                party1.positions.push(item);
-                console.log(`Added position to Party 1: ${item}`);
-              } else if (currentSection === 'reasoning') {
-                party1.reasoning.push(item);
-              } else if (currentSection === 'values') {
-                party1.values.push(item);
-              }
-            } else if (currentParty === 'party2') {
-              if (currentSection === 'positions') {
-                party2.positions.push(item);
-                console.log(`Added position to Party 2: ${item}`);
-              } else if (currentSection === 'reasoning') {
-                party2.reasoning.push(item);
-              } else if (currentSection === 'values') {
-                party2.values.push(item);
-              }
-            } else if (currentParty === 'shared') {
-              if (currentSection === 'positions') {
-                shared.positions.push(item);
-                console.log(`Added shared position: ${item}`);
-              } else if (currentSection === 'reasoning') {
-                shared.reasoning.push(item);
-              } else if (currentSection === 'values') {
-                shared.values.push(item);
-              }
+      // Detect section types - now handling ### instead of ## and handling singular forms
+      if (line.match(/^### Position/) || line.match(/^### Positions/) || line.match(/^### What/)) {
+        currentSection = 'positions';
+        continue;
+      } else if (line.match(/^### Reasoning/) || line.match(/^### How/)) {
+        currentSection = 'reasoning';
+        continue;
+      } else if (line.match(/^### Values/) || line.match(/^### Value/) || line.match(/^### Motives/) || line.match(/^### Motive/) || line.match(/^### Why/)) {
+        currentSection = 'values';
+        continue;
+      }
+
+      // Extract bullet points
+      if (line.trim().startsWith('- ') && currentParty && currentSection) {
+        const item = line.trim().substring(2).trim();
+        if (item) {
+          if (currentParty === 'party1') {
+            if (currentSection === 'positions') {
+              party1.positions.push(item);
+            } else if (currentSection === 'reasoning') {
+              party1.reasoning.push(item);
+            } else if (currentSection === 'values') {
+              party1.values.push(item);
+            }
+          } else if (currentParty === 'party2') {
+            if (currentSection === 'positions') {
+              party2.positions.push(item);
+            } else if (currentSection === 'reasoning') {
+              party2.reasoning.push(item);
+            } else if (currentSection === 'values') {
+              party2.values.push(item);
+            }
+          } else if (currentParty === 'shared') {
+            if (currentSection === 'positions') {
+              shared.positions.push(item);
+            } else if (currentSection === 'reasoning') {
+              shared.reasoning.push(item);
+            } else if (currentSection === 'values') {
+              shared.values.push(item);
             }
           }
         }
       }
-
-      // If no shared data was explicitly defined, generate it by finding common items
-      if (!shared.positions.length && !shared.reasoning.length && !shared.values.length) {
-        console.log("No shared data found, generating shared content");
-        
-        // Find common positions
-        shared.positions = findSharedItems(party1.positions, party2.positions);
-        
-        // Find common reasoning
-        shared.reasoning = findSharedItems(party1.reasoning, party2.reasoning);
-        
-        // Find common values
-        shared.values = findSharedItems(party1.values, party2.values);
-      }
-
-      // If positions are still empty, add default placeholder positions
-      if (party1.positions.length === 0) {
-        console.log("No positions found for Party 1, adding default");
-        party1.positions = ["Position 1 - Click to edit"];
-      }
-      if (party2.positions.length === 0) {
-        console.log("No positions found for Party 2, adding default");
-        party2.positions = ["Position 1 - Click to edit"];
-      }
-      if (shared.positions.length === 0) {
-        console.log("No shared positions found, adding default");
-        shared.positions = ["Potential shared position - Click to edit"];
-      }
-      
-      // Ensure reasoning and values are populated too
-      if (party1.reasoning.length === 0) {
-        party1.reasoning = ["Reasoning 1 - Click to edit"];
-      }
-      if (party1.values.length === 0) {
-        party1.values = ["Value 1 - Click to edit"];
-      }
-      if (party2.reasoning.length === 0) {
-        party2.reasoning = ["Reasoning 1 - Click to edit"];
-      }
-      if (party2.values.length === 0) {
-        party2.values = ["Value 1 - Click to edit"];
-      }
-      if (shared.reasoning.length === 0) {
-        shared.reasoning = ["Potential shared reasoning - Click to edit"];
-      }
-      if (shared.values.length === 0) {
-        shared.values = ["Potential shared value - Click to edit"];
-      }
-      
-      console.log("Final parsed data:", { party1, party2, shared });
-      return { party1, party2, shared };
-    };
-
-    if (value) {
-      setIcebergData(parseMarkdown(value));
-    } else {
-      // If no value is provided, set default data
-      const defaultData = {
-        party1: { 
-          name: "User's Organization", 
-          positions: ["Position 1 - Click to edit"], 
-          reasoning: ["Reasoning 1 - Click to edit"], 
-          values: ["Value 1 - Click to edit"] 
-        },
-        party2: { 
-          name: 'Counterparty', 
-          positions: ["Position 1 - Click to edit"], 
-          reasoning: ["Reasoning 1 - Click to edit"], 
-          values: ["Value 1 - Click to edit"] 
-        },
-        shared: { 
-          positions: ["Potential shared position - Click to edit"], 
-          reasoning: ["Potential shared reasoning - Click to edit"], 
-          values: ["Potential shared value - Click to edit"] 
-        }
-      };
-      console.log("No value provided, using default data:", defaultData);
-      setIcebergData(defaultData);
     }
-  }, [value]);
+
+    // If no shared data was explicitly defined, generate it by finding common items
+    if (!shared.positions.length && !shared.reasoning.length && !shared.values.length) {
+      // Find common positions
+      shared.positions = findSharedItems(party1.positions, party2.positions);
+      
+      // Find common reasoning
+      shared.reasoning = findSharedItems(party1.reasoning, party2.reasoning);
+      
+      // Find common values
+      shared.values = findSharedItems(party1.values, party2.values);
+    }
+
+    // If positions are still empty, add default placeholder positions
+    if (party1.positions.length === 0) {
+      party1.positions = ["Position 1 - Click to edit"];
+    }
+    if (party2.positions.length === 0) {
+      party2.positions = ["Position 1 - Click to edit"];
+    }
+    if (shared.positions.length === 0) {
+      shared.positions = ["Potential shared position - Click to edit"];
+    }
+    
+    // Ensure reasoning and values are populated too
+    if (party1.reasoning.length === 0) {
+      party1.reasoning = ["Reasoning 1 - Click to edit"];
+    }
+    if (party1.values.length === 0) {
+      party1.values = ["Value 1 - Click to edit"];
+    }
+    if (party2.reasoning.length === 0) {
+      party2.reasoning = ["Reasoning 1 - Click to edit"];
+    }
+    if (party2.values.length === 0) {
+      party2.values = ["Value 1 - Click to edit"];
+    }
+    if (shared.reasoning.length === 0) {
+      shared.reasoning = ["Potential shared reasoning - Click to edit"];
+    }
+    if (shared.values.length === 0) {
+      shared.values = ["Potential shared value - Click to edit"];
+    }
+    
+    return { party1, party2, shared };
+  };
 
   // Function to find shared items between two arrays based on text similarity
   const findSharedItems = (items1: string[], items2: string[]) => {
@@ -362,8 +342,6 @@ const IcebergVisualization: React.FC<IcebergVisualizationProps> = ({ value, onCh
       // Call the language model
       const response = await callLanguageModel('generateShared.txt', input);
       
-      console.log("LLM shared content response:", response);
-      
       if (response && response.shared) {
         const newData = { ...icebergData };
         
@@ -383,12 +361,10 @@ const IcebergVisualization: React.FC<IcebergVisualizationProps> = ({ value, onCh
         setIcebergData(newData);
         updateMarkdown(newData);
       } else {
-        console.error("Invalid response from language model:", response);
         // Fall back to algorithm-based approach if the LLM fails
         generateSharedContentWithAlgorithm();
       }
     } catch (error) {
-      console.error("Error generating shared content with LLM:", error);
       // Fall back to algorithm-based approach if the LLM fails
       generateSharedContentWithAlgorithm();
     } finally {
@@ -470,7 +446,6 @@ ${newData.shared.reasoning.map(r => `- ${r}`).join('\n')}
 ### Motives (Why)
 ${newData.shared.values.map(v => `- ${v}`).join('\n')}
 `;
-    console.log("Updating markdown:", markdown);
     onChange(markdown);
   };
 

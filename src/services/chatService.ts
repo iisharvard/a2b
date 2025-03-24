@@ -120,7 +120,7 @@ export const streamChatCompletion = async (
                 onToken?.(content);
               }
             } catch (err) {
-              console.error('Error parsing SSE message:', err);
+              // Silent error handling
             }
           }
         }
@@ -133,7 +133,6 @@ export const streamChatCompletion = async (
       throw err;
     }
   } catch (error) {
-    console.error('Error in streaming chat completion:', error);
     onError?.(error instanceof Error ? error : new Error(String(error)));
   }
 };
@@ -176,7 +175,6 @@ export const getChatCompletion = async (
     const data = await response.json();
     return data.choices[0].message.content;
   } catch (error) {
-    console.error('Error in chat completion:', error);
     throw error;
   }
 }; 

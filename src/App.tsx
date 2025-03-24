@@ -41,15 +41,10 @@ function App() {
           <ChatBotProvider 
             apiKey={OPENAI_API_KEY}
             title="A2B Assistant"
-            subtitle="Ask me about case setup or file uploads"
+            subtitle="How can I help you today?"
             primaryColor={theme.palette.primary.main}
-            initialMessage="Hello! I'm your A2B assistant. I can help you with case setup, file uploads, and answer questions about your negotiation case."
-            systemMessage="You are a helpful assistant for the A2B negotiation application. You have access to the user's case content, parties information, analysis, boundaries, and scenarios through the context provided. When answering questions:
-1. Use the available context to provide specific, relevant responses about the user's case
-2. If asked about information that's not in the context, clearly state what information is missing and suggest how they can create that data in the app
-3. Be aware of what data is available vs. missing by checking the 'Data Availability' context
-4. For general questions about negotiation strategies or concepts, provide helpful guidance even without specific case data
-5. Be concise, friendly, and helpful"
+            initialMessage="Hello! I'm your assistant. How can I help you today?"
+            systemMessage="You are a helpful assistant. Be concise and direct in your responses."
           >
             <MainLayout />
           </ChatBotProvider>

@@ -101,7 +101,6 @@ const ReviewAndRevise = () => {
         p1, 
         p2,
         (type, data) => {
-          console.log(`Received partial result for ${type}`);
           if (type === 'ioa') {
             setIoa(data);
             setIoaLoaded(true);
@@ -227,14 +226,42 @@ const ReviewAndRevise = () => {
   }, [dispatch]);
 
   const handleComponentsChange = useCallback((value: string) => {
+    // Update the UI state first
     setComponentsMarkdown(value);
     
-    const parsedComponents = parseComponentsFromMarkdown(
-      value,
-      currentCase?.analysis?.components || []
-    );
+    // Parse the components from markdown and preserve existing boundaries
+    let parsedComponents;
+    try {
+      parsedComponents = parseComponentsFromMarkdown(
+        value,
+        currentCase?.analysis?.components || []
+      );
+    } catch (err) {
+      console.error('Error parsing components:', err);
+      return; // Don't update if there's a parsing error
+    }
     
-    dispatch(updateComponents(parsedComponents));
+    // Make sure we're keeping the most up-to-date component data
+    const updatedComponents = parsedComponents.map((newComp) => {
+      // Find the existing component if it exists (by id)
+      const existingComp = currentCase?.analysis?.components?.find(c => c.id === newComp.id);
+      
+      if (!existingComp) return newComp;
+      
+      // Keep the redlines and bottomlines from the existing component
+      // but update the name and description from the new component
+      return {
+        ...existingComp,
+        name: newComp.name,
+        description: newComp.description,
+      };
+    });
+    
+    // Ensure we have valid data before updating Redux
+    if (updatedComponents.length > 0) {
+      // Update Redux with the full component data
+      dispatch(updateComponents(updatedComponents));
+    }
   }, [currentCase, dispatch]);
 
   /**
@@ -369,10 +396,16 @@ const ReviewAndRevise = () => {
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {loading && (
             <Typography variant="body2" color="text.secondary">
-              {ioaLoaded ? (icebergLoaded ? (componentsLoaded ? 'Analysis complete' : 'Identifying Components and Boundaries...') : 'Performing Iceberg Analysis...') : 'Analyzing Island of Agreements...'}
+              {ioaLoaded 
+                ? (icebergLoaded 
+                    ? (componentsLoaded 
+                        ? 'Analysis complete' 
+                        : 'Identifying Components and Boundaries...') 
+                    : 'Performing Iceberg Analysis...') 
+                : 'Analyzing Island of Agreements...'}
             </Typography>
           )}
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={{ ml: 'auto', display: 'flex', gap: 2 }}>
             <Button
               variant="contained"
               color="primary"
@@ -381,10 +414,10 @@ const ReviewAndRevise = () => {
               startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
               sx={{ 
                 fontSize: '0.9rem',
-                minWidth: '160px'
+                minWidth: '180px'
               }}
             >
-              {loading ? 'Analyzing...' : retryCountdown > 0 ? `Retry in ${retryCountdown}s` : 'Reevaluate Analysis'}
+              {loading ? 'Analyzing...' : retryCountdown > 0 ? `Retry in ${retryCountdown}s` : 'Recalculate Analysis'}
             </Button>
           </Box>
         </Box>

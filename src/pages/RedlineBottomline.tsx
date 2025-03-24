@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import {
@@ -48,8 +48,9 @@ const RedlineBottomline = () => {
   const [error, setError] = useState<string | null>(null);
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [recalculationSuccess, setRecalculationSuccess] = useState<string | null>(null);
+  const componentsRef = useRef<Component[]>([]);
 
-  // Load components from Redux when component mounts
+  // Load components from Redux when component mounts or when currentCase changes
   useEffect(() => {
     if (!currentCase || !currentCase.analysis) {
       navigate('/');
@@ -58,12 +59,84 @@ const RedlineBottomline = () => {
     
     const comps = currentCase.analysis.components;
     setComponents(comps);
+    componentsRef.current = comps;
     
     // Select the first component by default
     if (comps.length > 0 && !selectedComponentId) {
       setSelectedComponentId(comps[0].id);
     }
   }, [currentCase, navigate, selectedComponentId]);
+
+  // Sync components when descriptions change but maintain existing redlines/bottomlines
+  useEffect(() => {
+    if (!currentCase || !currentCase.analysis) return;
+    
+    const newComponents = currentCase.analysis.components;
+    const currentComponents = componentsRef.current;
+    
+    // Skip if there are no components to compare
+    if (!currentComponents.length || !newComponents.length) return;
+    
+    // Create maps for fast lookups
+    const currentComponentsById = new Map<string, Component>();
+    currentComponents.forEach(comp => {
+      currentComponentsById.set(comp.id, comp);
+    });
+    
+    const newComponentsById = new Map<string, Component>();
+    newComponents.forEach(comp => {
+      newComponentsById.set(comp.id, comp);
+    });
+    
+    // Check if any component name or description has changed
+    let hasChanges = false;
+    
+    // Compare component arrays by name and description
+    for (const id of newComponentsById.keys()) {
+      const newComp = newComponentsById.get(id);
+      const currentComp = currentComponentsById.get(id);
+      
+      if (!newComp || !currentComp) {
+        hasChanges = true;
+        break;
+      }
+      
+      if (newComp.name !== currentComp.name || 
+          newComp.description !== currentComp.description) {
+        hasChanges = true;
+        break;
+      }
+    }
+    
+    // If the number of components changed, that's also a change
+    if (newComponents.length !== currentComponents.length) {
+      hasChanges = true;
+    }
+    
+    if (hasChanges) {
+      // Merge the new component data (names, descriptions) with existing redlines/bottomlines
+      const mergedComponents = newComponents.map(newComp => {
+        const existingComp = currentComponentsById.get(newComp.id);
+        if (!existingComp) return newComp;
+        
+        return {
+          ...newComp,
+          // Preserve existing boundaries if they exist
+          redlineParty1: existingComp.redlineParty1 || newComp.redlineParty1,
+          bottomlineParty1: existingComp.bottomlineParty1 || newComp.bottomlineParty1,
+          redlineParty2: existingComp.redlineParty2 || newComp.redlineParty2,
+          bottomlineParty2: existingComp.bottomlineParty2 || newComp.bottomlineParty2,
+        };
+      });
+      
+      // Update local state
+      setComponents(mergedComponents);
+      componentsRef.current = mergedComponents;
+      
+      // Update Redux store with the merged components to ensure descriptions propagate
+      dispatch(updateComponents(mergedComponents));
+    }
+  }, [currentCase, dispatch]);
 
   /**
    * Updates a component's redline or bottomline
@@ -84,6 +157,7 @@ const RedlineBottomline = () => {
     });
     
     setComponents(updatedComponents);
+    componentsRef.current = updatedComponents;
     
     // Find the updated component and dispatch to Redux
     const updatedComponent = updatedComponents.find(c => c.id === componentId);
@@ -129,11 +203,18 @@ const RedlineBottomline = () => {
       setError(null);
       setRecalculationSuccess(null);
       
+      // Create a temporary analysis object with current data to ensure latest components are used
+      const currentAnalysis = {
+        ...currentCase.analysis,
+        components: components
+      };
+      
       // Call the API to recalculate boundaries
-      const updatedComponents = await api.recalculateBoundaries(currentCase.analysis);
+      const updatedComponents = await api.recalculateBoundaries(currentAnalysis);
       
       // Update the local state
       setComponents(updatedComponents);
+      componentsRef.current = updatedComponents;
       
       // Update Redux store
       dispatch(updateComponents(updatedComponents));
@@ -145,7 +226,7 @@ const RedlineBottomline = () => {
     } finally {
       setIsRecalculating(false);
     }
-  }, [currentCase, dispatch]);
+  }, [currentCase, components, dispatch]);
   
   /**
    * Renders a component card with redline and bottomline inputs

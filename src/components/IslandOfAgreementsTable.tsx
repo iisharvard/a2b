@@ -74,8 +74,6 @@ const IslandOfAgreementsTable: React.FC<IslandOfAgreementsTableProps> = ({ value
 
   // Parse the markdown content when it changes
   useEffect(() => {
-    console.log("Received IoA data:", value);
-    
     const parseMarkdown = (markdown: string) => {
       const data: IslandData = {
         contestedFacts: [],
@@ -88,25 +86,19 @@ const IslandOfAgreementsTable: React.FC<IslandOfAgreementsTableProps> = ({ value
       const lines = markdown.split('\n');
       let currentSection = '';
 
-      console.log("Parsing markdown lines:", lines);
-
       for (const line of lines) {
         // Detect section headings
         if (line.match(/^## Contested Facts/i)) {
           currentSection = 'contestedFacts';
-          console.log("Found Contested Facts section");
           continue;
         } else if (line.match(/^## Agreed Facts/i)) {
           currentSection = 'agreedFacts';
-          console.log("Found Agreed Facts section");
           continue;
         } else if (line.match(/^## Convergent Norms/i)) {
           currentSection = 'convergentNorms';
-          console.log("Found Convergent Norms section");
           continue;
         } else if (line.match(/^## Divergent Norms/i)) {
           currentSection = 'divergentNorms';
-          console.log("Found Divergent Norms section");
           continue;
         }
 
@@ -115,7 +107,6 @@ const IslandOfAgreementsTable: React.FC<IslandOfAgreementsTableProps> = ({ value
           const item = line.trim().substring(2).trim();
           if (item) {
             data[currentSection as keyof IslandData].push(item);
-            console.log(`Added item to ${currentSection}: ${item}`);
           }
         }
       }
@@ -126,7 +117,6 @@ const IslandOfAgreementsTable: React.FC<IslandOfAgreementsTableProps> = ({ value
       if (data.convergentNorms.length === 0) data.convergentNorms = ["Click to add convergent norms..."];
       if (data.divergentNorms.length === 0) data.divergentNorms = ["Click to add divergent norms..."];
 
-      console.log("Final parsed IoA data:", data);
       return data;
     };
 
@@ -140,7 +130,6 @@ const IslandOfAgreementsTable: React.FC<IslandOfAgreementsTableProps> = ({ value
         convergentNorms: ["Click to add convergent norms..."],
         divergentNorms: ["Click to add divergent norms..."]
       };
-      console.log("No value provided, using default data:", defaultData);
       setIslandData(defaultData);
     }
   }, [value]);
@@ -161,7 +150,6 @@ ${newData.convergentNorms.map(norm => `- ${norm}`).join('\n')}
 ## Divergent Norms
 ${newData.divergentNorms.map(norm => `- ${norm}`).join('\n')}
 `;
-    console.log("Updating markdown:", markdown);
     onChange(markdown);
   };
 
@@ -270,4 +258,4 @@ ${newData.divergentNorms.map(norm => `- ${norm}`).join('\n')}
   );
 };
 
-export default IslandOfAgreementsTable; 
+export default IslandOfAgreementsTable;
