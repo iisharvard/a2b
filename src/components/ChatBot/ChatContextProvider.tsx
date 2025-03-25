@@ -41,4 +41,4 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({ childr
   );
 };
 
-export default ChatContextProvider; 
+export default ChatContextProvider;

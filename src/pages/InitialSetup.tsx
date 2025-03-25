@@ -255,13 +255,19 @@ const InitialSetup = () => {
       }
       
       // Append to existing content
-      setCaseContent(prev => {
-        // If there's existing content, add a separator
-        if (prev.trim()) {
-          return `${prev.trim()}\n\n-------------------\n\n${extractedTextResult}`;
-        }
-        return extractedTextResult;
-      });
+      const newContent = caseContent.trim() 
+        ? `${caseContent.trim()}\n\n-------------------\n\n${extractedTextResult}` 
+        : extractedTextResult;
+      
+      // Update local state
+      setCaseContent(newContent);
+      
+      // Update Redux state immediately
+      dispatch(setCase({ 
+        id: currentCase?.id || Date.now().toString(), 
+        content: newContent,
+        title: fileInfo.length === 1 ? fileInfo[0].name : 'Multiple Files'
+      }));
       
       // Update file info
       setFileInfo(prev => [...prev, ...processedFileInfo]);
@@ -347,10 +353,16 @@ const InitialSetup = () => {
    * Handles text change in the case content field
    */
   const handleCaseContentChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setCaseContent(e.target.value);
+    const newContent = e.target.value;
+    setCaseContent(newContent);
+    // Update Redux state immediately
+    dispatch(setCase({ 
+      id: currentCase?.id || Date.now().toString(), 
+      content: newContent 
+    }));
     // Clear success message when user edits content manually
     setSuccessMessage(null);
-  }, []);
+  }, [dispatch, currentCase?.id]);
   
   /**
    * Clear all data including case content and party information

@@ -1,6 +1,5 @@
 import React, { ReactNode } from 'react';
 import ChatBot from './ChatBot';
-import ChatContextProvider from './ChatContextProvider';
 
 interface ChatBotProviderProps {
   children: ReactNode;
@@ -30,7 +29,7 @@ const ChatBotProvider: React.FC<ChatBotProviderProps> = ({
   systemMessage,
 }) => {
   return (
-    <ChatContextProvider>
+    <>
       {children}
       <ChatBot
         apiKey={apiKey}
@@ -42,7 +41,7 @@ const ChatBotProvider: React.FC<ChatBotProviderProps> = ({
         initialMessage={initialMessage}
         systemMessage={systemMessage}
       />
-    </ChatContextProvider>
+    </>
   );
 };
 
