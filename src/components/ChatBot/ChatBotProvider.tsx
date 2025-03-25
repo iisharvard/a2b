@@ -1,5 +1,9 @@
-import React, { ReactNode } from 'react';
-import ChatBot from './ChatBot';
+import React, { ReactNode, useContext } from 'react';
+// Import directly from the file to avoid circular dependencies
+import { ChatBot } from './ChatBot';
+
+// Create a context to track if we're using split-screen mode
+export const SplitScreenContext = React.createContext(false);
 
 interface ChatBotProviderProps {
   children: ReactNode;
@@ -11,6 +15,7 @@ interface ChatBotProviderProps {
   userAvatar?: string;
   initialMessage?: string;
   systemMessage?: string;
+  useSplitScreen?: boolean;
 }
 
 /**
@@ -27,21 +32,25 @@ const ChatBotProvider: React.FC<ChatBotProviderProps> = ({
   userAvatar,
   initialMessage,
   systemMessage,
+  useSplitScreen = false,
 }) => {
   return (
-    <>
+    <SplitScreenContext.Provider value={useSplitScreen}>
       {children}
-      <ChatBot
-        apiKey={apiKey}
-        title={title}
-        subtitle={subtitle}
-        primaryColor={primaryColor}
-        botAvatar={botAvatar}
-        userAvatar={userAvatar}
-        initialMessage={initialMessage}
-        systemMessage={systemMessage}
-      />
-    </>
+      {/* Only render the ChatBot directly if we're not using split-screen mode */}
+      {!useSplitScreen && (
+        <ChatBot
+          apiKey={apiKey}
+          title={title}
+          subtitle={subtitle}
+          primaryColor={primaryColor}
+          botAvatar={botAvatar}
+          userAvatar={userAvatar}
+          initialMessage={initialMessage}
+          systemMessage={systemMessage}
+        />
+      )}
+    </SplitScreenContext.Provider>
   );
 };
 

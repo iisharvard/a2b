@@ -25,6 +25,8 @@ export interface ChatBotProps {
   initialMessage?: string;
   /** System message that defines the AI assistant's behavior */
   systemMessage?: string;
+  /** Whether the chat is in split-screen mode (not a popup) */
+  splitScreenMode?: boolean;
 }
 
 // State snapshot types

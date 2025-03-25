@@ -30,6 +30,7 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
     userAvatar,
     title = 'Assistant',
     subtitle = 'How can I help you today?',
+    splitScreenMode = false,
   } = props;
 
   const {
@@ -66,37 +67,49 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggleDebugWindow]);
 
+  // In split-screen mode, we're always visible
+  const shouldRenderChat = splitScreenMode || isOpen;
+  
+  // For split-screen mode, force isOpen to be true
+  useEffect(() => {
+    if (splitScreenMode && !isOpen) {
+      toggleChat();
+    }
+  }, [splitScreenMode, isOpen, toggleChat]);
+
   return (
     <>
-      {/* Chat button */}
-      <Fab
-        color="primary"
-        aria-label="chat"
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          right: '20px',
-          backgroundColor: primaryColor,
-          zIndex: 1000,
-        }}
-        onClick={toggleChat}
-      >
-        <ChatIcon />
-      </Fab>
-
-      {/* Chat window */}
-      <Fade in={isOpen}>
-        <Paper
-          elevation={3}
+      {/* Only show chat button in popup mode */}
+      {!splitScreenMode && (
+        <Fab
+          color="primary"
+          aria-label="chat"
           style={{
             position: 'fixed',
-            bottom: '80px',
+            bottom: '20px',
             right: '20px',
-            width: '350px',
-            height: '500px',
+            backgroundColor: primaryColor,
+            zIndex: 1000,
+          }}
+          onClick={toggleChat}
+        >
+          <ChatIcon />
+        </Fab>
+      )}
+
+      {/* Chat window */}
+      {shouldRenderChat && (
+        <Paper
+          elevation={splitScreenMode ? 0 : 3}
+          style={{
+            position: splitScreenMode ? 'relative' : 'fixed',
+            bottom: splitScreenMode ? 'auto' : '80px',
+            right: splitScreenMode ? 'auto' : '20px',
+            width: splitScreenMode ? '100%' : '350px',
+            height: splitScreenMode ? '100%' : '500px',
             display: 'flex',
             flexDirection: 'column',
-            zIndex: 1000,
+            zIndex: splitScreenMode ? 'auto' : 1000,
             overflow: 'hidden',
           }}
         >
@@ -115,9 +128,12 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
               <Typography variant="h6">{title}</Typography>
               <Typography variant="caption">{subtitle}</Typography>
             </Box>
-            <IconButton color="inherit" onClick={toggleChat} size="small">
-              <CloseIcon />
-            </IconButton>
+            {/* Only show close button in popup mode */}
+            {!splitScreenMode && (
+              <IconButton color="inherit" onClick={toggleChat} size="small">
+                <CloseIcon />
+              </IconButton>
+            )}
           </Box>
 
           {/* Chat messages */}
@@ -251,6 +267,8 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
                   </Box>
                 </ListItem>
               )}
+
+              {/* This is an invisible element to scroll to bottom */}
               <div ref={messagesEndRef} />
             </List>
           </Box>
@@ -261,8 +279,9 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
             onSubmit={handleSubmit}
             sx={{
               p: 2,
-              borderTop: '1px solid rgba(0, 0, 0, 0.12)',
+              borderTop: '1px solid rgba(0, 0, 0, 0.1)',
               display: 'flex',
+              alignItems: 'center',
             }}
           >
             <TextField
@@ -274,36 +293,49 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
               onChange={handleInputChange}
               onKeyPress={handleKeyPress}
               inputRef={inputRef}
+              sx={{ mr: 1 }}
               InputProps={{
-                endAdornment: (
-                  <IconButton color="primary" onClick={() => handleSubmit()} disabled={!inputValue.trim()}>
-                    <SendIcon />
-                  </IconButton>
-                ),
+                sx: {
+                  borderRadius: 2.5,
+                }
               }}
             />
+            <IconButton
+              color="primary"
+              aria-label="send"
+              onClick={handleSubmit}
+              disabled={!inputValue.trim()}
+              sx={{
+                bgcolor: primaryColor,
+                color: 'white',
+                '&:hover': {
+                  bgcolor: 'primary.dark',
+                },
+                '&.Mui-disabled': {
+                  bgcolor: 'action.disabledBackground',
+                  color: 'action.disabled',
+                }
+              }}
+            >
+              <SendIcon />
+            </IconButton>
           </Box>
         </Paper>
-      </Fade>
-
-      {/* Debug Window */}
-      {isDebugWindowOpen && (
-        <DebugWindow
-          state={{
-            isDebugWindowOpen,
-            changeHistory,
-            showFullState,
-            lastDiffResult,
-            prevSnapshot: null
-          }}
-          onClose={toggleDebugWindow}
-          onRefresh={createSnapshot}
-          onClearHistory={clearHistory}
-          onToggleFullState={toggleFullState}
-        />
       )}
+
+      {/* Debug window */}
+      <DebugWindow
+        isOpen={isDebugWindowOpen}
+        onClose={toggleDebugWindow}
+        changeHistory={changeHistory}
+        showFullState={showFullState}
+        toggleFullState={toggleFullState}
+        lastDiffResult={lastDiffResult}
+        clearHistory={clearHistory}
+        createSnapshot={createSnapshot}
+      />
     </>
   );
 };
 
-export default ChatBot; 
+export { ChatBot }; 

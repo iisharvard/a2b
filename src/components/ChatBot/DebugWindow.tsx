@@ -1,23 +1,40 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Button, Typography, Paper } from '@mui/material';
-import { DebugState } from './types';
+import { ChangeRecord, StateSnapshot } from './types';
 
 interface DebugWindowProps {
-  state: DebugState;
+  isOpen: boolean;
   onClose: () => void;
-  onRefresh: () => void;
-  onClearHistory: () => void;
-  onToggleFullState: () => void;
+  changeHistory: ChangeRecord[];
+  showFullState: boolean;
+  toggleFullState: () => void;
+  lastDiffResult: { summary: string | null; details: string | null } | null;
+  clearHistory: () => void;
+  createSnapshot: () => StateSnapshot;
 }
 
 export const DebugWindow: React.FC<DebugWindowProps> = ({
-  state,
+  isOpen,
   onClose,
-  onRefresh,
-  onClearHistory,
-  onToggleFullState,
+  changeHistory,
+  showFullState,
+  toggleFullState,
+  lastDiffResult,
+  clearHistory,
+  createSnapshot,
 }) => {
-  const { prevSnapshot, changeHistory, showFullState } = state;
+  // Local state for snapshot
+  const [currentSnapshot, setCurrentSnapshot] = useState<StateSnapshot | null>(null);
+  
+  // Update snapshot when opened
+  useEffect(() => {
+    if (isOpen) {
+      const snapshot = createSnapshot();
+      setCurrentSnapshot(snapshot);
+    }
+  }, [isOpen, createSnapshot]);
+
+  if (!isOpen) return null;
 
   return (
     <>
@@ -98,7 +115,10 @@ export const DebugWindow: React.FC<DebugWindowProps> = ({
               <Button
                 variant="outlined"
                 size="small"
-                onClick={onRefresh}
+                onClick={() => {
+                  const snapshot = createSnapshot();
+                  setCurrentSnapshot(snapshot);
+                }}
                 sx={{ color: '#4caf50', borderColor: '#4caf50', fontSize: '10px', mr: 1 }}
               >
                 Refresh State
@@ -107,7 +127,7 @@ export const DebugWindow: React.FC<DebugWindowProps> = ({
               <Button
                 variant="outlined"
                 size="small"
-                onClick={onClearHistory}
+                onClick={clearHistory}
                 sx={{ color: '#ff9800', borderColor: '#ff9800', fontSize: '10px' }}
               >
                 Clear History
@@ -165,16 +185,16 @@ export const DebugWindow: React.FC<DebugWindowProps> = ({
               borderRadius: '4px',
             }}
           >
-            {prevSnapshot
+            {currentSnapshot
               ? JSON.stringify(
                   {
-                    caseFile: prevSnapshot.caseFile ? 'Present' : 'Not set',
-                    ioa: prevSnapshot.ioa ? 'Present' : 'Not set',
-                    iceberg: prevSnapshot.iceberg ? 'Present' : 'Not set',
-                    issues: prevSnapshot.issues || [],
-                    boundaries: prevSnapshot.boundaries || [],
-                    scenarios: prevSnapshot.scenarios || [],
-                    timestamp: new Date(prevSnapshot.timestamp).toLocaleString(),
+                    caseFile: currentSnapshot.caseFile ? 'Present' : 'Not set',
+                    ioa: currentSnapshot.ioa ? 'Present' : 'Not set',
+                    iceberg: currentSnapshot.iceberg ? 'Present' : 'Not set',
+                    issues: currentSnapshot.issues || [],
+                    boundaries: currentSnapshot.boundaries || [],
+                    scenarios: currentSnapshot.scenarios || [],
+                    timestamp: new Date(currentSnapshot.timestamp).toLocaleString(),
                   },
                   null,
                   2
@@ -189,14 +209,14 @@ export const DebugWindow: React.FC<DebugWindowProps> = ({
             <Button
               variant="outlined"
               size="small"
-              onClick={onToggleFullState}
+              onClick={toggleFullState}
               sx={{ color: '#03a9f4', borderColor: '#03a9f4', fontSize: '10px' }}
             >
               {showFullState ? 'Hide Details' : 'Show Details'}
             </Button>
           </Box>
 
-          {showFullState && prevSnapshot && (
+          {showFullState && currentSnapshot && (
             <pre
               style={{
                 margin: 0,
@@ -209,7 +229,7 @@ export const DebugWindow: React.FC<DebugWindowProps> = ({
                 borderRadius: '4px',
               }}
             >
-              {JSON.stringify(prevSnapshot, null, 2)}
+              {JSON.stringify(currentSnapshot, null, 2)}
             </pre>
           )}
         </Box>
