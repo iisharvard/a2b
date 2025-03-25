@@ -12,6 +12,7 @@ import {
   RecalculateBoundariesInput,
   IdentifyPartiesInput
 } from './types';
+import { diffLines, Change } from 'diff';
 
 /**
  * API functions for interacting with the language model
@@ -331,10 +332,18 @@ export const api = {
     console.log('New content length:', newContent?.length || 0);
     
     try {
+      // Generate diff and format it for the LLM
+      const formattedDiff = formatDiffForLLM(oldContent, newContent);
+      console.log('Generated diff length:', formattedDiff.length);
+      
+      if (!formattedDiff) {
+        console.log('No changes detected in diff');
+        return 'No significant changes detected';
+      }
+      
       console.log('Calling LLM to summarize changes...');
       const result = await callLanguageModel('summarizeChanges.txt', {
-        oldContent,
-        newContent
+        changes: formattedDiff
       });
 
       if ('rateLimited' in result) {
@@ -372,4 +381,21 @@ export * from './types';
 export * from './requestQueue';
 export * from './openaiClient';
 export * from './promptHandler';
-export * from './cache'; 
+export * from './cache';
+
+// Helper to format diff for LLM analysis
+const formatDiffForLLM = (oldContent: string, newContent: string): string => {
+  const changes: Change[] = diffLines(oldContent || '', newContent || '');
+  let formattedDiff = '';
+  
+  changes.forEach((change: Change) => {
+    if (change.added) {
+      formattedDiff += `[ADDED]:\n${change.value}\n`;
+    } else if (change.removed) {
+      formattedDiff += `[REMOVED]:\n${change.value}\n`;
+    }
+    // Unchanged lines are not included to save context window space
+  });
+  
+  return formattedDiff;
+}; 

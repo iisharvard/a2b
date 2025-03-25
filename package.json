@@ -40,6 +40,7 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
+    "@types/diff": "^7.0.2",
     "@types/jest": "^29.5.14",
     "@types/pdf-parse": "^1.1.4",
     "@types/react": "^18.2.15",

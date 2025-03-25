@@ -11,7 +11,6 @@ import {
   ListItemAvatar,
   Fab,
   CircularProgress,
-  Fade,
 } from '@mui/material';
 import ChatIcon from '@mui/icons-material/Chat';
 import CloseIcon from '@mui/icons-material/Close';
@@ -31,6 +30,7 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
     title = 'Assistant',
     subtitle = 'How can I help you today?',
     splitScreenMode = false,
+    disableDebug = false,
   } = props;
 
   const {
@@ -56,16 +56,19 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
 
   // Debug mode keyboard shortcut (Cmd+I or Ctrl+I)
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
-        e.preventDefault();
-        toggleDebugWindow();
-      }
-    };
+    // Only add the keyboard shortcut if debug isn't disabled
+    if (!disableDebug) {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+          e.preventDefault();
+          toggleDebugWindow();
+        }
+      };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleDebugWindow]);
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [toggleDebugWindow, disableDebug]);
 
   // In split-screen mode, we're always visible
   const shouldRenderChat = splitScreenMode || isOpen;
@@ -323,17 +326,19 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
         </Paper>
       )}
 
-      {/* Debug window */}
-      <DebugWindow
-        isOpen={isDebugWindowOpen}
-        onClose={toggleDebugWindow}
-        changeHistory={changeHistory}
-        showFullState={showFullState}
-        toggleFullState={toggleFullState}
-        lastDiffResult={lastDiffResult}
-        clearHistory={clearHistory}
-        createSnapshot={createSnapshot}
-      />
+      {/* Only render debug window if debug isn't disabled */}
+      {!disableDebug && (
+        <DebugWindow
+          isOpen={isDebugWindowOpen}
+          onClose={toggleDebugWindow}
+          changeHistory={changeHistory}
+          showFullState={showFullState}
+          toggleFullState={toggleFullState}
+          lastDiffResult={lastDiffResult}
+          clearHistory={clearHistory}
+          createSnapshot={createSnapshot}
+        />
+      )}
     </>
   );
 };

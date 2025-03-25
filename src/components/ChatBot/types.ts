@@ -27,6 +27,8 @@ export interface ChatBotProps {
   systemMessage?: string;
   /** Whether the chat is in split-screen mode (not a popup) */
   splitScreenMode?: boolean;
+  /** Whether to disable the debug window (for when it's handled by a parent component) */
+  disableDebug?: boolean;
 }
 
 // State snapshot types

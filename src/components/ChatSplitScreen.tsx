@@ -5,6 +5,8 @@ import { Box, IconButton, Tooltip } from '@mui/material';
 import { ChatBot } from './ChatBot';
 import CloseIcon from '@mui/icons-material/Close';
 import ChatIcon from '@mui/icons-material/Chat';
+import { useDebugState } from './ChatBot/useDebugState';
+import { DebugWindow } from './ChatBot/DebugWindow';
 
 // Custom CSS for better resizer appearance
 import './ChatSplitScreen.css';
@@ -22,6 +24,18 @@ const ChatSplitScreen: React.FC<ChatSplitScreenProps> = ({ children, chatBotProp
   // Store previous size when closing
   const [prevChatSize, setPrevChatSize] = useState<string | number>('30%');
 
+  // Get debug state
+  const {
+    isDebugWindowOpen,
+    changeHistory,
+    showFullState,
+    lastDiffResult,
+    toggleDebugWindow,
+    toggleFullState,
+    clearHistory,
+    createSnapshot
+  } = useDebugState();
+
   // Close chat panel
   const handleCloseChat = () => {
     setPrevChatSize(sizes[1]);
@@ -34,6 +48,19 @@ const ChatSplitScreen: React.FC<ChatSplitScreenProps> = ({ children, chatBotProp
     setSizes(['70%', prevChatSize]);
     setIsChatOpen(true);
   };
+
+  // Debug keyboard shortcut (Cmd+I or Ctrl+I)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+        e.preventDefault();
+        toggleDebugWindow();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleDebugWindow]);
 
   return (
     <Box sx={{ height: '100vh', width: '100%', position: 'relative' }}>
@@ -109,6 +136,7 @@ const ChatSplitScreen: React.FC<ChatSplitScreenProps> = ({ children, chatBotProp
                 <ChatBot 
                   {...chatBotProps}
                   splitScreenMode={true} 
+                  disableDebug={true} // Disable debug in ChatBot since we handle it here
                 />
               </>
             )}
@@ -137,6 +165,18 @@ const ChatSplitScreen: React.FC<ChatSplitScreenProps> = ({ children, chatBotProp
           </IconButton>
         </Tooltip>
       )}
+
+      {/* Debug window */}
+      <DebugWindow
+        isOpen={isDebugWindowOpen}
+        onClose={toggleDebugWindow}
+        changeHistory={changeHistory}
+        showFullState={showFullState}
+        toggleFullState={toggleFullState}
+        lastDiffResult={lastDiffResult}
+        clearHistory={clearHistory}
+        createSnapshot={createSnapshot}
+      />
     </Box>
   );
 };

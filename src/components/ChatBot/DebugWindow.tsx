@@ -23,16 +23,23 @@ export const DebugWindow: React.FC<DebugWindowProps> = ({
   clearHistory,
   createSnapshot,
 }) => {
-  // Local state for snapshot
-  const [currentSnapshot, setCurrentSnapshot] = useState<StateSnapshot | null>(null);
+  // Local state for displaying snapshot
+  const [displaySnapshot, setDisplaySnapshot] = useState<StateSnapshot | null>(null);
   
-  // Update snapshot when opened
+  // Update snapshot whenever the window is opened OR when changeHistory updates
+  // This ensures we always have the latest state
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen || changeHistory.length > 0) {
       const snapshot = createSnapshot();
-      setCurrentSnapshot(snapshot);
+      setDisplaySnapshot(snapshot);
     }
-  }, [isOpen, createSnapshot]);
+  }, [isOpen, changeHistory, createSnapshot]);
+
+  // If we have no snapshot, create one
+  if (!displaySnapshot && isOpen) {
+    const snapshot = createSnapshot();
+    setDisplaySnapshot(snapshot);
+  }
 
   if (!isOpen) return null;
 
@@ -117,7 +124,7 @@ export const DebugWindow: React.FC<DebugWindowProps> = ({
                 size="small"
                 onClick={() => {
                   const snapshot = createSnapshot();
-                  setCurrentSnapshot(snapshot);
+                  setDisplaySnapshot(snapshot);
                 }}
                 sx={{ color: '#4caf50', borderColor: '#4caf50', fontSize: '10px', mr: 1 }}
               >
@@ -150,7 +157,7 @@ export const DebugWindow: React.FC<DebugWindowProps> = ({
                   {new Date(change.timestamp).toLocaleTimeString()}
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 1, color: '#0f0' }}>
-                  {change.summary}
+                  {change.summary || 'State changed'}
                 </Typography>
                 <pre
                   style={{
@@ -164,7 +171,7 @@ export const DebugWindow: React.FC<DebugWindowProps> = ({
                     borderRadius: '4px',
                   }}
                 >
-                  {change.details}
+                  {change.details || change.changes?.join('\n')}
                 </pre>
               </Box>
             ))
@@ -185,16 +192,16 @@ export const DebugWindow: React.FC<DebugWindowProps> = ({
               borderRadius: '4px',
             }}
           >
-            {currentSnapshot
+            {displaySnapshot
               ? JSON.stringify(
                   {
-                    caseFile: currentSnapshot.caseFile ? 'Present' : 'Not set',
-                    ioa: currentSnapshot.ioa ? 'Present' : 'Not set',
-                    iceberg: currentSnapshot.iceberg ? 'Present' : 'Not set',
-                    issues: currentSnapshot.issues || [],
-                    boundaries: currentSnapshot.boundaries || [],
-                    scenarios: currentSnapshot.scenarios || [],
-                    timestamp: new Date(currentSnapshot.timestamp).toLocaleString(),
+                    caseFile: displaySnapshot.caseFile ? 'Present' : 'Not set',
+                    ioa: displaySnapshot.ioa ? 'Present' : 'Not set',
+                    iceberg: displaySnapshot.iceberg ? 'Present' : 'Not set',
+                    issues: displaySnapshot.issues || [],
+                    boundaries: displaySnapshot.boundaries || [],
+                    scenarios: displaySnapshot.scenarios || [],
+                    timestamp: new Date(displaySnapshot.timestamp).toLocaleString(),
                   },
                   null,
                   2
@@ -216,7 +223,7 @@ export const DebugWindow: React.FC<DebugWindowProps> = ({
             </Button>
           </Box>
 
-          {showFullState && currentSnapshot && (
+          {showFullState && displaySnapshot && (
             <pre
               style={{
                 margin: 0,
@@ -229,7 +236,7 @@ export const DebugWindow: React.FC<DebugWindowProps> = ({
                 borderRadius: '4px',
               }}
             >
-              {JSON.stringify(currentSnapshot, null, 2)}
+              {JSON.stringify(displaySnapshot, null, 2)}
             </pre>
           )}
         </Box>

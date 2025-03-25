@@ -8,14 +8,17 @@ Focus on meaningful changes that affect:
 - Financial terms or numbers
 - Legal requirements or obligations
 
+You will be provided with a diff of the changes, where:
+[ADDED]: indicates new content that was added
+[REMOVED]: indicates content that was removed
+
 Provide a brief, clear summary that highlights the most important changes. Use natural language and avoid technical jargon.
 
 IMPORTANT: You MUST respond with a valid JSON object containing a "summary" field with your analysis.
 
 Input format:
 {
-  "oldContent": "Previous version of the case document",
-  "newContent": "Current version of the case document"
+  "changes": "The formatted diff showing what was added and removed"
 }
 
 Output format:
@@ -25,8 +28,7 @@ Output format:
 
 Example input:
 {
-  "oldContent": "The delivery date is set for Q2 2024. Payment terms are Net 30.",
-  "newContent": "The delivery date is set for Q4 2024. Payment terms are $500k upfront with Net 30 on remaining balance. Additional warranty provisions include 24-month coverage."
+  "changes": "[REMOVED]:\nThe delivery date is set for Q2 2024. Payment terms are Net 30.\n[ADDED]:\nThe delivery date is set for Q4 2024. Payment terms are $500k upfront with Net 30 on remaining balance. Additional warranty provisions include 24-month coverage.\n"
 }
 
 Example output:
@@ -38,4 +40,5 @@ Remember:
 1. Always return a valid JSON object
 2. The summary should be a single string in natural language
 3. Focus on meaningful business/legal changes, not formatting or minor text edits
-4. If there are no meaningful changes, indicate that in the summary 
+4. If there are no meaningful changes, indicate that in the summary
+5. Pay special attention to the [ADDED] and [REMOVED] markers to understand what changed 
