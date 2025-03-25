@@ -29,30 +29,58 @@ export class RequestQueue {
   }
 
   /**
-   * Execute a request with rate limiting
+   * Execute a request with rate limiting and exponential backoff
    * @param request Function that returns a promise
    * @returns Promise that resolves with the result of the request
    */
   private async executeWithRateLimit<T>(request: () => Promise<T>): Promise<T> {
-    // Remove old request times
-    const now = Date.now();
-    this.requestTimes = this.requestTimes.filter(time => now - time < RATE_LIMIT.interval);
+    let retryCount = 0;
+    let lastError: any = null;
 
-    // If we've hit the rate limit, wait until we can make another request
-    if (this.requestTimes.length >= RATE_LIMIT.requests) {
-      const oldestRequest = this.requestTimes[0];
-      const waitTime = Math.max(
-        RATE_LIMIT.interval - (now - oldestRequest),
-        RATE_LIMIT.minDelay
-      );
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+    while (retryCount <= RATE_LIMIT.maxRetries) {
+      try {
+        // Remove old request times
+        const now = Date.now();
+        this.requestTimes = this.requestTimes.filter(time => now - time < RATE_LIMIT.interval);
+
+        // If we've hit the rate limit, wait until we can make another request
+        if (this.requestTimes.length >= RATE_LIMIT.requests) {
+          const oldestRequest = this.requestTimes[0];
+          const waitTime = Math.max(
+            RATE_LIMIT.interval - (now - oldestRequest),
+            RATE_LIMIT.minDelay
+          );
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+
+        // Add current request time
+        this.requestTimes.push(Date.now());
+
+        // Execute request
+        return await request();
+      } catch (error: any) {
+        lastError = error;
+        
+        // Only retry on rate limit errors
+        if (error?.response?.status !== 429) {
+          throw error;
+        }
+
+        if (retryCount === RATE_LIMIT.maxRetries) {
+          console.error(`Max retries (${RATE_LIMIT.maxRetries}) exceeded for request`);
+          throw error;
+        }
+
+        // Calculate delay with exponential backoff
+        const delay = RATE_LIMIT.initialRetryDelay * Math.pow(RATE_LIMIT.backoffFactor, retryCount);
+        console.log(`Rate limit exceeded. Retrying in ${delay/1000} seconds... (Attempt ${retryCount + 1}/${RATE_LIMIT.maxRetries})`);
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+        retryCount++;
+      }
     }
 
-    // Add current request time
-    this.requestTimes.push(Date.now());
-
-    // Execute request
-    return await request();
+    throw lastError;
   }
 
   /**
@@ -65,7 +93,11 @@ export class RequestQueue {
     while (this.queue.length > 0) {
       const request = this.queue.shift();
       if (request) {
-        await request();
+        try {
+          await request();
+        } catch (error) {
+          console.error('Error processing queued request:', error);
+        }
         // Add minimum delay between requests
         await new Promise(resolve => setTimeout(resolve, RATE_LIMIT.minDelay));
       }

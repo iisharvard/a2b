@@ -60,8 +60,10 @@ export interface StateSnapshot {
 
 export interface ChangeRecord {
   timestamp: number;
-  summary: string;
-  details: string;
+  summary?: string;
+  details?: string;
+  changes?: string[];
+  severity?: number;
 }
 
 // Debug state interface

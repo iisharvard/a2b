@@ -39,11 +39,14 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
   } = useChatState(props);
 
   const {
-    state: debugState,
-    refreshState,
-    clearHistory,
+    isDebugWindowOpen,
+    changeHistory,
+    showFullState,
+    lastDiffResult,
     toggleDebugWindow,
     toggleFullState,
+    clearHistory,
+    createSnapshot
   } = useDebugState();
 
   const { isOpen, messages, inputValue, isTyping, currentStreamedMessage } = chatState;
@@ -284,11 +287,17 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
       </Fade>
 
       {/* Debug Window */}
-      {debugState.isDebugWindowOpen && (
+      {isDebugWindowOpen && (
         <DebugWindow
-          state={debugState}
+          state={{
+            isDebugWindowOpen,
+            changeHistory,
+            showFullState,
+            lastDiffResult,
+            prevSnapshot: null
+          }}
           onClose={toggleDebugWindow}
-          onRefresh={refreshState}
+          onRefresh={createSnapshot}
           onClearHistory={clearHistory}
           onToggleFullState={toggleFullState}
         />

@@ -317,6 +317,52 @@ export const api = {
         { name: 'Party 2', description: 'Second party in the negotiation', isPrimary: true }
       ];
     }
+  },
+
+  /**
+   * Generate a qualitative summary of changes between two versions of a case document
+   * @param oldContent Previous version of the case content
+   * @param newContent Current version of the case content
+   * @returns Promise that resolves with a summary of the changes
+   */
+  async summarizeCaseChanges(oldContent: string, newContent: string): Promise<string> {
+    console.log('🔍 Summarizing case changes...');
+    console.log('Old content length:', oldContent?.length || 0);
+    console.log('New content length:', newContent?.length || 0);
+    
+    try {
+      console.log('Calling LLM to summarize changes...');
+      const result = await callLanguageModel('summarizeChanges.txt', {
+        oldContent,
+        newContent
+      });
+
+      if ('rateLimited' in result) {
+        console.log('❌ Rate limit hit when summarizing changes');
+        throw new Error('Rate limit exceeded');
+      }
+
+      console.log('✅ Successfully generated change summary:', result.summary);
+      return result.summary;
+    } catch (error: any) {
+      console.error('❌ Error summarizing case changes:', error);
+      
+      // Check for specific error types
+      if (error.message?.includes('Network error:') || 
+          error.message?.includes('rate limit')) {
+        throw error;
+      }
+      
+      // For other errors, return a basic diff summary
+      const oldLen = oldContent?.length || 0;
+      const newLen = newContent?.length || 0;
+      const diffLen = Math.abs(newLen - oldLen);
+      const fallbackSummary = newLen > oldLen 
+        ? `Added approximately ${diffLen} characters of content`
+        : `Removed approximately ${diffLen} characters of content`;
+      console.log('⚠️ Using fallback summary:', fallbackSummary);
+      return fallbackSummary;
+    }
   }
 };
 

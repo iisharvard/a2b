@@ -24,7 +24,10 @@ export const TEMPERATURE = 0;
 
 // Rate limiting configuration
 export const RATE_LIMIT = {
-  requests: 3,  // Number of requests allowed
+  requests: 10,     // Number of requests allowed per interval
   interval: 60000,  // Time window in milliseconds (1 minute)
-  minDelay: 1000,  // Minimum delay between requests
+  minDelay: 200,    // Minimum delay between requests in ms
+  maxRetries: 3,    // Maximum number of retries for rate limit errors
+  backoffFactor: 2, // Exponential backoff factor
+  initialRetryDelay: 1000, // Initial retry delay in ms
 }; 

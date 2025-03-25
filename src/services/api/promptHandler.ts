@@ -7,14 +7,17 @@ import { OpenAIMessage } from './types';
  * @returns Promise that resolves with the content of the prompt file
  */
 export const readPromptFile = async (fileName: string): Promise<string> => {
+  console.log('📄 Reading prompt file:', fileName);
   try {
     const response = await fetch(`/prompts/${fileName}`);
     if (!response.ok) {
+      console.error('❌ Failed to read prompt file:', fileName, 'Status:', response.status);
       throw new Error(`Failed to read prompt file: ${fileName}`);
     }
+    console.log('✅ Successfully loaded prompt:', fileName);
     return await response.text();
   } catch (error) {
-    console.error(`Error reading prompt file ${fileName}:`, error);
+    console.error('❌ Error reading prompt file:', fileName, error);
     throw new Error(`Failed to read prompt file: ${fileName}`);
   }
 };
@@ -23,10 +26,13 @@ export const readPromptFile = async (fileName: string): Promise<string> => {
  * Call the language model with a prompt file and inputs
  * @param promptFile Name of the prompt file
  * @param inputs Object containing inputs for the prompt
- * @returns Promise that resolves with the parsed JSON response or a rate limited flag
+ * @returns Promise that resolves with the parsed JSON response
  */
 export const callLanguageModel = async (promptFile: string, inputs: Record<string, any>): Promise<any> => {
   try {
+    console.log('🤖 Calling language model with prompt:', promptFile);
+    console.log('Inputs:', inputs);
+    
     // Read the prompt file
     const promptContent = await readPromptFile(promptFile);
     
@@ -39,24 +45,22 @@ export const callLanguageModel = async (promptFile: string, inputs: Record<strin
       { role: 'user', content: JSON.stringify(inputs) }
     ];
     
-    // Call OpenAI API
-    const responseContent = await callOpenAI(messages);
-    
-    // Check if we got a rate limit flag
-    if (typeof responseContent !== 'string' && responseContent.rateLimited) {
-      return { rateLimited: true };
-    }
+    console.log('Sending request to OpenAI...');
+    // Call OpenAI API with JSON response format
+    const responseContent = await callOpenAI(messages, { type: 'json_object' });
     
     // Try to parse the response as JSON
     try {
-      return JSON.parse(responseContent as string);
+      const parsedResponse = JSON.parse(responseContent);
+      console.log('✅ Successfully parsed OpenAI response:', parsedResponse);
+      return parsedResponse;
     } catch (e) {
-      console.error('Error parsing JSON response:', e);
+      console.error('❌ Error parsing JSON response:', e);
       // If parsing fails, return the raw content
-      return { rawContent: responseContent };
+      return { error: 'Failed to parse JSON response', rawContent: responseContent };
     }
   } catch (error) {
-    console.error('Error calling language model:', error);
-    throw new Error('Failed to get response from language model');
+    console.error('❌ Error calling language model:', error);
+    throw error; // Let the caller handle the error
   }
 }; 
