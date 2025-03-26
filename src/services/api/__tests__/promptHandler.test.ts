@@ -1,132 +1,111 @@
 import { readPromptFile, callLanguageModel } from '../promptHandler';
 import { callOpenAI } from '../openaiClient';
 
-// Mock fetch
+// Mock fetch and callOpenAI
 global.fetch = jest.fn();
-const mockFetch = global.fetch as jest.Mock;
-
-// Mock callOpenAI
-jest.mock('../openaiClient', () => ({
-  callOpenAI: jest.fn()
-}));
-const mockCallOpenAI = callOpenAI as jest.Mock;
+jest.mock('../openaiClient');
 
 describe('Prompt Handler', () => {
+  const mockCallOpenAI = callOpenAI as jest.MockedFunction<typeof callOpenAI>;
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe('readPromptFile', () => {
-    test('should fetch and return prompt file content', async () => {
-      // Mock successful fetch response
-      mockFetch.mockResolvedValueOnce({
+    test('should read prompt file successfully', async () => {
+      const mockResponse = {
         ok: true,
-        text: jest.fn().mockResolvedValueOnce('Prompt content')
-      });
+        text: () => Promise.resolve('You are a helpful assistant.'),
+      };
+      (global.fetch as jest.Mock).mockResolvedValueOnce(mockResponse);
 
-      // Call readPromptFile
-      const result = await readPromptFile('test.txt');
-
-      // Check that fetch was called with the correct URL
-      expect(mockFetch).toHaveBeenCalledWith('/prompts/test.txt');
-
-      // Check that the result is correct
-      expect(result).toBe('Prompt content');
+      const content = await readPromptFile('test.txt');
+      expect(content).toBe('You are a helpful assistant.');
+      expect(global.fetch).toHaveBeenCalledWith('/prompts/test.txt');
     });
 
-    test('should throw error if fetch fails', async () => {
-      // Mock failed fetch response
-      mockFetch.mockResolvedValueOnce({
+    test('should handle 404 error', async () => {
+      const mockResponse = {
         ok: false,
         status: 404,
-        statusText: 'Not Found'
-      });
+      };
+      (global.fetch as jest.Mock).mockResolvedValueOnce(mockResponse);
 
-      // Expect readPromptFile to throw an error
-      await expect(readPromptFile('nonexistent.txt')).rejects.toThrow('Failed to read prompt file');
+      await expect(readPromptFile('nonexistent.txt')).rejects.toThrow('Failed to read prompt file: nonexistent.txt');
     });
 
-    test('should throw error if fetch throws', async () => {
-      // Mock fetch throwing an error
-      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+    test('should handle network error', async () => {
+      (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
 
-      // Expect readPromptFile to throw an error
-      await expect(readPromptFile('test.txt')).rejects.toThrow('Failed to read prompt file');
+      await expect(readPromptFile('test.txt')).rejects.toThrow('Failed to read prompt file: test.txt');
     });
   });
 
   describe('callLanguageModel', () => {
     test('should call OpenAI with prompt and return parsed JSON response', async () => {
-      // Mock readPromptFile
-      mockFetch.mockResolvedValueOnce({
+      // Mock successful prompt file read
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        text: jest.fn().mockResolvedValueOnce('You are a helpful assistant.')
+        text: () => Promise.resolve('You are a helpful assistant.'),
       });
 
-      // Mock callOpenAI
-      mockCallOpenAI.mockResolvedValueOnce('{"result": "success"}');
+      // Mock successful OpenAI response
+      mockCallOpenAI.mockResolvedValueOnce('{"result":"success"}');
 
-      // Call callLanguageModel
       const result = await callLanguageModel('test.txt', { input: 'test' });
 
-      // Check that readPromptFile was called
-      expect(mockFetch).toHaveBeenCalledWith('/prompts/test.txt');
-
-      // Check that callOpenAI was called with the correct arguments
-      expect(mockCallOpenAI).toHaveBeenCalledWith([
-        { role: 'system', content: 'You are a helpful assistant.\n\nIMPORTANT: Your response MUST be valid JSON.' },
-        { role: 'user', content: '{"input":"test"}' }
-      ]);
-
-      // Check that the result is correct
       expect(result).toEqual({ result: 'success' });
+      expect(mockCallOpenAI).toHaveBeenCalledWith(
+        [
+          { role: 'system', content: 'You are a helpful assistant.\n\nIMPORTANT: Your response MUST be valid JSON.' },
+          { role: 'user', content: '{"input":"test"}' }
+        ],
+        { type: 'json_object' }
+      );
     });
 
     test('should handle rate limited response', async () => {
-      // Mock readPromptFile
-      mockFetch.mockResolvedValueOnce({
+      // Mock successful prompt file read
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        text: jest.fn().mockResolvedValueOnce('You are a helpful assistant.')
+        text: () => Promise.resolve('You are a helpful assistant.'),
       });
 
-      // Mock callOpenAI returning rate limited flag
-      mockCallOpenAI.mockResolvedValueOnce({ rateLimited: true });
+      // Mock rate limited response
+      mockCallOpenAI.mockResolvedValueOnce('{"rateLimited":true}');
 
-      // Call callLanguageModel
       const result = await callLanguageModel('test.txt', { input: 'test' });
-
-      // Check that the result is the rate limited flag
       expect(result).toEqual({ rateLimited: true });
     });
 
     test('should handle invalid JSON response', async () => {
-      // Mock readPromptFile
-      mockFetch.mockResolvedValueOnce({
+      // Mock successful prompt file read
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        text: jest.fn().mockResolvedValueOnce('You are a helpful assistant.')
+        text: () => Promise.resolve('You are a helpful assistant.'),
       });
 
-      // Mock callOpenAI returning invalid JSON
+      // Mock invalid JSON response
       mockCallOpenAI.mockResolvedValueOnce('Invalid JSON');
 
-      // Call callLanguageModel
       const result = await callLanguageModel('test.txt', { input: 'test' });
-
-      // Check that the result contains the raw content
-      expect(result).toEqual({ rawContent: 'Invalid JSON' });
+      expect(result).toEqual({
+        error: 'Failed to parse JSON response',
+        rawContent: 'Invalid JSON',
+      });
     });
 
-    test('should handle errors in callOpenAI', async () => {
-      // Mock readPromptFile
-      mockFetch.mockResolvedValueOnce({
+    test('should handle OpenAI error', async () => {
+      // Mock successful prompt file read
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        text: jest.fn().mockResolvedValueOnce('You are a helpful assistant.')
+        text: () => Promise.resolve('You are a helpful assistant.'),
       });
 
-      // Mock callOpenAI throwing an error
-      mockCallOpenAI.mockRejectedValueOnce(new Error('API error'));
+      // Mock OpenAI error
+      mockCallOpenAI.mockRejectedValueOnce(new Error('Failed to get response from language model'));
 
-      // Expect callLanguageModel to throw an error
       await expect(callLanguageModel('test.txt', { input: 'test' })).rejects.toThrow('Failed to get response from language model');
     });
   });

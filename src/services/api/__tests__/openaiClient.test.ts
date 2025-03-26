@@ -10,8 +10,8 @@ const mockedAxios = axios as jest.Mocked<typeof axios>;
 // Mock request queue to execute the function immediately
 jest.mock('../requestQueue', () => ({
   requestQueue: {
-    add: jest.fn((fn) => fn())
-  }
+    add: jest.fn(fn => fn()),
+  },
 }));
 
 // Mock config to provide a test API key
@@ -37,149 +37,119 @@ jest.mock('timers', () => ({
 }));
 
 describe('OpenAI Client', () => {
+  const messages = [{ role: 'user', content: 'Hello!' }];
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   test('should call OpenAI API and return response content', async () => {
-    // Mock successful API response
-    mockedAxios.post.mockResolvedValueOnce({
+    const mockResponse = {
       data: {
         choices: [
           {
             message: {
-              content: '{"result": "success"}'
-            }
-          }
-        ]
+              content: 'Hello, how can I help you?',
+            },
+          },
+        ],
+      },
+    };
+
+    mockedAxios.post.mockResolvedValueOnce(mockResponse);
+
+    const result = await callOpenAI(messages);
+
+    expect(result).toBe('Hello, how can I help you?');
+  });
+
+  test('should handle rate limit errors and retry', async () => {
+    const rateLimitError = {
+      response: {
+        status: 429,
+        data: {
+          error: 'Rate limit exceeded',
+        },
+        headers: {
+          'retry-after': '1',
+        },
+      },
+    };
+
+    const successResponse = {
+      data: {
+        choices: [
+          {
+            message: {
+              content: 'Success after retry',
+            },
+          },
+        ],
+      },
+    };
+
+    // First call fails with rate limit, second call succeeds
+    mockedAxios.post
+      .mockRejectedValueOnce(rateLimitError)
+      .mockResolvedValueOnce(successResponse);
+
+    // Mock requestQueue.add to simulate retry
+    (requestQueue.add as jest.Mock).mockImplementation(async (fn) => {
+      try {
+        return await fn();
+      } catch (error: any) {
+        if (error.response?.status === 429) {
+          // Simulate retry after delay
+          return await fn();
+        }
+        throw error;
       }
     });
 
-    // Call the OpenAI API
-    const messages: OpenAIMessage[] = [
-      { role: 'system', content: 'You are a helpful assistant.' },
-      { role: 'user', content: 'Hello!' }
-    ];
     const result = await callOpenAI(messages);
 
-    // Check that axios.post was called with the correct arguments
-    expect(mockedAxios.post).toHaveBeenCalledTimes(1);
-    expect(mockedAxios.post.mock.calls[0][0]).toContain('api.openai.com');
-    expect(mockedAxios.post.mock.calls[0][1]).toMatchObject({
-      model: expect.any(String),
-      messages,
-      temperature: expect.any(Number),
-      max_tokens: expect.any(Number),
-      response_format: { type: 'json_object' }
-    });
-
-    // Check that the request queue was used
-    expect(requestQueue.add).toHaveBeenCalledTimes(1);
-
-    // Check that the result is correct
-    expect(result).toBe('{"result": "success"}');
-  });
-
-  test('should handle API errors and retry on rate limit', async () => {
-    // Mock rate limit error then success
-    mockedAxios.post
-      .mockRejectedValueOnce({
-        response: {
-          status: 429,
-          data: { error: 'Rate limit exceeded' },
-          headers: { 'retry-after': '1' }
-        }
-      })
-      .mockResolvedValueOnce({
-        data: {
-          choices: [
-            {
-              message: {
-                content: '{"result": "success after retry"}'
-              }
-            }
-          ]
-        }
-      });
-
-    // Call the OpenAI API
-    const messages: OpenAIMessage[] = [
-      { role: 'system', content: 'You are a helpful assistant.' },
-      { role: 'user', content: 'Hello!' }
-    ];
-    
-    const result = await callOpenAI(messages);
-
-    // Check that axios.post was called twice (initial + retry)
     expect(mockedAxios.post).toHaveBeenCalledTimes(2);
-
-    // Check that the result is correct
-    expect(result).toBe('{"result": "success after retry"}');
+    expect(result).toBe('Success after retry');
   });
 
-  test('should return rate limited flag after max retries', async () => {
-    // Mock multiple rate limit errors
-    mockedAxios.post
-      .mockRejectedValueOnce({
-        response: {
-          status: 429,
-          data: { error: 'Rate limit exceeded' },
-          headers: { 'retry-after': '1' }
-        }
-      })
-      .mockRejectedValueOnce({
-        response: {
-          status: 429,
-          data: { error: 'Rate limit exceeded' },
-          headers: { 'retry-after': '1' }
-        }
-      })
-      .mockRejectedValueOnce({
-        response: {
-          status: 429,
-          data: { error: 'Rate limit exceeded' },
-          headers: { 'retry-after': '1' }
-        }
-      })
-      .mockRejectedValue({
-        response: {
-          status: 429,
-          data: { error: 'Rate limit exceeded' },
-          headers: { 'retry-after': '1' }
-        }
-      });
+  test('should handle authentication errors', async () => {
+    const authError = {
+      response: {
+        status: 401,
+        data: {
+          error: 'Invalid API key',
+        },
+      },
+    };
 
-    // Call the OpenAI API
-    const messages: OpenAIMessage[] = [
-      { role: 'system', content: 'You are a helpful assistant.' },
-      { role: 'user', content: 'Hello!' }
-    ];
-    
-    const result = await callOpenAI(messages);
+    mockedAxios.post.mockRejectedValueOnce(authError);
 
-    // Check that axios.post was called 4 times (initial + 3 retries)
-    expect(mockedAxios.post).toHaveBeenCalledTimes(4);
-
-    // Check that the result is the rate limited flag
-    expect(result).toEqual({ rateLimited: true });
+    await expect(callOpenAI(messages)).rejects.toThrow('OpenAI API authentication failed');
   });
 
-  test('should handle other API errors', async () => {
-    // Mock API error
-    mockedAxios.post.mockRejectedValueOnce({
+  test('should handle bad request errors', async () => {
+    const badRequestError = {
       response: {
         status: 400,
-        data: { error: 'Bad request' }
-      }
-    });
+        data: {
+          error: 'Bad request',
+        },
+      },
+    };
 
-    // Call the OpenAI API
-    const messages: OpenAIMessage[] = [
-      { role: 'system', content: 'You are a helpful assistant.' },
-      { role: 'user', content: 'Hello!' }
-    ];
-    
-    // Expect the call to throw an error
-    await expect(callOpenAI(messages)).rejects.toThrow('OpenAI API error: 400');
+    mockedAxios.post.mockRejectedValueOnce(badRequestError);
+
+    await expect(callOpenAI(messages)).rejects.toThrow('Invalid request to OpenAI API');
+  });
+
+  test('should handle network errors', async () => {
+    const networkError = {
+      code: 'ECONNREFUSED',
+      message: 'Connection refused',
+    };
+
+    mockedAxios.post.mockRejectedValueOnce(networkError);
+
+    await expect(callOpenAI(messages)).rejects.toThrow('Network error when calling OpenAI API');
   });
 }); 

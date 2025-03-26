@@ -90,19 +90,22 @@ export class RequestQueue {
     if (this.processing || this.queue.length === 0) return;
 
     this.processing = true;
-    while (this.queue.length > 0) {
-      const request = this.queue.shift();
-      if (request) {
-        try {
-          await request();
-        } catch (error) {
-          console.error('Error processing queued request:', error);
+    try {
+      while (this.queue.length > 0) {
+        const request = this.queue.shift();
+        if (request) {
+          try {
+            await request();
+          } catch (error) {
+            console.error('Error processing queued request:', error);
+          }
+          // Add minimum delay between requests
+          await new Promise(resolve => setTimeout(resolve, RATE_LIMIT.minDelay));
         }
-        // Add minimum delay between requests
-        await new Promise(resolve => setTimeout(resolve, RATE_LIMIT.minDelay));
       }
+    } finally {
+      this.processing = false;
     }
-    this.processing = false;
   }
 }
 
