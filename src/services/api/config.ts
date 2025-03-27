@@ -1,7 +1,7 @@
 // API Configuration
 
 // OpenAI API configuration
-export const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+export const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
 
 // In a real application, this would be set from environment variables
 // For tests, this is mocked in the test files

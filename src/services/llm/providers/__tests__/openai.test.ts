@@ -1,7 +1,7 @@
 import { OpenAIProvider } from '../openai';
-import { LLMCompletionRequest, LLMError, LLMMessage } from '../../../../types/llm';
+import { LLMRequest, LLMError, LLMMessage } from '../../../../types/llm';
 import axios from 'axios';
-import { Readable } from 'stream';
+import { TextDecoder } from 'util';
 
 // Mock axios and fetch
 jest.mock('axios');
@@ -9,6 +9,13 @@ const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 // Mock fetch and Response
 global.fetch = jest.fn();
+(global as any).TextDecoder = TextDecoder;
+(global as any).TextEncoder = class {
+  encode(str: string): Uint8Array {
+    return Buffer.from(str);
+  }
+};
+
 const mockResponse = {
   ok: true,
   body: {
@@ -43,26 +50,9 @@ class MockReadableStream {
   }
 }
 
-// Declare global types
-declare global {
-  interface Window {
-    ReadableStream: typeof MockReadableStream;
-    TextEncoder: new () => { encode(str: string): Uint8Array };
-  }
-}
-
 // Set up global mocks
 Object.defineProperty(global, 'ReadableStream', {
   value: MockReadableStream,
-  writable: true,
-});
-
-Object.defineProperty(global, 'TextEncoder', {
-  value: class {
-    encode(str: string): Uint8Array {
-      return Buffer.from(str);
-    }
-  },
   writable: true,
 });
 
@@ -72,24 +62,24 @@ describe('OpenAIProvider', () => {
   beforeEach(() => {
     provider = new OpenAIProvider({
       apiKey: 'test-api-key',
-      model: 'gpt-4',
+      model: 'gpt-4o',
       temperature: 0.7
     });
     jest.clearAllMocks();
   });
 
-  describe('complete', () => {
+  describe('getResponse', () => {
     it('should make a successful API call', async () => {
       const mockResponse = {
         data: {
-          choices: [{
-            message: {
-              content: 'Test response'
-            }
+          output: [{
+            content: [{
+              text: 'Test response'
+            }]
           }],
           usage: {
-            prompt_tokens: 10,
-            completion_tokens: 20,
+            input_tokens: 10,
+            output_tokens: 20,
             total_tokens: 30
           }
         }
@@ -97,20 +87,24 @@ describe('OpenAIProvider', () => {
 
       mockedAxios.post.mockResolvedValueOnce(mockResponse);
 
-      const request: LLMCompletionRequest = {
+      const request: LLMRequest = {
         messages: [{ role: 'user', content: 'Hello' }],
         temperature: 0.5
       };
 
-      const response = await provider.complete(request);
+      const response = await provider.getResponse(request);
 
       expect(mockedAxios.post).toHaveBeenCalledWith(
-        'https://api.openai.com/v1/chat/completions',
+        'https://api.openai.com/v1/responses',
         expect.objectContaining({
-          model: 'gpt-4',
-          messages: request.messages,
+          model: 'gpt-4o',
+          input: 'user: Hello',
           temperature: 0.5,
-          max_tokens: undefined
+          text: {
+            format: {
+              type: 'text'
+            }
+          }
         }),
         expect.objectContaining({
           headers: {
@@ -123,8 +117,8 @@ describe('OpenAIProvider', () => {
       expect(response).toEqual({
         content: 'Test response',
         usage: {
-          promptTokens: 10,
-          completionTokens: 20,
+          inputTokens: 10,
+          outputTokens: 20,
           totalTokens: 30
         }
       });
@@ -147,11 +141,11 @@ describe('OpenAIProvider', () => {
 
       mockedAxios.post.mockRejectedValueOnce(mockError);
 
-      const request: LLMCompletionRequest = {
+      const request: LLMRequest = {
         messages: [{ role: 'user', content: 'Hello' }]
       };
 
-      await expect(provider.complete(request)).rejects.toMatchObject({
+      await expect(provider.getResponse(request)).rejects.toMatchObject({
         code: 'API_ERROR',
         message: 'API Error',
         status: 429,
@@ -167,11 +161,11 @@ describe('OpenAIProvider', () => {
 
       mockedAxios.post.mockRejectedValueOnce(mockError);
 
-      const request: LLMCompletionRequest = {
+      const request: LLMRequest = {
         messages: [{ role: 'user', content: 'Hello' }]
       };
 
-      await expect(provider.complete(request)).rejects.toMatchObject({
+      await expect(provider.getResponse(request)).rejects.toMatchObject({
         code: 'NETWORK_ERROR',
         message: 'Network request failed',
         status: 0
@@ -179,7 +173,7 @@ describe('OpenAIProvider', () => {
     });
   });
 
-  describe('streamComplete', () => {
+  describe('streamResponse', () => {
     const messages: LLMMessage[] = [
       { role: 'user', content: 'Hello!' },
     ];
@@ -198,41 +192,18 @@ describe('OpenAIProvider', () => {
       };
 
       // Mock fetch response with streaming data
+      const mockStream = new MockReadableStream([
+        new TextEncoder().encode('data: {"type":"response.output_text.delta","delta":"Hello"}\n\n'),
+        new TextEncoder().encode('data: {"type":"response.output_text.delta","delta":" World"}\n\n'),
+        new TextEncoder().encode('data: [DONE]\n\n')
+      ]);
+
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        body: {
-          getReader: () => {
-            let count = 0;
-            return {
-              read: async () => {
-                count++;
-                if (count === 1) {
-                  return {
-                    done: false,
-                    value: new TextEncoder().encode('data: {"id":"1","object":"chat.completion.chunk","choices":[{"delta":{"content":"Hello"}}]}\n\n')
-                  };
-                } else if (count === 2) {
-                  return {
-                    done: false,
-                    value: new TextEncoder().encode('data: {"id":"2","object":"chat.completion.chunk","choices":[{"delta":{"content":" World"}}]}\n\n')
-                  };
-                } else if (count === 3) {
-                  return {
-                    done: false,
-                    value: new TextEncoder().encode('data: [DONE]\n\n')
-                  };
-                } else {
-                  return { done: true, value: undefined };
-                }
-              },
-              cancel: () => Promise.resolve(),
-              releaseLock: () => {},
-            };
-          }
-        }
+        body: mockStream
       });
 
-      await provider.streamComplete({ messages }, callbacks);
+      await provider.streamResponse({ messages }, callbacks);
 
       expect(tokens).toEqual(['Hello', ' World']);
       expect(callbacks.onComplete).toHaveBeenCalled();
@@ -260,7 +231,7 @@ describe('OpenAIProvider', () => {
         },
       });
 
-      await provider.streamComplete({ messages }, callbacks);
+      await provider.streamResponse({ messages }, callbacks);
 
       expect(callbacks.onToken).not.toHaveBeenCalled();
       expect(callbacks.onComplete).not.toHaveBeenCalled();
@@ -268,7 +239,7 @@ describe('OpenAIProvider', () => {
         code: 'API_ERROR',
         message: 'API Error',
         status: 500,
-        retryAfter: 0,
+        retryAfter: 0
       });
     });
   });

@@ -7,16 +7,14 @@ import { OpenAIMessage } from '../types';
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
-// Mock request queue to execute the function immediately
-jest.mock('../requestQueue', () => ({
-  requestQueue: {
-    add: jest.fn(fn => fn()),
-  },
-}));
+// Mock request queue - simplified approach
+jest.mock('../requestQueue');
+const mockAdd = jest.fn(fn => fn());
+(requestQueue.add as jest.Mock) = mockAdd;
 
 // Mock config to provide a test API key
 jest.mock('../config', () => ({
-  OPENAI_API_URL: 'https://api.openai.com/v1/chat/completions',
+  OPENAI_API_URL: 'https://api.openai.com/v1/responses',
   OPENAI_API_KEY: 'test-api-key',
   MODEL: 'gpt-4o',
   TEMPERATURE: 0,
@@ -36,31 +34,43 @@ jest.mock('timers', () => ({
   setTimeout: (callback: Function) => callback(),
 }));
 
-describe('OpenAI Client', () => {
+describe('OpenAI Client - Success Scenarios', () => {
   const messages = [{ role: 'user', content: 'Hello!' }];
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Reset to default implementation
+    mockAdd.mockImplementation(fn => fn());
   });
 
   test('should call OpenAI API and return response content', async () => {
     const mockResponse = {
       data: {
-        choices: [
-          {
-            message: {
-              content: 'Hello, how can I help you?',
-            },
-          },
-        ],
-      },
+        output: [{
+          content: [{
+            text: 'Hello, how can I help you?'
+          }]
+        }],
+        usage: {
+          input_tokens: 10,
+          output_tokens: 20,
+          total_tokens: 30
+        }
+      }
     };
 
     mockedAxios.post.mockResolvedValueOnce(mockResponse);
 
     const result = await callOpenAI(messages);
 
-    expect(result).toBe('Hello, how can I help you?');
+    expect(result).toEqual({
+      text: 'Hello, how can I help you?',
+      usage: {
+        input_tokens: 10,
+        output_tokens: 20,
+        total_tokens: 30
+      }
+    });
   });
 
   test('should handle rate limit errors and retry', async () => {
@@ -68,7 +78,9 @@ describe('OpenAI Client', () => {
       response: {
         status: 429,
         data: {
-          error: 'Rate limit exceeded',
+          error: {
+            message: 'Rate limit exceeded'
+          }
         },
         headers: {
           'retry-after': '1',
@@ -78,38 +90,51 @@ describe('OpenAI Client', () => {
 
     const successResponse = {
       data: {
-        choices: [
-          {
-            message: {
-              content: 'Success after retry',
-            },
-          },
-        ],
-      },
+        output: [{
+          content: [{
+            text: 'Success after retry'
+          }]
+        }],
+        usage: {
+          input_tokens: 5,
+          output_tokens: 10,
+          total_tokens: 15
+        }
+      }
     };
 
-    // First call fails with rate limit, second call succeeds
-    mockedAxios.post
-      .mockRejectedValueOnce(rateLimitError)
-      .mockResolvedValueOnce(successResponse);
-
-    // Mock requestQueue.add to simulate retry
-    (requestQueue.add as jest.Mock).mockImplementation(async (fn) => {
-      try {
-        return await fn();
-      } catch (error: any) {
-        if (error.response?.status === 429) {
-          // Simulate retry after delay
-          return await fn();
-        }
-        throw error;
+    let callCount = 0;
+    mockAdd.mockImplementation(async (fn) => {
+      callCount++;
+      if (callCount === 1) {
+        mockedAxios.post.mockRejectedValueOnce(rateLimitError);
+      } else {
+        mockedAxios.post.mockResolvedValueOnce(successResponse);
       }
+      return fn();
     });
 
     const result = await callOpenAI(messages);
 
     expect(mockedAxios.post).toHaveBeenCalledTimes(2);
-    expect(result).toBe('Success after retry');
+    expect(result).toEqual({
+      text: 'Success after retry',
+      usage: {
+        input_tokens: 5,
+        output_tokens: 10,
+        total_tokens: 15
+      }
+    });
+  });
+});
+
+// Test error cases separately
+describe('OpenAI Client - Error Handling', () => {
+  const messages = [{ role: 'user', content: 'Hello!' }];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAdd.mockImplementation(fn => fn());
   });
 
   test('should handle authentication errors', async () => {

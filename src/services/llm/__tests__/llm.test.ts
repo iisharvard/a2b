@@ -1,4 +1,4 @@
-import { LLMProvider, LLMMessage, LLMCompletionRequest, LLMError, LLMCompletionResponse } from '../../../types/llm';
+import { LLMProvider, LLMMessage, LLMRequest, LLMError, LLMResponse } from '../../../types/llm';
 
 // Mock LLM Provider implementation
 class MockLLMProvider implements LLMProvider {
@@ -12,7 +12,7 @@ class MockLLMProvider implements LLMProvider {
     this.response = options.response || 'Mock response';
   }
 
-  async complete(request: LLMCompletionRequest): Promise<LLMCompletionResponse> {
+  async getResponse(request: LLMRequest): Promise<LLMResponse> {
     await this.simulateDelay();
     
     if (this.shouldError) {
@@ -22,15 +22,15 @@ class MockLLMProvider implements LLMProvider {
     return {
       content: this.response,
       usage: {
-        promptTokens: 10,
-        completionTokens: 20,
+        inputTokens: 10,
+        outputTokens: 20,
         totalTokens: 30
       }
     };
   }
 
-  async streamComplete(
-    request: LLMCompletionRequest,
+  async streamResponse(
+    request: LLMRequest,
     callbacks: {
       onToken: (token: string) => void;
       onComplete: () => void;
@@ -77,16 +77,16 @@ describe('LLM Provider', () => {
     provider = new MockLLMProvider();
   });
 
-  describe('complete', () => {
-    it('should return a successful completion', async () => {
-      const request: LLMCompletionRequest = {
+  describe('getResponse', () => {
+    it('should return a successful response', async () => {
+      const request: LLMRequest = {
         messages: [
           { role: 'user', content: 'Hello' }
         ],
         temperature: 0.7
       };
 
-      const response = await provider.complete(request);
+      const response = await provider.getResponse(request);
       expect(response.content).toBe('Mock response');
       expect(response.usage).toBeDefined();
       expect(response.usage?.totalTokens).toBe(30);
@@ -94,11 +94,11 @@ describe('LLM Provider', () => {
 
     it('should handle errors', async () => {
       provider = new MockLLMProvider({ shouldError: true });
-      const request: LLMCompletionRequest = {
+      const request: LLMRequest = {
         messages: [{ role: 'user', content: 'Hello' }]
       };
 
-      await expect(provider.complete(request)).rejects.toMatchObject({
+      await expect(provider.getResponse(request)).rejects.toMatchObject({
         code: 'MOCK_ERROR',
         message: 'Mock error message',
         status: 500
@@ -109,7 +109,7 @@ describe('LLM Provider', () => {
       provider = new MockLLMProvider({ delay: 100 });
       const start = Date.now();
       
-      await provider.complete({
+      await provider.getResponse({
         messages: [{ role: 'user', content: 'Hello' }]
       });
 
@@ -118,7 +118,7 @@ describe('LLM Provider', () => {
     });
   });
 
-  describe('streamComplete', () => {
+  describe('streamResponse', () => {
     it('should stream tokens and complete', async () => {
       const tokens: string[] = [];
       const callbacks = {
@@ -127,7 +127,7 @@ describe('LLM Provider', () => {
         onError: jest.fn()
       };
 
-      await provider.streamComplete(
+      await provider.streamResponse(
         { messages: [{ role: 'user', content: 'Hello' }] },
         callbacks
       );
@@ -145,7 +145,7 @@ describe('LLM Provider', () => {
         onError: jest.fn()
       };
 
-      await provider.streamComplete(
+      await provider.streamResponse(
         { messages: [{ role: 'user', content: 'Hello' }] },
         callbacks
       );
@@ -162,7 +162,7 @@ describe('LLM Provider', () => {
       provider = new MockLLMProvider({ delay: 100 });
       const start = Date.now();
       
-      await provider.streamComplete(
+      await provider.streamResponse(
         { messages: [{ role: 'user', content: 'Hello' }] },
         {
           onToken: jest.fn(),

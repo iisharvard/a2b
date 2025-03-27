@@ -36,7 +36,7 @@ describe('LLM Provider Factory', () => {
     });
 
     // Test that the provider can complete requests
-    expect(openaiProvider.complete).toBeDefined();
-    expect(openaiProvider.streamComplete).toBeDefined();
+    expect(openaiProvider.getResponse).toBeDefined();
+    expect(openaiProvider.streamResponse).toBeDefined();
   });
 }); 

@@ -5,19 +5,21 @@ export interface LLMMessage {
   content: string;
 }
 
-export interface LLMCompletionRequest {
+export interface LLMRequest {
   messages: LLMMessage[];
   temperature?: number;
-  maxTokens?: number;
+  maxOutputTokens?: number;
   stream?: boolean;
   responseFormat?: { type: string };
+  tools?: any[];
+  toolChoice?: string | object;
 }
 
-export interface LLMCompletionResponse {
+export interface LLMResponse {
   content: string;
   usage?: {
-    promptTokens: number;
-    completionTokens: number;
+    inputTokens: number;
+    outputTokens: number;
     totalTokens: number;
   };
 }
@@ -30,9 +32,9 @@ export interface LLMError {
 }
 
 export interface LLMProvider {
-  complete(request: LLMCompletionRequest): Promise<LLMCompletionResponse>;
-  streamComplete(
-    request: LLMCompletionRequest,
+  getResponse(request: LLMRequest): Promise<LLMResponse>;
+  streamResponse(
+    request: LLMRequest,
     callbacks: {
       onToken: (token: string) => void;
       onComplete: () => void;

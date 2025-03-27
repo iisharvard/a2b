@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChatState, Message, ChatBotProps } from './types';
-import { ChatMessage, streamChatCompletion } from '../../services/chatService';
+import { ChatMessage, streamResponse } from '../../services/chatService';
 
 export const useChatState = (props: ChatBotProps) => {
   const {
@@ -97,7 +97,7 @@ export const useChatState = (props: ChatBotProps) => {
     try {
       let fullResponse = '';
       
-      await streamChatCompletion(
+      await streamResponse(
         [...conversation, { role: 'user', content: inputValue }],
         apiKey,
         {

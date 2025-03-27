@@ -47,17 +47,17 @@ export const callLanguageModel = async (promptFile: string, inputs: Record<strin
     
     console.log('Sending request to OpenAI...');
     // Call OpenAI API with JSON response format
-    const responseContent = await callOpenAI(messages, { type: 'json_object' });
+    const response = await callOpenAI(messages, { type: 'json_object' });
     
     // Try to parse the response as JSON
     try {
-      const parsedResponse = JSON.parse(responseContent);
+      const parsedResponse = JSON.parse(response.text);
       console.log('✅ Successfully parsed OpenAI response:', parsedResponse);
       return parsedResponse;
     } catch (e) {
       console.error('❌ Error parsing JSON response:', e);
       // If parsing fails, return the raw content
-      return { error: 'Failed to parse JSON response', rawContent: responseContent };
+      return { error: 'Failed to parse JSON response', rawContent: response.text };
     }
   } catch (error) {
     console.error('❌ Error calling language model:', error);

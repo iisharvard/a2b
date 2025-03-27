@@ -51,7 +51,14 @@ describe('Prompt Handler', () => {
       });
 
       // Mock successful OpenAI response
-      mockCallOpenAI.mockResolvedValueOnce('{"result":"success"}');
+      mockCallOpenAI.mockResolvedValueOnce({
+        text: '{"result":"success"}',
+        usage: {
+          input_tokens: 10,
+          output_tokens: 20,
+          total_tokens: 30
+        }
+      });
 
       const result = await callLanguageModel('test.txt', { input: 'test' });
 
@@ -73,7 +80,14 @@ describe('Prompt Handler', () => {
       });
 
       // Mock rate limited response
-      mockCallOpenAI.mockResolvedValueOnce('{"rateLimited":true}');
+      mockCallOpenAI.mockResolvedValueOnce({
+        text: '{"rateLimited":true}',
+        usage: {
+          input_tokens: 5,
+          output_tokens: 10,
+          total_tokens: 15
+        }
+      });
 
       const result = await callLanguageModel('test.txt', { input: 'test' });
       expect(result).toEqual({ rateLimited: true });
@@ -87,7 +101,14 @@ describe('Prompt Handler', () => {
       });
 
       // Mock invalid JSON response
-      mockCallOpenAI.mockResolvedValueOnce('Invalid JSON');
+      mockCallOpenAI.mockResolvedValueOnce({
+        text: 'Invalid JSON',
+        usage: {
+          input_tokens: 5,
+          output_tokens: 10,
+          total_tokens: 15
+        }
+      });
 
       const result = await callLanguageModel('test.txt', { input: 'test' });
       expect(result).toEqual({

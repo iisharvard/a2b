@@ -2,20 +2,18 @@
  * Service for handling chat-related API calls
  */
 
+import { LLMProvider, LLMRequest, LLMResponse, LLMError } from '../types/llm';
+import { callOpenAI, streamOpenAI } from './api/openaiClient';
+
 // Define types for API responses
-export interface ChatCompletionChunk {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
-  choices: {
-    index: number;
-    delta: {
-      content?: string;
-      role?: string;
-    };
-    finish_reason: string | null;
-  }[];
+export interface ResponseChunk {
+  type: string;
+  output_index: number;
+  content_index: number;
+  item_id: string;
+  delta?: string;
+  text?: string;
+  annotations?: any[];
 }
 
 export interface ChatMessage {
@@ -30,18 +28,66 @@ interface StreamCallbacks {
   onError?: (error: Error) => void;
 }
 
+export class ChatService {
+  private provider: LLMProvider;
+
+  constructor(provider: LLMProvider) {
+    this.provider = provider;
+  }
+
+  async getResponse(request: LLMRequest): Promise<LLMResponse> {
+    return this.provider.getResponse(request);
+  }
+
+  async streamResponse(
+    request: LLMRequest,
+    callbacks: {
+      onToken: (token: string) => void;
+      onComplete: () => void;
+      onError: (error: LLMError) => void;
+    }
+  ): Promise<void> {
+    return this.provider.streamResponse(request, callbacks);
+  }
+}
+
 /**
- * Streams a chat completion from OpenAI API
+ * Get a chat completion from OpenAI
+ */
+export const getChatCompletion = async (
+  messages: Array<{ role: string; content: string }>,
+  responseFormat?: { type: string }
+): Promise<string> => {
+  const response = await callOpenAI(messages, responseFormat);
+  return response.text;
+};
+
+/**
+ * Stream a chat completion from OpenAI
+ */
+export const streamChatCompletion = async (
+  messages: Array<{ role: string; content: string }>,
+  callbacks: {
+    onToken: (token: string) => void;
+    onComplete: () => void;
+    onError: (error: LLMError) => void;
+  }
+): Promise<void> => {
+  return streamOpenAI(messages, callbacks);
+};
+
+/**
+ * Streams a response from OpenAI API
  * @param messages - Array of messages to send to the API
  * @param apiKey - OpenAI API key
  * @param callbacks - Callbacks for stream events
- * @param model - Model to use (defaults to gpt-3.5-turbo)
+ * @param model - Model to use (defaults to gpt-4o)
  */
-export const streamChatCompletion = async (
+export const streamResponse = async (
   messages: ChatMessage[],
   apiKey: string,
   callbacks: StreamCallbacks,
-  model: string = 'gpt-3.5-turbo'
+  model: string = 'gpt-4o'
 ): Promise<void> => {
   const { onStart, onToken, onComplete, onError } = callbacks;
   
@@ -49,7 +95,7 @@ export const streamChatCompletion = async (
     // Notify start of stream
     onStart?.();
     
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -57,7 +103,7 @@ export const streamChatCompletion = async (
       },
       body: JSON.stringify({
         model,
-        messages,
+        input: messages,
         stream: true,
       }),
     });
@@ -105,19 +151,28 @@ export const streamChatCompletion = async (
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
             
-            // Check for stream completion
+            // Check for stream response end
             if (data === '[DONE]') {
               onComplete?.(fullResponse);
               return;
             }
 
             try {
-              const parsed: ChatCompletionChunk = JSON.parse(data);
-              const content = parsed.choices[0]?.delta?.content || '';
+              const parsed: ResponseChunk = JSON.parse(data);
               
-              if (content) {
-                fullResponse += content;
-                onToken?.(content);
+              // Handle different event types
+              if (parsed.type === 'response.output_text.delta') {
+                const content = parsed.delta || '';
+                if (content) {
+                  fullResponse += content;
+                  onToken?.(content);
+                }
+              } else if (parsed.type === 'response.output_text.done') {
+                const content = parsed.text || '';
+                if (content) {
+                  fullResponse = content;
+                  onToken?.(content);
+                }
               }
             } catch (err) {
               // Silent error handling
@@ -126,7 +181,7 @@ export const streamChatCompletion = async (
         }
       }
 
-      // Ensure completion callback is triggered
+      // Ensure response callback is triggered
       onComplete?.(fullResponse);
     } catch (err) {
       reader.cancel();
@@ -138,19 +193,19 @@ export const streamChatCompletion = async (
 };
 
 /**
- * Gets a chat completion from OpenAI API (non-streaming)
+ * Gets a response from OpenAI API (non-streaming)
  * @param messages - Array of messages to send to the API
  * @param apiKey - OpenAI API key
- * @param model - Model to use (defaults to gpt-3.5-turbo)
+ * @param model - Model to use (defaults to gpt-4o)
  * @returns The AI response text
  */
-export const getChatCompletion = async (
+export const getResponse = async (
   messages: ChatMessage[],
   apiKey: string,
-  model: string = 'gpt-3.5-turbo'
+  model: string = 'gpt-4o'
 ): Promise<string> => {
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -158,7 +213,7 @@ export const getChatCompletion = async (
       },
       body: JSON.stringify({
         model,
-        messages,
+        input: messages,
         temperature: 0.7,
       }),
     });
@@ -173,7 +228,7 @@ export const getChatCompletion = async (
     }
 
     const data = await response.json();
-    return data.choices[0].message.content;
+    return data.output[0].content[0].text;
   } catch (error) {
     throw error;
   }

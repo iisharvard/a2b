@@ -7,45 +7,51 @@ export interface OpenAIMessage {
   content: string;
 }
 
-export interface OpenAICompletionRequest {
+export interface OpenAIResponseRequest {
   model: string;
-  messages: OpenAIMessage[];
+  input: OpenAIMessage[] | string;
   temperature?: number;
-  max_tokens?: number;
+  max_output_tokens?: number;
   top_p?: number;
   frequency_penalty?: number;
   presence_penalty?: number;
   stream?: boolean;
   response_format?: { type: string };
+  tools?: any[];
+  tool_choice?: string | object;
 }
 
-export interface OpenAICompletionResponse {
+export interface OpenAIResponse {
   id: string;
   object: string;
   created: number;
   model: string;
-  choices: {
-    index: number;
-    message: OpenAIMessage;
-    finish_reason: string;
+  output: {
+    type: string;
+    id: string;
+    status: string;
+    role: string;
+    content: {
+      type: string;
+      text: string;
+      annotations: any[];
+    }[];
   }[];
   usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
+    input_tokens: number;
+    output_tokens: number;
     total_tokens: number;
   };
 }
 
 export interface OpenAIStreamChunk {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
-  choices: {
-    index: number;
-    delta: Partial<OpenAIMessage>;
-    finish_reason: string | null;
-  }[];
+  type: string;
+  output_index: number;
+  content_index: number;
+  item_id: string;
+  delta?: string;
+  text?: string;
+  annotations?: any[];
 }
 
 // Request queue types
