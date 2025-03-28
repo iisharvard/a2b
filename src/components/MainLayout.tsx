@@ -19,6 +19,7 @@ import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import LockIcon from '@mui/icons-material/Lock';
 import SaveIcon from '@mui/icons-material/Save';
 import { RootState } from '../store';
+import ExperimentalWarningDialog from './ExperimentalWarningDialog';
 
 // Import all pages
 import InitialSetup from '../pages/InitialSetup';
@@ -62,6 +63,7 @@ function a11yProps(index: number) {
 
 const MainLayout = () => {
   const [tabValue, setTabValue] = useState(0);
+  const [showWarning, setShowWarning] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -232,6 +234,10 @@ const MainLayout = () => {
 
   return (
     <Box sx={{ flexGrow: 1 }}>
+      <ExperimentalWarningDialog
+        open={showWarning}
+        onClose={() => setShowWarning(false)}
+      />
       <AppBar position="static" color="default" elevation={1}>
         <Toolbar variant="dense" sx={{ minHeight: '48px' }}>
           <Typography variant="subtitle1" component="div" sx={{ flexGrow: 1 }}>
