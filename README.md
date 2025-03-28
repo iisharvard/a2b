@@ -8,7 +8,7 @@ A React application designed for frontline negotiators who need to analyze case 
 - **Interactive Editing**: Real-time markdown editing and preview for all analyses.
 - **Dynamic Boundary Adjustment**: Recalculate redlines and bottomlines based on revised analyses.
 - **Scenario Visualization**: Visual representation of negotiation scenarios along a spectrum.
-- **Risk Assessment**: Detailed risk analysis for selected scenarios with editable assessment tables.
+- **Risk Assessment**: Detailed risk analysis for selected scenarios with editable assessment tables. (TODO)
 
 ## Getting Started
 
