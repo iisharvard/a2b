@@ -20,7 +20,7 @@ if (typeof window !== 'undefined') {
 }
 
 export const MODEL = 'gpt-4o'; // or 'gpt-3.5-turbo' for a more cost-effective option
-export const TEMPERATURE = 0;
+export const TEMPERATURE = 0.5;
 
 // Rate limiting configuration
 export const RATE_LIMIT = {

@@ -71,11 +71,11 @@ const isChangeSignificant = (oldContent: string | undefined | null, newContent: 
   const lengthDiff = Math.abs(newContent.length - oldContent.length);
   const lengthChangePercent = (lengthDiff / oldContent.length) * 100;
   
-  console.log('[DEBUG] Change significance check:', {
-    lengthDiff,
-    lengthChangePercent: lengthChangePercent.toFixed(2) + '%',
-    hasFormatting: formattedDiff.includes('[ADDED]') || formattedDiff.includes('[REMOVED]')
-  });
+  // console.log('[DEBUG] Change significance check:', {
+  //   lengthDiff,
+  //   lengthChangePercent: lengthChangePercent.toFixed(2) + '%',
+  //   hasFormatting: formattedDiff.includes('[ADDED]') || formattedDiff.includes('[REMOVED]')
+  // });
   
   // Consider significant if:
   // 1. More than 50 characters changed AND more than 1% of content
@@ -97,10 +97,10 @@ const isChangeSignificant = (oldContent: string | undefined | null, newContent: 
   
   const hasImportantPattern = importantPatterns.some(pattern => pattern.test(formattedDiff));
   
-  console.log('[DEBUG] Pattern check result:', {
-    hasImportantPattern,
-    diffLength: formattedDiff.length
-  });
+  // console.log('[DEBUG] Pattern check result:', {
+  //   hasImportantPattern,
+  //   diffLength: formattedDiff.length
+  // });
   
   return hasImportantPattern;
 };
@@ -239,33 +239,33 @@ export const useDebugState = () => {
   const createSnapshot = useCallback((): StateSnapshot => {
     // Visual debug logs only when debug window is open
     if (initializedRef.current && state.isDebugWindowOpen && currentCase?.id) {
-      console.log('📸 Creating snapshot...');
-      console.log('Current case:', currentCase?.id);
-      console.log('Last processed case:', lastCaseRef.current?.id);
+      // console.log('📸 Creating snapshot...');
+      // console.log('Current case:', currentCase?.id);
+      // console.log('Last processed case:', lastCaseRef.current?.id);
       
       if (currentCase?.content) {
         const contentBlocks = currentCase.content.split(/\[Content from:/);
-        console.log('Content analysis:', {
-          totalLength: currentCase.content.length,
-          blockCount: contentBlocks.length - 1,
-          blocks: contentBlocks.slice(1).map((block, i) => ({
-            index: i + 1,
-            length: block.length,
-            preview: block.slice(0, 50)
-          }))
-        });
+        // console.log('Content analysis:', {
+        //   totalLength: currentCase.content.length,
+        //   blockCount: contentBlocks.length - 1,
+        //   blocks: contentBlocks.slice(1).map((block, i) => ({
+        //     index: i + 1,
+        //     length: block.length,
+        //     preview: block.slice(0, 50)
+        //   }))
+        // });
       }
     }
     
     // Always log for debugging our issue, regardless of debug window state
-    console.log('[DEBUG] Creating actual snapshot:', {
-      hasCase: !!currentCase,
-      caseId: currentCase?.id,
-      hasIOA: !!currentCase?.analysis?.ioa,
-      hasIceberg: !!currentCase?.analysis?.iceberg,
-      issueCount: currentCase?.analysis?.components?.length || 0,
-      scenarioCount: currentCase?.scenarios?.length || 0
-    });
+    // console.log('[DEBUG] Creating actual snapshot:', {
+    //   hasCase: !!currentCase,
+    //   caseId: currentCase?.id,
+    //   hasIOA: !!currentCase?.analysis?.ioa,
+    //   hasIceberg: !!currentCase?.analysis?.iceberg,
+    //   issueCount: currentCase?.analysis?.components?.length || 0,
+    //   scenarioCount: currentCase?.scenarios?.length || 0
+    // });
     
     // Always create the snapshot regardless of debug window state
     const snapshot: StateSnapshot = {
@@ -289,13 +289,13 @@ export const useDebugState = () => {
 
     // Visual debug logs only when debug window is open
     if (initializedRef.current && state.isDebugWindowOpen && currentCase?.id) {
-      console.log('Snapshot created:', {
-        hasCase: !!snapshot.caseFile,
-        caseContent: snapshot.caseFile?.content?.length || 0,
-        hasIOA: !!snapshot.ioa,
-        hasIceberg: !!snapshot.iceberg,
-        issueCount: snapshot.issues?.length || 0
-      });
+      // console.log('Snapshot created:', {
+      //   hasCase: !!snapshot.caseFile,
+      //   caseContent: snapshot.caseFile?.content?.length || 0,
+      //   hasIOA: !!snapshot.ioa,
+      //   hasIceberg: !!snapshot.iceberg,
+      //   issueCount: snapshot.issues?.length || 0
+      // });
     }
     
     return snapshot;
@@ -312,13 +312,13 @@ export const useDebugState = () => {
     const newValue = newSnapshot[key];
     
     // Always log comparison regardless of debug window state
-    console.log(`[DEBUG] Comparing ${key}:`, {
-      hasOld: !!oldValue,
-      hasNew: !!newValue,
-      oldLength: typeof oldValue === 'string' ? oldValue.length : Array.isArray(oldValue) ? oldValue.length : 0,
-      newLength: typeof newValue === 'string' ? newValue.length : Array.isArray(newValue) ? newValue.length : 0,
-      equal: JSON.stringify(oldValue) === JSON.stringify(newValue)
-    });
+    // console.log(`[DEBUG] Comparing ${key}:`, {
+    //   hasOld: !!oldValue,
+    //   hasNew: !!newValue,
+    //   oldLength: typeof oldValue === 'string' ? oldValue.length : Array.isArray(oldValue) ? oldValue.length : 0,
+    //   newLength: typeof newValue === 'string' ? newValue.length : Array.isArray(newValue) ? newValue.length : 0,
+    //   equal: JSON.stringify(oldValue) === JSON.stringify(newValue)
+    // });
 
     // Special handling for case file content
     if (key === 'caseFile') {
@@ -328,7 +328,7 @@ export const useDebugState = () => {
       // If we're loading a case for the first time (no old case, new case exists)
       if (!oldValue && newValue) {
         try {
-          console.log('[DEBUG] Getting qualitative summary for initial case load');
+          // console.log('[DEBUG] Getting qualitative summary for initial case load');
           // Call LLM to get a summary of the initial content
           const summary = await api.summarizeCaseChanges('', newContent || '');
           changes.push(`- Case file loaded: ${newValue.id || 'unknown'}`);
@@ -348,7 +348,7 @@ export const useDebugState = () => {
       // Handle appended content
       if (isAppend(oldContent, newContent)) {
         try {
-          console.log('[DEBUG] Getting qualitative summary for appended content');
+          // console.log('[DEBUG] Getting qualitative summary for appended content');
           const summary = await api.summarizeCaseChanges(oldContent || '', newContent || '');
           changes.push(`- Case file content was appended: ${summary}`);
           changes.push(`- ${newContent!.length - (oldContent?.length || 0)} characters added`);
@@ -363,7 +363,7 @@ export const useDebugState = () => {
       if (oldContent !== newContent) {
         try {
           lastProcessedHash.current = newContent;
-          console.log('[DEBUG] Getting qualitative summary for content changes');
+          // console.log('[DEBUG] Getting qualitative summary for content changes');
           const summary = await api.summarizeCaseChanges(oldContent || '', newContent || '');
           changes.push(`- Case file changes: ${summary}`);
         } catch (err) {
@@ -503,7 +503,7 @@ export const useDebugState = () => {
   // Process snapshot updates
   const processSnapshotUpdate = useCallback(async (oldSnapshot: StateSnapshot, newSnapshot: StateSnapshot) => {
     // Always log this regardless of debug window state
-    console.log('[DEBUG] 🔄 Generating change summary...');
+    // console.log('[DEBUG] 🔄 Generating change summary...');
     
     const changes: string[] = [];
     await Promise.all([
@@ -516,16 +516,16 @@ export const useDebugState = () => {
     ]);
 
     // Log whether changes were found
-    console.log('[DEBUG] Change detection result:', {
-      changesFound: changes.length > 0,
-      numberOfChanges: changes.length,
-      changes
-    });
+    // console.log('[DEBUG] Change detection result:', {
+    //   changesFound: changes.length > 0,
+    //   numberOfChanges: changes.length,
+    //   changes
+    // });
 
     // Even if no specific changes were detected, check for creation from nothing
     if (changes.length === 0 && !oldSnapshot.caseFile && newSnapshot.caseFile) {
       changes.push('- Case file initially loaded');
-      console.log('[DEBUG] Added fallback change detection for initial case load');
+      // console.log('[DEBUG] Added fallback change detection for initial case load');
     }
 
     if (changes.length > 0) {
@@ -547,31 +547,31 @@ export const useDebugState = () => {
       }));
 
       // Log changes to console for debugging
-      console.log('📝 State changes detected:', changeRecord);
+      // console.log('📝 State changes detected:', changeRecord);
     } else {
-      console.log('[DEBUG] No changes detected between snapshots');
+      // console.log('[DEBUG] No changes detected between snapshots');
     }
   }, [compareItems]);
 
   // Process update function
   const processUpdate = async () => {
-    console.log('[DEBUG] ⏰ Processing state update');
+    // console.log('[DEBUG] ⏰ Processing state update');
     const latestSnapshot = createSnapshot();
     
     lastCaseRef.current = currentCase;
     
     if (state.prevSnapshot) {
-      console.log('[DEBUG] Has previous snapshot, comparing with new snapshot');
+      // console.log('[DEBUG] Has previous snapshot, comparing with new snapshot');
       await processSnapshotUpdate(state.prevSnapshot, latestSnapshot);
     } else {
-      console.log('[DEBUG] No previous snapshot, storing current as first snapshot');
+      // console.log('[DEBUG] No previous snapshot, storing current as first snapshot');
       // Create an initial change record for the first case load
       const changes: string[] = [];
       
       // Get qualitative summary if we have a case file
       if (latestSnapshot.caseFile?.content) {
         try {
-          console.log('[DEBUG] Getting qualitative summary for initial case');
+          // console.log('[DEBUG] Getting qualitative summary for initial case');
           const summary = await api.summarizeCaseChanges('', latestSnapshot.caseFile.content);
           changes.push(`- Case file loaded: ${latestSnapshot.caseFile.id || 'unknown'}`);
           changes.push(`- Initial content summary: ${summary}`);
@@ -592,7 +592,7 @@ export const useDebugState = () => {
         details: changes.join('\n')
       };
       
-      console.log('[DEBUG] Recording initial case load in change history:', initialChangeRecord);
+      // console.log('[DEBUG] Recording initial case load in change history:', initialChangeRecord);
       
       setState(prev => ({ 
         ...prev, 
@@ -607,12 +607,12 @@ export const useDebugState = () => {
     mountCountRef.current++;
     
     // Always log the mount count
-    console.log('[DEBUG] useEffect triggered:', {
-      mountCount: mountCountRef.current,
-      hasPrevSnapshot: !!state.prevSnapshot,
-      currentCaseId: currentCase?.id,
-      lastCaseId: lastCaseRef.current?.id,
-    });
+    // console.log('[DEBUG] useEffect triggered:', {
+    //   mountCount: mountCountRef.current,
+    //   hasPrevSnapshot: !!state.prevSnapshot,
+    //   currentCaseId: currentCase?.id,
+    //   lastCaseId: lastCaseRef.current?.id,
+    // });
     
     // Skip if no case or if we're just mounting
     if (!currentCase || mountCountRef.current === 1) {
@@ -620,26 +620,26 @@ export const useDebugState = () => {
       if (currentCase) {
         lastCaseRef.current = currentCase;
         lastProcessedHash.current = hashContent(currentCase.content);
-        console.log('[DEBUG] First mount with case:', {
-          caseId: currentCase.id,
-          contentHash: lastProcessedHash.current
-        });
+        // console.log('[DEBUG] First mount with case:', {
+        //   caseId: currentCase.id,
+        //   contentHash: lastProcessedHash.current
+        // });
       } else {
-        console.log('[DEBUG] First mount without case');
+        // console.log('[DEBUG] First mount without case');
       }
       return;
     }
 
-    console.log('🔄 Checking for state changes:', {
-      mountCount: mountCountRef.current,
-      hasPrevSnapshot: !!state.prevSnapshot,
-      currentCaseId: currentCase?.id,
-      lastCaseId: lastCaseRef.current?.id,
-    });
+    // console.log('🔄 Checking for state changes:', {
+    //   mountCount: mountCountRef.current,
+    //   hasPrevSnapshot: !!state.prevSnapshot,
+    //   currentCaseId: currentCase?.id,
+    //   lastCaseId: lastCaseRef.current?.id,
+    // });
 
     // Check for content changes
     if (currentCase.id === lastCaseRef.current?.id) {
-      console.log('[DEBUG] ⚠️ Same case ID, checking for content changes...');
+      // console.log('[DEBUG] ⚠️ Same case ID, checking for content changes...');
       
       // Clear any existing timeout
       if (updateTimeoutRef.current) {
@@ -653,7 +653,7 @@ export const useDebugState = () => {
         
         // Check if content change is significant
         if (isChangeSignificant(oldContent, newContent)) {
-          console.log('[DEBUG] ✅ Significant content changes detected, processing update');
+          // console.log('[DEBUG] ✅ Significant content changes detected, processing update');
           processUpdate();
           return;
         }
@@ -684,16 +684,16 @@ export const useDebugState = () => {
             hasSignificantIcebergChange || 
             hasSignificantIssuesChange || 
             hasSignificantScenariosChange) {
-          console.log('[DEBUG] ✅ Significant component changes detected, processing update');
+          // console.log('[DEBUG] ✅ Significant component changes detected, processing update');
           processUpdate();
           return;
         }
         
-        console.log('[DEBUG] 📝 No significant changes detected');
+        // console.log('[DEBUG] 📝 No significant changes detected');
       }, 2000); // Increased debounce to 2 seconds
     } else {
       // Different case ID - always process
-      console.log('[DEBUG] ✅ New case detected, processing update');
+      // console.log('[DEBUG] ✅ New case detected, processing update');
       processUpdate();
     }
   }, [currentCase, state.prevSnapshot, createSnapshot, processSnapshotUpdate, processUpdate]);

@@ -4,6 +4,8 @@
 
 import { LLMProvider, LLMRequest, LLMResponse, LLMError } from '../types/llm';
 import { callOpenAI, streamOpenAI } from './api/openaiClient';
+import { OpenAIMessage } from './api/types';
+import { MODEL, OPENAI_API_URL, TEMPERATURE, OPENAI_API_KEY } from './api/config';
 
 // Define types for API responses
 export interface ResponseChunk {
@@ -55,7 +57,7 @@ export class ChatService {
  * Get a chat completion from OpenAI
  */
 export const getChatCompletion = async (
-  messages: Array<{ role: string; content: string }>,
+  messages: OpenAIMessage[],
   responseFormat?: { type: string }
 ): Promise<string> => {
   const response = await callOpenAI(messages, responseFormat);
@@ -195,17 +197,17 @@ export const streamResponse = async (
 /**
  * Gets a response from OpenAI API (non-streaming)
  * @param messages - Array of messages to send to the API
- * @param apiKey - OpenAI API key
+ * @param apiKey - OpenAI API key (optional, defaults to config value)
  * @param model - Model to use (defaults to gpt-4o)
  * @returns The AI response text
  */
 export const getResponse = async (
   messages: ChatMessage[],
-  apiKey: string,
-  model: string = 'gpt-4o'
+  apiKey: string = OPENAI_API_KEY,
+  model: string = MODEL
 ): Promise<string> => {
   try {
-    const response = await fetch('https://api.openai.com/v1/responses', {
+    const response = await fetch(OPENAI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -214,7 +216,7 @@ export const getResponse = async (
       body: JSON.stringify({
         model,
         input: messages,
-        temperature: 0.7,
+        temperature: TEMPERATURE,
       }),
     });
 

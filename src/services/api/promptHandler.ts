@@ -31,7 +31,7 @@ export const readPromptFile = async (fileName: string): Promise<string> => {
 export const callLanguageModel = async (promptFile: string, inputs: Record<string, any>): Promise<any> => {
   try {
     console.log('🤖 Calling language model with prompt:', promptFile);
-    console.log('Inputs:', inputs);
+    console.log('📝 Inputs:', JSON.stringify(inputs, null, 2));
     
     // Read the prompt file
     const promptContent = await readPromptFile(promptFile);
@@ -45,9 +45,11 @@ export const callLanguageModel = async (promptFile: string, inputs: Record<strin
       { role: 'user', content: JSON.stringify(inputs) }
     ];
     
-    console.log('Sending request to OpenAI...');
+    console.log('📤 Sending request to OpenAI...');
     // Call OpenAI API with JSON response format
     const response = await callOpenAI(messages, { type: 'json_object' });
+    
+    console.log('📥 Received response from OpenAI:', response);
     
     // Try to parse the response as JSON
     try {
@@ -56,11 +58,18 @@ export const callLanguageModel = async (promptFile: string, inputs: Record<strin
       return parsedResponse;
     } catch (e) {
       console.error('❌ Error parsing JSON response:', e);
+      console.error('Raw response text:', response.text);
       // If parsing fails, return the raw content
       return { error: 'Failed to parse JSON response', rawContent: response.text };
     }
   } catch (error) {
     console.error('❌ Error calling language model:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
+    }
     throw error; // Let the caller handle the error
   }
 }; 

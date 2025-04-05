@@ -105,87 +105,88 @@ interface StreamEvent {
  * Call OpenAI API with rate limiting and error handling
  */
 export const callOpenAI = async (
-  messages: Array<{ role: string; content: string }>,
-  responseFormat?: { type: string },
-  temperature?: number,
-  apiKey?: string
-): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number; total_tokens: number } }> => {
-  const makeRequest = async () => {
-    try {
-      // Convert messages array to a single string input
-      const input = messages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+  messages: OpenAIMessage[],
+  responseFormat?: { type: string }
+): Promise<{ text: string; usage?: any }> => {
+  try {
+    console.log('🚀 Sending request to OpenAI:', {
+      model: MODEL,
+      input: messages,
+      temperature: TEMPERATURE,
+      text: responseFormat ? { format: responseFormat } : undefined
+    });
 
-      const requestBody = {
+    const response = await axios.post(
+      OPENAI_API_URL,
+      {
         model: MODEL,
-        input: input,
-        temperature: temperature ?? TEMPERATURE,
-        text: {
-          format: {
-            type: responseFormat?.type || 'text'
-          }
+        input: messages,
+        temperature: TEMPERATURE,
+        ...(responseFormat && { text: { format: responseFormat } })
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_API_KEY}`
         }
-      };
-
-      console.log('Sending request to OpenAI:', JSON.stringify(requestBody, null, 2));
-
-      const response = await axios.post<OpenAIResponse>(
-        OPENAI_API_URL,
-        requestBody,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey || OPENAI_API_KEY}`
-          }
-        }
-      );
-
-      return {
-        text: response.data.output[0].content[0].text,
-        usage: {
-          input_tokens: response.data.usage.input_tokens,
-          output_tokens: response.data.usage.output_tokens,
-          total_tokens: response.data.usage.total_tokens
-        }
-      };
-    } catch (error: any) {
-      // Log error details
-      console.error('Error calling OpenAI API:', error);
-      if (error.response) {
-        console.error('Error response data:', JSON.stringify(error.response.data, null, 2));
-        console.error('Error response status:', error.response.status);
-        console.error('Error response headers:', error.response.headers);
-
-        // Transform error based on status code
-        switch (error.response.status) {
-          case 429:
-            // For rate limit errors, create a standardized error object
-            // that matches the expected format in the tests
-            const retryAfter = parseInt(error.response.headers?.['retry-after'] || '60', 10);
-            const apiError = {
-              code: 'API_ERROR',
-              message: error.response.data?.error?.message || 'API Error',
-              status: error.response.status,
-              retryAfter: retryAfter
-            };
-            throw apiError;
-          case 401:
-            throw new Error('OpenAI API authentication failed');
-          case 400:
-            throw new Error('Invalid request to OpenAI API');
-          default:
-            throw new Error('OpenAI API request failed');
-        }
-      } else if (error.code === 'ECONNREFUSED' || error.message?.includes('Network')) {
-        throw new Error('Network error when calling OpenAI API');
       }
+    );
 
-      // For all other errors, throw the original error
-      throw error;
+    console.log('📥 Raw OpenAI response:', response.data);
+
+    if (!response.data || !response.data.output || !response.data.output[0] || !response.data.output[0].content) {
+      console.error('❌ Invalid response structure:', response.data);
+      throw new Error('Invalid response structure from OpenAI API');
     }
-  };
 
-  // Use request queue to handle rate limiting
-  return await requestQueue.add(makeRequest);
+    const text = response.data.output[0].content[0].text;
+    console.log('✅ Extracted text from response:', text);
+
+    return {
+      text,
+      usage: response.data.usage
+    };
+  } catch (error: any) {
+    console.error('❌ OpenAI API error details:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message
+    });
+    
+    // Transform the error into a more manageable format
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      const status = error.response.status;
+      const data = error.response.data;
+      
+      if (status === 429) {
+        // Rate limit error - preserve the original error structure
+        throw {
+          response: {
+            data: data,
+            status: status,
+            headers: error.response.headers
+          }
+        };
+      } else if (status === 401) {
+        throw new Error('OpenAI API authentication failed');
+      } else if (status === 400) {
+        throw new Error('Invalid request to OpenAI API');
+      } else {
+        throw new Error(`OpenAI API error: ${data?.error?.message || error.message}`);
+      }
+    } else if (error.request) {
+      // The request was made but no response was received
+      console.error('❌ No response received:', error.request);
+      throw new Error('Network error when calling OpenAI API');
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      console.error('❌ Request setup error:', error.message);
+      throw new Error(`Error setting up OpenAI API request: ${error.message}`);
+    }
+  }
 };
 
 /**

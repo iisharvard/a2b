@@ -115,7 +115,7 @@ const NegotiationScenario = () => {
     setError(null);
     
     try {
-      console.log('Generating scenarios for all components...');
+      // console.log('Generating scenarios for all components...');
       
       // Track whether we're currently generating scenarios
       let generatingCount = 0;
@@ -129,7 +129,7 @@ const NegotiationScenario = () => {
           ))
       );
       
-      console.log('Components with scenarios already loaded:', [...componentsWithScenarios]);
+      // console.log('Components with scenarios already loaded:', [...componentsWithScenarios]);
       
       // Loop through all components and generate scenarios for each
       for (const component of currentCase.analysis.components) {
@@ -143,7 +143,7 @@ const NegotiationScenario = () => {
         if ((existingScenarios.length > 0 && recalculationStatus.scenariosRecalculated) || 
             componentsWithScenarios.has(component.id) ||
             scenariosLoaded) {
-          console.log(`Using existing scenarios for component: ${component.id} (${component.name})`);
+          // console.log(`Using existing scenarios for component: ${component.id} (${component.name})`);
           
           // Mark all existing scenarios as loaded
           setLoadedScenarios(prev => {
@@ -172,7 +172,7 @@ const NegotiationScenario = () => {
         });
         
         try {
-          console.log(`Generating scenarios for component: ${component.id} (${component.name})`);
+          // console.log(`Generating scenarios for component: ${component.id} (${component.name})`);
           
           // Use the generateScenarios method directly
           const newScenarios = await api.generateScenarios(component.id, (scenario) => {
@@ -182,7 +182,7 @@ const NegotiationScenario = () => {
           
           // Ensure newScenarios is an array and limit to exactly 5 scenarios
           const scenariosArray = Array.isArray(newScenarios) ? newScenarios.slice(0, 5) : [];
-          console.log(`Generated ${scenariosArray.length} scenarios for component: ${component.id}`);
+          // console.log(`Generated ${scenariosArray.length} scenarios for component: ${component.id}`);
           
           // Make sure each scenario has a unique ID that includes the component ID
           // We're explicitly setting the IDs 1-5 to ensure they're unique and consistent
