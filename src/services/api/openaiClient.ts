@@ -283,8 +283,7 @@ export const streamOpenAI = async (
                     break;
                   case 'response.output_text.done':
                     // Only process the done event if we haven't already completed
-                    if (!isCompleted && event.text) {
-                      callbacks.onToken(event.text);
+                    if (!isCompleted) {
                       callbacks.onComplete();
                       isCompleted = true;
                       return;

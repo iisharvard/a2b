@@ -102,18 +102,21 @@ export const useChatState = (props: ChatBotProps) => {
         apiKey,
         {
           onToken: (token) => {
-            fullResponse += token;
-            setState(prev => {
-              const updatedMessage = {
-                ...prev.currentStreamedMessage!,
-                text: fullResponse,
-              };
-              return {
-                ...prev,
-                streamingText: fullResponse,
-                currentStreamedMessage: updatedMessage,
-              };
-            });
+            // Only append the new token if it's not already in the response
+            if (!fullResponse.endsWith(token)) {
+              fullResponse += token;
+              setState(prev => {
+                const updatedMessage = {
+                  ...prev.currentStreamedMessage!,
+                  text: fullResponse,
+                };
+                return {
+                  ...prev,
+                  streamingText: fullResponse,
+                  currentStreamedMessage: updatedMessage,
+                };
+              });
+            }
           },
           onComplete: () => {
             setState(prev => {
@@ -124,12 +127,15 @@ export const useChatState = (props: ChatBotProps) => {
                 timestamp: new Date(),
               };
 
+              // Check if the message already exists
+              const messageExists = prev.messages.some(msg => msg.id === botMessageId);
+
               return {
                 ...prev,
                 isTyping: false,
                 currentStreamedMessage: null,
                 conversation: [...prev.conversation, { role: 'assistant', content: fullResponse }],
-                messages: [...prev.messages, botMessage],
+                messages: messageExists ? prev.messages : [...prev.messages, botMessage],
               };
             });
           },
