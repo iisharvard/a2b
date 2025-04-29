@@ -513,22 +513,6 @@ const InitialSetup = () => {
                   accept=".txt,.pdf,.doc,.docx,.rtf"
                   multiple
                 />
-                <Tooltip title="Upload files (PDF, TXT, DOC, DOCX, RTF)">
-                  <span>
-                    <IconButton 
-                      color="primary"
-                      onClick={triggerFileUpload}
-                      disabled={fileProcessing}
-                      sx={{ mr: 1 }}
-                    >
-                      {fileProcessing ? (
-                        <CircularProgress size={24} />
-                      ) : (
-                        <UploadFileIcon />
-                      )}
-                    </IconButton>
-                  </span>
-                </Tooltip>
                 {fileInfo.length > 0 && (
                   <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
                     <Typography variant="caption" sx={{ mr: 1 }}>
