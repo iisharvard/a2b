@@ -5,8 +5,8 @@ import { Box, IconButton, Tooltip } from '@mui/material';
 import { ChatBot } from './ChatBot';
 import CloseIcon from '@mui/icons-material/Close';
 import ChatIcon from '@mui/icons-material/Chat';
-import { useDebugState } from './ChatBot/useDebugState';
-import { DebugWindow } from './ChatBot/DebugWindow';
+// import { useDebugState } from './ChatBot/useDebugState';
+// import { DebugWindow } from './ChatBot/DebugWindow';
 
 // Custom CSS for better resizer appearance
 import './ChatSplitScreen.css';
@@ -24,7 +24,8 @@ const ChatSplitScreen: React.FC<ChatSplitScreenProps> = ({ children, chatBotProp
   // Store previous size when closing
   const [prevChatSize, setPrevChatSize] = useState<string | number>('30%');
 
-  // Get debug state
+  // Debug state is commented out
+  /*
   const {
     isDebugWindowOpen,
     changeHistory,
@@ -35,6 +36,7 @@ const ChatSplitScreen: React.FC<ChatSplitScreenProps> = ({ children, chatBotProp
     clearHistory,
     createSnapshot
   } = useDebugState();
+  */
 
   // Close chat panel
   const handleCloseChat = () => {
@@ -49,8 +51,9 @@ const ChatSplitScreen: React.FC<ChatSplitScreenProps> = ({ children, chatBotProp
     setIsChatOpen(true);
   };
 
-  // Debug keyboard shortcut (Cmd+I or Ctrl+I)
-  React.useEffect(() => {
+  // Debug keyboard shortcut is commented out
+  /*
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
         e.preventDefault();
@@ -61,6 +64,7 @@ const ChatSplitScreen: React.FC<ChatSplitScreenProps> = ({ children, chatBotProp
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggleDebugWindow]);
+  */
 
   return (
     <Box sx={{ height: '100vh', width: '100%', position: 'relative' }}>
@@ -144,9 +148,8 @@ const ChatSplitScreen: React.FC<ChatSplitScreenProps> = ({ children, chatBotProp
         </Pane>
       </SplitPane>
 
-      {/* Button to reopen chat when closed */}
       {!isChatOpen && (
-        <Tooltip title="Open chat">
+        <Tooltip title="Open Chat">
           <IconButton
             onClick={handleOpenChat}
             sx={{
@@ -166,7 +169,7 @@ const ChatSplitScreen: React.FC<ChatSplitScreenProps> = ({ children, chatBotProp
         </Tooltip>
       )}
 
-      {/* Debug window */}
+      {/* Debug window is commented out
       <DebugWindow
         isOpen={isDebugWindowOpen}
         onClose={toggleDebugWindow}
@@ -177,6 +180,7 @@ const ChatSplitScreen: React.FC<ChatSplitScreenProps> = ({ children, chatBotProp
         clearHistory={clearHistory}
         createSnapshot={createSnapshot}
       />
+      */}
     </Box>
   );
 };

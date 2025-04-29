@@ -19,8 +19,8 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PersonIcon from '@mui/icons-material/Person';
 import { ChatBotProps } from './types';
 import { useChatState } from './useChatState';
-import { useDebugState } from './useDebugState';
-import { DebugWindow } from './DebugWindow';
+// import { useDebugState } from './useDebugState';
+// import { DebugWindow } from './DebugWindow';
 
 const ChatBot: React.FC<ChatBotProps> = (props) => {
   const {
@@ -39,6 +39,8 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
     handlers,
   } = useChatState(props);
 
+  // Debug state is commented out
+  /*
   const {
     isDebugWindowOpen,
     changeHistory,
@@ -49,14 +51,15 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
     clearHistory,
     createSnapshot
   } = useDebugState();
+  */
 
   const { isOpen, messages, inputValue, isTyping, currentStreamedMessage } = chatState;
   const { messagesEndRef, inputRef } = refs;
   const { handleInputChange, handleSubmit, handleKeyPress, toggleChat } = handlers;
 
-  // Debug mode keyboard shortcut (Cmd+I or Ctrl+I)
+  // Debug mode keyboard shortcut is commented out
+  /*
   useEffect(() => {
-    // Only add the keyboard shortcut if debug isn't disabled
     if (!disableDebug) {
       const handleKeyDown = (e: KeyboardEvent) => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
@@ -69,6 +72,7 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
   }, [toggleDebugWindow, disableDebug]);
+  */
 
   // In split-screen mode, we're always visible
   const shouldRenderChat = splitScreenMode || isOpen;
@@ -326,7 +330,7 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
         </Paper>
       )}
 
-      {/* Only render debug window if debug isn't disabled */}
+      {/* Debug window is disabled
       {!disableDebug && (
         <DebugWindow
           isOpen={isDebugWindowOpen}
@@ -339,6 +343,7 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
           createSnapshot={createSnapshot}
         />
       )}
+      */}
     </>
   );
 };
