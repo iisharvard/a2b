@@ -35,7 +35,7 @@ jest.mock('timers', () => ({
 }));
 
 describe('OpenAI Client - Success Scenarios', () => {
-  const messages = [{ role: 'user', content: 'Hello!' }];
+  const messages: OpenAIMessage[] = [{ role: 'user' as const, content: 'Hello!' }];
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -130,7 +130,7 @@ describe('OpenAI Client - Success Scenarios', () => {
 
 // Test error cases separately
 describe('OpenAI Client - Error Handling', () => {
-  const messages = [{ role: 'user', content: 'Hello!' }];
+  const messages: OpenAIMessage[] = [{ role: 'user' as const, content: 'Hello!' }];
 
   beforeEach(() => {
     jest.clearAllMocks();

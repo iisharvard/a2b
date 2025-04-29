@@ -99,6 +99,8 @@ const SharedCell = styled(TableCell)(({ theme }) => ({
 interface IcebergVisualizationProps {
   value: string;
   onChange: (value: string) => void;
+  party1Name?: string;
+  party2Name?: string;
 }
 
 interface IcebergData {
@@ -132,10 +134,15 @@ interface SharedGenerationInput {
   party2Values: string[];
 }
 
-const IcebergVisualization: React.FC<IcebergVisualizationProps> = ({ value, onChange }) => {
+const IcebergVisualization: React.FC<IcebergVisualizationProps> = ({ 
+  value, 
+  onChange,
+  party1Name = "User's Organization",
+  party2Name = "Counterparty"
+}) => {
   const [icebergData, setIcebergData] = useState<IcebergData>({
-    party1: { name: "User's Organization", positions: [] as string[], reasoning: [] as string[], values: [] as string[] },
-    party2: { name: 'Counterparty', positions: [] as string[], reasoning: [] as string[], values: [] as string[] },
+    party1: { name: party1Name, positions: [] as string[], reasoning: [] as string[], values: [] as string[] },
+    party2: { name: party2Name, positions: [] as string[], reasoning: [] as string[], values: [] as string[] },
     shared: { positions: [] as string[], reasoning: [] as string[], values: [] as string[] }
   });
   const [isGeneratingShared, setIsGeneratingShared] = useState(false);
@@ -147,13 +154,13 @@ const IcebergVisualization: React.FC<IcebergVisualizationProps> = ({ value, onCh
     } else {
       const defaultData = {
         party1: {
-          name: "User's Organization",
+          name: party1Name,
           positions: ["Position 1 - Click to edit"],
           reasoning: ["Reasoning 1 - Click to edit"],
           values: ["Value 1 - Click to edit"],
         },
         party2: {
-          name: "Counterparty",
+          name: party2Name,
           positions: ["Position 1 - Click to edit"],
           reasoning: ["Reasoning 1 - Click to edit"],
           values: ["Value 1 - Click to edit"],
@@ -166,12 +173,12 @@ const IcebergVisualization: React.FC<IcebergVisualizationProps> = ({ value, onCh
       };
       setIcebergData(defaultData);
     }
-  }, [value]);
+  }, [value, party1Name, party2Name]);
 
   // Helper function to parse markdown content
   const parseMarkdown = (markdown: string) => {
-    const party1 = { name: "User's Organization", positions: [] as string[], reasoning: [] as string[], values: [] as string[] };
-    const party2 = { name: 'Counterparty', positions: [] as string[], reasoning: [] as string[], values: [] as string[] };
+    const party1 = { name: party1Name, positions: [] as string[], reasoning: [] as string[], values: [] as string[] };
+    const party2 = { name: party2Name, positions: [] as string[], reasoning: [] as string[], values: [] as string[] };
     const shared = { positions: [] as string[], reasoning: [] as string[], values: [] as string[] };
 
     // Simple parser for the markdown format
@@ -180,6 +187,7 @@ const IcebergVisualization: React.FC<IcebergVisualizationProps> = ({ value, onCh
     let currentSection = '';
 
     for (const line of lines) {
+      // TODO: this part should be changed to reading from thez
       // Detect party sections - look for different possible formats
       if (line.match(/^## Party 1/) || line.match(/^## .*Organization/) || line.match(/^## .*User.*/) || line.match(/^## .*Your.*/) || line.match(/^## .*We.*/)) {
         currentParty = 'party1';
@@ -329,8 +337,8 @@ const IcebergVisualization: React.FC<IcebergVisualizationProps> = ({ value, onCh
       
       // Create input for the language model
       const input: SharedGenerationInput = {
-        party1Name: icebergData.party1.name,
-        party2Name: icebergData.party2.name,
+        party1Name: party1Name,
+        party2Name: party2Name,
         party1Positions: icebergData.party1.positions,
         party1Reasoning: icebergData.party1.reasoning,
         party1Values: icebergData.party1.values,
@@ -489,9 +497,9 @@ ${newData.shared.values.map(v => `- ${v}`).join('\n')}
           <TableHead>
             <TableRow>
               <FirstHeaderCell></FirstHeaderCell>
-              <HeaderCell>{icebergData.party1.name}</HeaderCell>
+              <HeaderCell>{party1Name}</HeaderCell>
               <HeaderCell>Shared</HeaderCell>
-              <HeaderCell>{icebergData.party2.name}</HeaderCell>
+              <HeaderCell>{party2Name}</HeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>

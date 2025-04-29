@@ -58,9 +58,10 @@ export class ChatService {
  */
 export const getChatCompletion = async (
   messages: OpenAIMessage[],
-  responseFormat?: { type: string }
+  responseFormat?: { type: string },
+  apiKey: string = OPENAI_API_KEY
 ): Promise<string> => {
-  const response = await callOpenAI(messages, responseFormat);
+  const response = await callOpenAI(messages, responseFormat, apiKey);
   return response.text;
 };
 
@@ -73,9 +74,10 @@ export const streamChatCompletion = async (
     onToken: (token: string) => void;
     onComplete: () => void;
     onError: (error: LLMError) => void;
-  }
+  },
+  model: string = MODEL
 ): Promise<void> => {
-  return streamOpenAI(messages, callbacks);
+  return streamOpenAI(messages, callbacks, TEMPERATURE, OPENAI_API_KEY, true, model);
 };
 
 /**
@@ -87,9 +89,9 @@ export const streamChatCompletion = async (
  */
 export const streamResponse = async (
   messages: ChatMessage[],
-  apiKey: string,
+  apiKey: string = OPENAI_API_KEY,
   callbacks: StreamCallbacks,
-  model: string = 'gpt-4o'
+  model: string = MODEL
 ): Promise<void> => {
   const { onStart, onToken, onComplete, onError } = callbacks;
   
@@ -97,98 +99,19 @@ export const streamResponse = async (
     // Notify start of stream
     onStart?.();
     
-    const response = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+    // Use the streamOpenAI function with the array format
+    await streamOpenAI(
+      messages,
+      {
+        onToken: (token) => onToken?.(token),
+        onComplete: () => onComplete?.(''),
+        onError: (error) => onError?.(error instanceof Error ? error : new Error(String(error)))
       },
-      body: JSON.stringify({
-        model,
-        input: messages,
-        stream: true,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      throw new Error(
-        `API request failed with status ${response.status}: ${
-          errorData ? JSON.stringify(errorData) : 'Unknown error'
-        }`
-      );
-    }
-
-    if (!response.body) {
-      throw new Error('Response body is null');
-    }
-
-    // Process the streaming response
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let fullResponse = '';
-
-    try {
-      let done = false;
-      let buffer = '';
-
-      while (!done) {
-        const { value, done: doneReading } = await reader.read();
-        done = doneReading;
-
-        if (done) {
-          break;
-        }
-
-        // Decode the chunk and add to buffer
-        const chunk = decoder.decode(value, { stream: true });
-        buffer += chunk;
-
-        // Process complete SSE messages from buffer
-        let lineEnd;
-        while ((lineEnd = buffer.indexOf('\n')) !== -1) {
-          const line = buffer.slice(0, lineEnd).trim();
-          buffer = buffer.slice(lineEnd + 1);
-
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            
-            // Check for stream response end
-            if (data === '[DONE]') {
-              onComplete?.(fullResponse);
-              return;
-            }
-
-            try {
-              const parsed: ResponseChunk = JSON.parse(data);
-              
-              // Handle different event types
-              if (parsed.type === 'response.output_text.delta') {
-                const content = parsed.delta || '';
-                if (content) {
-                  fullResponse += content;
-                  onToken?.(content);
-                }
-              } else if (parsed.type === 'response.output_text.done') {
-                const content = parsed.text || '';
-                if (content) {
-                  fullResponse = content;
-                  onToken?.(content);
-                }
-              }
-            } catch (err) {
-              // Silent error handling
-            }
-          }
-        }
-      }
-
-      // Ensure response callback is triggered
-      onComplete?.(fullResponse);
-    } catch (err) {
-      reader.cancel();
-      throw err;
-    }
+      TEMPERATURE,
+      apiKey,
+      false, // Use array format instead of string format
+      model
+    );
   } catch (error) {
     onError?.(error instanceof Error ? error : new Error(String(error)));
   }
@@ -207,30 +130,9 @@ export const getResponse = async (
   model: string = MODEL
 ): Promise<string> => {
   try {
-    const response = await fetch(OPENAI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        input: messages,
-        temperature: TEMPERATURE,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      throw new Error(
-        `API request failed with status ${response.status}: ${
-          errorData ? JSON.stringify(errorData) : 'Unknown error'
-        }`
-      );
-    }
-
-    const data = await response.json();
-    return data.output[0].content[0].text;
+    // Use the callOpenAI function
+    const response = await callOpenAI(messages, undefined, apiKey);
+    return response.text;
   } catch (error) {
     throw error;
   }

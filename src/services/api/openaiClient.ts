@@ -105,8 +105,9 @@ interface StreamEvent {
  * Call OpenAI API with rate limiting and error handling
  */
 export const callOpenAI = async (
-  messages: OpenAIMessage[],
-  responseFormat?: { type: string }
+  messages: OpenAIMessage[] | Array<{ role: string; content: string }>,
+  responseFormat?: { type: string },
+  apiKey: string = OPENAI_API_KEY
 ): Promise<{ text: string; usage?: any }> => {
   try {
     console.log('🚀 Sending request to OpenAI:', {
@@ -127,7 +128,7 @@ export const callOpenAI = async (
       {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${OPENAI_API_KEY}`
+          'Authorization': `Bearer ${apiKey}`
         }
       }
     );
@@ -193,30 +194,36 @@ export const callOpenAI = async (
  * Stream OpenAI API responses with rate limiting and error handling
  */
 export const streamOpenAI = async (
-  messages: Array<{ role: string; content: string }>,
+  messages: Array<{ role: string; content: string }> | OpenAIMessage[],
   callbacks: {
     onToken: (token: string) => void;
     onComplete: () => void;
     onError: (error: LLMError) => void;
   },
   temperature?: number,
-  apiKey?: string
+  apiKey?: string,
+  useStringInput: boolean = true,
+  model: string = MODEL
 ): Promise<void> => {
   const makeRequest = async () => {
     try {
-      // Convert messages array to a single string input
-      const input = messages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+      // Prepare input based on format
+      const input = useStringInput 
+        ? messages.map(msg => `${msg.role}: ${msg.content}`).join('\n')
+        : messages;
 
       const requestBody = {
-        model: MODEL,
+        model: model,
         input: input,
         temperature: temperature ?? TEMPERATURE,
         stream: true,
+        ...(useStringInput && {
         text: {
           format: {
             type: 'text'
           }
         }
+        })
       };
 
       console.log('Sending streaming request to OpenAI:', JSON.stringify(requestBody, null, 2));
@@ -242,6 +249,7 @@ export const streamOpenAI = async (
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       let buffer = '';
+      let isCompleted = false;
 
       try {
         while (true) {
@@ -258,7 +266,10 @@ export const streamOpenAI = async (
             if (line.startsWith('data: ')) {
               const data = line.slice(6).trim();
               if (data === '[DONE]') {
+                if (!isCompleted) {
                 callbacks.onComplete();
+                  isCompleted = true;
+                }
                 return;
               }
 
@@ -271,10 +282,19 @@ export const streamOpenAI = async (
                     if (event.delta) callbacks.onToken(event.delta);
                     break;
                   case 'response.output_text.done':
-                    if (event.text) callbacks.onToken(event.text);
+                    // Only process the done event if we haven't already completed
+                    if (!isCompleted && event.text) {
+                      callbacks.onToken(event.text);
+                      callbacks.onComplete();
+                      isCompleted = true;
+                      return;
+                    }
                     break;
                   case 'response.completed':
+                    if (!isCompleted) {
                     callbacks.onComplete();
+                      isCompleted = true;
+                    }
                     return;
                   case 'response.error':
                     throw new Error(event.data?.error?.message || 'Streaming error');
@@ -285,7 +305,10 @@ export const streamOpenAI = async (
             }
           }
         }
+        // Ensure completion callback is called if not already done
+        if (!isCompleted) {
         callbacks.onComplete();
+        }
       } catch (error) {
         console.error('Stream error:', error);
         callbacks.onError(handleError(error as Error));

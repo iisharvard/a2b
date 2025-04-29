@@ -39,7 +39,7 @@ const chatBotProps = {
   title: "A2B Assistant",
   subtitle: "How can I help you today?",
   primaryColor: theme.palette.primary.main,
-  initialMessage: "Hello! I'm your negotiation assistant. I can help with analyzing case files, suggesting negotiation strategies, explaining components of your negotiation, and more. What would you like help with today?",
+  initialMessage: "Hello! I'm your negotiation assistant. I can help with analyzing case files, suggesting negotiation strategies, explaining components of your negotiation, and more. Please share the case file you'd like to analyze through the interface on the left. ",
   systemMessage: `You are an expert negotiation assistant for the A2B (Agreement to Better) platform.
 
 Your purpose is to help users with:

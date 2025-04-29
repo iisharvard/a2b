@@ -191,16 +191,16 @@ ${newData.divergentNorms.map(norm => `- ${norm}`).join('\n')}
         <Table sx={{ tableLayout: 'fixed' }}>
           <TableHead>
             <TableRow>
-              <HeaderCell>Contested Facts</HeaderCell>
-              <HeaderCell>Agreed Facts</HeaderCell>
-              <HeaderCell>Convergent Norms</HeaderCell>
-              <HeaderCell>Divergent Norms</HeaderCell>
+              <HeaderCell sx={{ backgroundColor: '#ef5350', color: 'white' }}>Contested Facts</HeaderCell>
+              <HeaderCell sx={{ backgroundColor: '#66bb6a', color: 'white' }}>Agreed Facts</HeaderCell>
+              <HeaderCell sx={{ backgroundColor: '#66bb6a', color: 'white' }}>Convergent Norms</HeaderCell>
+              <HeaderCell sx={{ backgroundColor: '#ef5350', color: 'white' }}>Divergent Norms</HeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
             <TableRow>
               <ContentCell 
-                sx={{ backgroundColor: '#ffebee' }} // light red
+                sx={{ backgroundColor: '#ffebee' }} // light red for contested facts
                 contentEditable
                 suppressContentEditableWarning
                 dangerouslySetInnerHTML={{ 
@@ -209,7 +209,7 @@ ${newData.divergentNorms.map(norm => `- ${norm}`).join('\n')}
                 onBlur={(e) => handleContentUpdate('contestedFacts', e.currentTarget.innerText)}
               />
               <ContentCell 
-                sx={{ backgroundColor: '#e8f5e9' }} // light green
+                sx={{ backgroundColor: '#e8f5e9' }} // light green for agreed facts
                 contentEditable
                 suppressContentEditableWarning
                 dangerouslySetInnerHTML={{ 
@@ -218,7 +218,7 @@ ${newData.divergentNorms.map(norm => `- ${norm}`).join('\n')}
                 onBlur={(e) => handleContentUpdate('agreedFacts', e.currentTarget.innerText)}
               />
               <ContentCell 
-                sx={{ backgroundColor: '#e3f2fd' }} // light blue
+                sx={{ backgroundColor: '#e8f5e9' }} // same light green for convergent norms
                 contentEditable
                 suppressContentEditableWarning
                 dangerouslySetInnerHTML={{ 
@@ -227,7 +227,7 @@ ${newData.divergentNorms.map(norm => `- ${norm}`).join('\n')}
                 onBlur={(e) => handleContentUpdate('convergentNorms', e.currentTarget.innerText)}
               />
               <ContentCell 
-                sx={{ backgroundColor: '#fff3e0' }} // light orange
+                sx={{ backgroundColor: '#ffebee' }} // same light red for divergent norms
                 contentEditable
                 suppressContentEditableWarning
                 dangerouslySetInnerHTML={{ 

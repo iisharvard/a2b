@@ -453,6 +453,8 @@ const ReviewAndRevise = () => {
               <IcebergVisualization
                 value={iceberg}
                 onChange={handleIcebergChange}
+                party1Name={currentCase.suggestedParties[0].name}
+                party2Name={currentCase.suggestedParties[1].name}
               />
             )}
           </Grid>
