@@ -31,6 +31,8 @@ import {
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import DescriptionIcon from '@mui/icons-material/Description';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import CloseIcon from '@mui/icons-material/Close';
+import SearchIcon from '@mui/icons-material/Search';
 import { RootState } from '../store';
 import {
   setCase,
@@ -538,39 +540,48 @@ const InitialSetup = () => {
                       onClick={clearFileInfo}
                       title="Clear file list"
                     >
-                      ×
+                      <CloseIcon fontSize="small" />
                     </IconButton>
                   </Box>
                 )}
               </Box>
             </Box>
             
-            {/* Drag and drop area */}
+            {/* Combined upload area */}
             <Box
               sx={{
                 border: isDragging 
                   ? '2px dashed #2196f3'
                   : '2px dashed #cccccc',
                 borderRadius: 1,
-                p: 1,
+                p: 2,
                 mb: 2,
-                minHeight: '60px',
+                minHeight: '80px',
                 display: 'flex',
+                flexDirection: 'column',
                 justifyContent: 'center',
                 alignItems: 'center',
                 backgroundColor: isDragging ? 'rgba(33, 150, 243, 0.1)' : 'transparent',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                cursor: 'pointer'
               }}
               onDragEnter={handleDragEnter}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
+              onClick={triggerFileUpload}
             >
               <Box sx={{ textAlign: 'center', color: isDragging ? '#2196f3' : '#666' }}>
                 <CloudUploadIcon sx={{ fontSize: 32, mb: 1 }} />
-                <Typography variant="body2">
-                  Drag and drop files here to append to case content
+                <Typography variant="body1" sx={{ mb: 1 }}>
+                  {fileProcessing ? 'Processing files...' : 'Upload files or drag and drop here'}
                 </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Supported formats: PDF, TXT, DOC, DOCX, RTF
+                </Typography>
+                {fileProcessing && (
+                  <CircularProgress size={24} sx={{ mt: 1 }} />
+                )}
               </Box>
             </Box>
             
@@ -596,20 +607,36 @@ const InitialSetup = () => {
               rows={12}
               value={caseContent}
               onChange={handleCaseContentChange}
-              placeholder="Enter or paste your case content here, or upload files using the button above or drag and drop"
+              placeholder="Enter or paste your case content here, or upload files using the upload area above"
               variant="outlined"
             />
           </Grid>
           
           <Grid item xs={12}>
+            <Alert 
+              severity="info" 
+              sx={{ mb: 2 }}
+            >
+              Click "Identify Parties" to automatically detect the parties in your case. You can also enter them manually below.
+            </Alert>
+            
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
               <Typography variant="h6" gutterBottom>
                 Party Information
               </Typography>
               <Button
-                variant="outlined"
+                variant="contained"
+                color="primary"
                 onClick={identifyParties}
                 disabled={loading || !caseContent.trim() || fileProcessing}
+                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
+                sx={{ 
+                  minWidth: '180px',
+                  boxShadow: 2,
+                  '&:hover': {
+                    boxShadow: 4,
+                  }
+                }}
               >
                 {loading ? 'Identifying...' : 'Identify Parties'}
               </Button>
