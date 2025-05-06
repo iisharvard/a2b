@@ -3,6 +3,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Provider } from 'react-redux';
 import { store } from './store';
+import { Box } from '@mui/material';
 
 // Main tabbed layout
 import MainLayout from './components/MainLayout';
@@ -10,6 +11,8 @@ import MainLayout from './components/MainLayout';
 import { ChatBotProvider } from './components/ChatBot';
 import ChatSplitScreen from './components/ChatSplitScreen';
 import { ChatBotWithState } from './components/ChatBot/ChatBotWithState';
+// Import the DebugWindow component
+import DebugWindow from './components/DebugWindow';
 
 // Create a theme
 const theme = createTheme({
@@ -86,6 +89,8 @@ function App() {
             </ChatSplitScreen>
           </ChatBotProvider>
         </Router>
+        {/* Add Debug window */}
+        <DebugWindow />
       </ThemeProvider>
     </Provider>
   );

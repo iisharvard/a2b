@@ -13,6 +13,7 @@ import {
   IdentifyPartiesInput
 } from './types';
 import { diffLines, Change } from 'diff';
+import { contentChangesApi } from './contentChanges';
 
 /**
  * API functions for interacting with the language model
@@ -382,6 +383,15 @@ export * from './requestQueue';
 export * from './openaiClient';
 export * from './promptHandler';
 export * from './cache';
+
+// Re-export the content changes API
+export const {
+  changeIoA,
+  changeIceberg,
+  changeComponents,
+  changeBoundaries,
+  changeScenarios
+} = contentChangesApi;
 
 // Helper to format diff for LLM analysis
 const formatDiffForLLM = (oldContent: string, newContent: string): string => {
