@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Box,
   IconButton,
@@ -11,18 +11,36 @@ import {
   ListItemAvatar,
   Fab,
   CircularProgress,
+  Chip,
 } from '@mui/material';
 import ChatIcon from '@mui/icons-material/Chat';
 import CloseIcon from '@mui/icons-material/Close';
 import SendIcon from '@mui/icons-material/Send';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PersonIcon from '@mui/icons-material/Person';
+import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 import { ChatBotProps } from './types';
 import { useChatState } from './useChatState';
 // import { useDebugState } from './useDebugState';
 // import { DebugWindow } from './DebugWindow';
 
-const ChatBot: React.FC<ChatBotProps> = (props) => {
+// The original indicator data, now used for context list
+const CONTEXT_ITEMS = [
+  { key: 'ioa', label: 'Islands of Agreement' },
+  { key: 'iceberg', label: 'Iceberg Analysis' },
+  { key: 'issues', label: 'Issues' },
+  { key: 'scenarios', label: 'Scenarios' },
+  { key: 'rlbl', label: 'RL/BL' },
+];
+
+const ChatBot: React.FC<ChatBotProps & {
+  ioaAccess?: boolean;
+  icebergAccess?: boolean;
+  issuesAccess?: boolean;
+  redlinesAccess?: boolean;
+  scenariosAccess?: boolean;
+  contextItems?: Array<{key: string, label: string, active: boolean}>;
+}> = (props) => {
   const {
     primaryColor = '#2196f3',
     botAvatar,
@@ -31,6 +49,12 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
     subtitle = 'How can I help you today?',
     splitScreenMode = false,
     disableDebug = false,
+    ioaAccess = false,
+    icebergAccess = false,
+    issuesAccess = false,
+    redlinesAccess = false,
+    scenariosAccess = false,
+    contextItems = CONTEXT_ITEMS.map(item => ({...item, active: false})),
   } = props;
 
   const {
@@ -83,6 +107,21 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
       toggleChat();
     }
   }, [splitScreenMode, isOpen, toggleChat]);
+
+  // Indicator access map
+  const indicatorAccess = {
+    ioa: ioaAccess,
+    iceberg: icebergAccess,
+    issues: issuesAccess,
+    redlines: redlinesAccess,
+    scenarios: scenariosAccess,
+  };
+
+  // Ref for horizontal scrolling container
+  const contextScrollRef = useRef<HTMLDivElement>(null);
+
+  // Find active context items
+  const activeContextItems = contextItems.filter(item => item.active);
 
   return (
     <>
@@ -141,6 +180,76 @@ const ChatBot: React.FC<ChatBotProps> = (props) => {
                 <CloseIcon />
               </IconButton>
             )}
+          </Box>
+
+          {/* Context List - replaced indicator lights */}
+          <Box 
+            ref={contextScrollRef}
+            sx={{ 
+              borderBottom: '1px solid #e0e0e0', 
+              padding: '16px 12px', // Explicit large padding
+              bgcolor: '#f5f5f5', 
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              minHeight: '60px', // Explicit minimum height
+              display: 'flex',
+              alignItems: 'center',
+              scrollbarWidth: 'thin',
+              '&::-webkit-scrollbar': {
+                height: '6px',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                backgroundColor: 'rgba(0,0,0,0.2)',
+                borderRadius: '10px',
+              }
+            }}
+          >
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                fontWeight: 500, 
+                color: 'text.secondary', 
+                flexShrink: 0,
+                mr: 2, // More spacing after the text
+                lineHeight: 1.5 // Prevent clipping
+              }}
+            >
+              Context considering:
+            </Typography>
+            
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 1.5,
+              whiteSpace: 'nowrap',
+              minWidth: 'max-content',
+            }}>
+              {activeContextItems.length > 0 ? (
+                activeContextItems.map((item, index) => (
+                  <Chip 
+                    key={item.key}
+                    label={item.label}
+                    size="small"
+                    sx={{ 
+                      bgcolor: primaryColor,
+                      color: 'white',
+                      fontWeight: 500,
+                      fontSize: '0.75rem',
+                      height: 'auto',
+                      py: 1, // Increased vertical padding
+                      px: 1, // Added horizontal padding
+                      '& .MuiChip-label': {
+                        padding: '2px 4px', // Extra padding for the label
+                      }
+                    }}
+                  />
+                ))
+              ) : (
+                <Typography variant="body2" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+                  No active context
+                </Typography>
+              )}
+            </Box>
           </Box>
 
           {/* Chat messages */}
