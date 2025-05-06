@@ -9,6 +9,7 @@ import MainLayout from './components/MainLayout';
 // Import ChatBotProvider and new ChatSplitScreen
 import { ChatBotProvider } from './components/ChatBot';
 import ChatSplitScreen from './components/ChatSplitScreen';
+import { ChatBotWithState } from './components/ChatBot/ChatBotWithState';
 
 // Create a theme
 const theme = createTheme({
@@ -59,6 +60,13 @@ The application maintains state about several key components:
 - Scenarios: Potential negotiation outcomes
 
 The system will automatically detect changes in these components and include them in your context. When you see [System: Changes detected in the negotiation state] or [System: Recent change history], pay careful attention to this information as it represents the user's current work.
+
+You have access to the following generated content:
+1. Islands of Agreement (IoA): Points where parties already agree, including contested facts, agreed facts, convergent norms, and divergent norms
+2. Iceberg Analysis: Deeper interests behind positions, including surface positions, underlying interests, and hidden motives
+3. Issues: Specific points to be negotiated, including their names, descriptions, and priority levels
+4. Boundaries: Including redlines (absolute limits) and bottomlines (minimum acceptable terms) for each party
+5. Scenarios: Potential negotiation outcomes, including redline violations, bottomline violations, and agreement areas for each party
 
 Always be constructive, specific, and focused on helping the user improve their negotiation strategy. Respond concisely but with enough detail to be helpful.`
 };

@@ -187,7 +187,6 @@ const IcebergVisualization: React.FC<IcebergVisualizationProps> = ({
     let currentSection = '';
 
     for (const line of lines) {
-      // TODO: this part should be changed to reading from thez
       // Detect party sections - look for different possible formats
       if (line.match(/^## Party 1/) || line.match(/^## .*Organization/) || line.match(/^## .*User.*/) || line.match(/^## .*Your.*/) || line.match(/^## .*We.*/)) {
         currentParty = 'party1';

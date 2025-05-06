@@ -2,7 +2,8 @@ import React, { useState, ReactNode } from 'react';
 import SplitPane, { Pane } from 'split-pane-react';
 import 'split-pane-react/esm/themes/default.css';
 import { Box, IconButton, Tooltip } from '@mui/material';
-import { ChatBot } from './ChatBot';
+import { ChatBotWithState } from './ChatBot/ChatBotWithState';
+import { ChatBotProps } from './ChatBot/types';
 import CloseIcon from '@mui/icons-material/Close';
 import ChatIcon from '@mui/icons-material/Chat';
 // import { useDebugState } from './ChatBot/useDebugState';
@@ -13,7 +14,7 @@ import './ChatSplitScreen.css';
 
 interface ChatSplitScreenProps {
   children: ReactNode;
-  chatBotProps: any; // Pass through the ChatBot props
+  chatBotProps: ChatBotProps;
 }
 
 const ChatSplitScreen: React.FC<ChatSplitScreenProps> = ({ children, chatBotProps }) => {
@@ -137,10 +138,9 @@ const ChatSplitScreen: React.FC<ChatSplitScreenProps> = ({ children, chatBotProp
                     </IconButton>
                   </Tooltip>
                 </Box>
-                <ChatBot 
+                <ChatBotWithState 
                   {...chatBotProps}
                   splitScreenMode={true} 
-                  disableDebug={true} // Disable debug in ChatBot since we handle it here
                 />
               </>
             )}

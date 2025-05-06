@@ -1,9 +1,12 @@
-import React, { ReactNode, useContext } from 'react';
-// Import directly from the file to avoid circular dependencies
-import { ChatBot } from './ChatBot';
+import React, { ReactNode } from 'react';
+import { createContext, useContext } from 'react';
+import { ChatBotWithState } from './ChatBotWithState';
 
-// Create a context to track if we're using split-screen mode
-export const SplitScreenContext = React.createContext(false);
+// Create context for split-screen mode
+const SplitScreenContext = createContext<boolean>(false);
+
+// Export hook to use split-screen context
+export const useSplitScreen = () => useContext(SplitScreenContext);
 
 interface ChatBotProviderProps {
   children: ReactNode;
@@ -39,7 +42,7 @@ const ChatBotProvider: React.FC<ChatBotProviderProps> = ({
       {children}
       {/* Only render the ChatBot directly if we're not using split-screen mode */}
       {!useSplitScreen && (
-        <ChatBot
+        <ChatBotWithState
           apiKey={apiKey}
           title={title}
           subtitle={subtitle}
