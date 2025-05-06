@@ -25,6 +25,17 @@ export const useChatState = (props: ChatBotProps) => {
     streamingText: '',
   });
 
+  // Update system message when it changes
+  useEffect(() => {
+    setState(prev => ({
+      ...prev,
+      conversation: [
+        { role: 'system', content: systemMessage },
+        ...prev.conversation.slice(1) // Keep all messages after the system message
+      ]
+    }));
+  }, [systemMessage]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
