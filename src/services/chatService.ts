@@ -61,7 +61,7 @@ export const getChatCompletion = async (
   responseFormat?: { type: string },
   apiKey: string = OPENAI_API_KEY
 ): Promise<string> => {
-  const response = await callOpenAI(messages, responseFormat, apiKey);
+  const response = await callOpenAI(messages, responseFormat, TEMPERATURE, apiKey);
   return response.text;
 };
 
@@ -130,8 +130,8 @@ export const getResponse = async (
   model: string = MODEL
 ): Promise<string> => {
   try {
-    // Use the callOpenAI function
-    const response = await callOpenAI(messages, undefined, apiKey);
+    // Corrected call: pass TEMPERATURE then apiKey
+    const response = await callOpenAI(messages, undefined, TEMPERATURE, apiKey);
     return response.text;
   } catch (error) {
     throw error;
