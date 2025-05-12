@@ -107,13 +107,16 @@ interface StreamEvent {
 export const callOpenAI = async (
   messages: OpenAIMessage[] | Array<{ role: string; content: string }>,
   responseFormat?: { type: string },
+  temperature?: number,
   apiKey: string = OPENAI_API_KEY
 ): Promise<{ text: string; usage?: any }> => {
   try {
+    const finalTemperature = temperature ?? TEMPERATURE;
+    
     console.log('🚀 Sending request to OpenAI:', {
       model: MODEL,
       input: messages,
-      temperature: TEMPERATURE,
+      temperature: finalTemperature,
       text: responseFormat ? { format: responseFormat } : undefined
     });
 
@@ -122,7 +125,7 @@ export const callOpenAI = async (
       {
         model: MODEL,
         input: messages,
-        temperature: TEMPERATURE,
+        temperature: finalTemperature,
         ...(responseFormat && { text: { format: responseFormat } })
       },
       {

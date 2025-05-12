@@ -1,9 +1,10 @@
-import { BrowserRouter as Router } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Provider } from 'react-redux';
 import { store } from './store';
-import { Box } from '@mui/material';
+import { Box, CircularProgress } from '@mui/material';
+import { useEffect } from 'react';
 
 // Main tabbed layout
 import MainLayout from './components/MainLayout';
@@ -13,6 +14,13 @@ import ChatSplitScreen from './components/ChatSplitScreen';
 import { ChatBotWithState } from './components/ChatBot/ChatBotWithState';
 // Import the DebugWindow component
 import DebugWindow from './components/DebugWindow';
+// Import Firebase Auth components
+import { FirebaseAuthProvider, useFirebaseAuth } from './contexts/FirebaseAuthContext';
+// Removed ProtectedRoute import as logic will be handled differently
+import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import DemographicsSurvey from './pages/DemographicsSurvey';
 
 // Create a theme
 const theme = createTheme({
@@ -74,23 +82,81 @@ You have access to the following generated content:
 Always be constructive, specific, and focused on helping the user improve their negotiation strategy. Respond concisely but with enough detail to be helpful.`
 };
 
+// Protected layout component
+const ProtectedLayout = () => (
+  <ChatBotProvider 
+    apiKey={OPENAI_API_KEY}
+    useSplitScreen={true}
+  >
+    <ChatSplitScreen chatBotProps={chatBotProps}>
+      <MainLayout />
+    </ChatSplitScreen>
+  </ChatBotProvider>
+);
+
+// New Wrapper Component to check Auth and Survey status
+const AuthAndSurveyCheck: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, profile, loading } = useFirebaseAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!loading) {
+      if (!user) {
+        if (location.pathname !== '/login' && location.pathname !== '/forgot-password' && location.pathname !== '/reset-password') {
+          navigate('/login', { state: { from: location }, replace: true });
+        }
+      } else {
+        if (!profile?.demographicsCompleted) {
+          if (location.pathname !== '/demographics-survey') {
+            navigate('/demographics-survey', { replace: true });
+          }
+        } else {
+          if (location.pathname === '/login' || location.pathname === '/register') {
+            navigate('/', { replace: true });
+          }
+        }
+      }
+    }
+  }, [user, profile, loading, navigate, location]);
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+  
+  return <>{children}</>;
+};
+
 function App() {
   return (
     <Provider store={store}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Router {...routerOptions}>
-          <ChatBotProvider 
-            apiKey={OPENAI_API_KEY}
-            useSplitScreen={true}
-          >
-            <ChatSplitScreen chatBotProps={chatBotProps}>
-              <MainLayout />
-            </ChatSplitScreen>
-          </ChatBotProvider>
-        </Router>
-        {/* Add Debug window */}
-        <DebugWindow />
+        <FirebaseAuthProvider>
+          <Router {...routerOptions}>
+            {/* Wrap Routes that need checking with the new component */}
+            <AuthAndSurveyCheck>
+              <Routes>
+                {/* Public routes that are okay even if logged in but survey incomplete */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/demographics-survey" element={<DemographicsSurvey />} />
+                
+                {/* Protected main application route */}
+                {/* This route will only be reached if user is logged in AND survey is complete, 
+                    due to the checks in AuthAndSurveyCheck */}
+                <Route path="/*" element={<ProtectedLayout />} />
+              </Routes>
+            </AuthAndSurveyCheck>
+          </Router>
+          {/* Add Debug window */}
+          <DebugWindow />
+        </FirebaseAuthProvider>
       </ThemeProvider>
     </Provider>
   );

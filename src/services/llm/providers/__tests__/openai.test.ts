@@ -98,13 +98,8 @@ describe('OpenAIProvider', () => {
         'https://api.openai.com/v1/responses',
         expect.objectContaining({
           model: 'gpt-4o',
-          input: 'user: Hello',
-          temperature: 0.5,
-          text: {
-            format: {
-              type: 'text'
-            }
-          }
+          input: [{ role: 'user', content: 'Hello' }],
+          temperature: 0.5
         }),
         expect.objectContaining({
           headers: {

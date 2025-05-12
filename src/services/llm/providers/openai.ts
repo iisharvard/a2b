@@ -24,7 +24,7 @@ export class OpenAIProvider implements LLMProvider {
   async getResponse(request: LLMRequest): Promise<LLMResponse> {
     try {
       const response = await callOpenAI(
-        request.messages, 
+        request.messages,
         request.responseFormat,
         request.temperature ?? this.temperature,
         this.apiKey
@@ -52,7 +52,7 @@ export class OpenAIProvider implements LLMProvider {
   ): Promise<void> {
     try {
       await streamOpenAI(
-        request.messages, 
+        request.messages,
         callbacks,
         request.temperature ?? this.temperature,
         this.apiKey
