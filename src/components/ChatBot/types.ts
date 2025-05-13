@@ -6,6 +6,9 @@ export interface Message {
   text: string;
   sender: 'user' | 'bot';
   timestamp: Date;
+  role?: 'user' | 'assistant' | 'system';  // For compatibility with OpenAI chat format
+  content?: string;                        // For compatibility with OpenAI chat format
+  logged?: boolean;                        // Flag to track if message was logged
 }
 
 export interface ChatBotProps {

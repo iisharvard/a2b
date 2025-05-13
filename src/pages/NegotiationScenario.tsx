@@ -38,10 +38,13 @@ import RecalculationWarning from '../components/RecalculationWarning';
 import WarningIcon from '@mui/icons-material/Warning';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import React, { ReactNode } from 'react';
+import { useLogging } from '../contexts/LoggingContext';
+import { truncateText } from '../utils/textUtils';
 
 const NegotiationScenario = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { logger, isLoggingInitialized } = useLogging();
   
   // Redux state
   const { currentCase, selectedScenario } = useSelector(
@@ -199,7 +202,20 @@ const NegotiationScenario = () => {
           // Then update Redux state with the filtered scenarios + new ones
           dispatch(setScenarios([...filteredScenarios, ...uniqueScenarios]));
           
-          // Add to our tracking set
+          // Log successful scenario generation for this component
+          if (isLoggingInitialized && logger && logger.getCaseId(true)) {
+            logger.logFramework(
+              'Redline',
+              'generate',
+              { 
+                inputSize: component.description?.length || 0, 
+                wasEdited: false,
+                frameworkContent: truncateText(JSON.stringify(uniqueScenarios))
+              },
+              logger.getCaseId(true)
+            ).catch(err => console.error(`Error logging scenario generation for component ${component.id}:`, err));
+          }
+
           componentsWithScenarios.add(component.id);
           generatingCount--;
         } catch (err: any) {
@@ -285,7 +301,7 @@ const NegotiationScenario = () => {
     } finally {
       setIsGeneratingAll(false);
     }
-  }, [currentCase, dispatch, recalculationStatus.scenariosRecalculated, isGeneratingAll, loadedScenarios]);
+  }, [currentCase, dispatch, recalculationStatus.scenariosRecalculated, isGeneratingAll, loadedScenarios, isLoggingInitialized, logger]);
 
   // Handle scenario generation for a specific issue
   const generateScenariosForIssue = useCallback(async (componentId: string, forceRefresh = false) => {
@@ -340,7 +356,21 @@ const NegotiationScenario = () => {
       );
       dispatch(setScenarios([...existingScenarios, ...uniqueScenarios]));
       
-      // Mark scenarios as recalculated if they were generated due to analysis changes
+      // Log successful scenario generation for this specific issue
+      if (isLoggingInitialized && logger && logger.getCaseId(true)) {
+        const currentComponent = currentCase.analysis?.components.find(c => c.id === componentId);
+        logger.logFramework(
+          'Redline', 
+          'generate',
+          { 
+            inputSize: currentComponent?.description?.length || 0, 
+            wasEdited: false,
+            frameworkContent: truncateText(JSON.stringify(uniqueScenarios))
+          },
+          logger.getCaseId(true)
+        ).catch(err => console.error(`Error logging scenario generation for issue ${componentId}:`, err));
+      }
+
       if (!recalculationStatus.scenariosRecalculated) {
         dispatch(setScenariosRecalculated(true));
       }
@@ -420,7 +450,7 @@ const NegotiationScenario = () => {
         return newSet;
       });
     }
-  }, [currentCase, dispatch, recalculationStatus.scenariosRecalculated, selectedIssue?.name, resetLoadedScenariosForComponent]);
+  }, [currentCase, dispatch, recalculationStatus.scenariosRecalculated, selectedIssue?.name, resetLoadedScenariosForComponent, isLoggingInitialized, logger]);
 
   // Initial setup - check if we have a case, then select first issue
   useEffect(() => {
@@ -699,14 +729,24 @@ const NegotiationScenario = () => {
     if (!currentCase) return;
     
     try {
-      // Update the scenario in the scenarios array
       const updatedScenarios = currentCase.scenarios.map(scenario => 
         scenario.id === updatedScenario.id ? updatedScenario : scenario
       );
-      
-      // Update Redux store
       dispatch(setScenarios(updatedScenarios));
       
+      if (isLoggingInitialized && logger && logger.getCaseId(true)) {
+        logger.logFramework(
+          'Redline',
+          'edit',
+          { 
+            inputSize: updatedScenario.description.length, 
+            wasEdited: true,
+            frameworkContent: truncateText(JSON.stringify(updatedScenario))
+          },
+          logger.getCaseId(true)
+        ).catch(err => console.error(`Error logging scenario update for ${updatedScenario.id}:`, err));
+      }
+
       console.log(`Scenario ${updatedScenario.id} updated successfully`);
     } catch (error) {
       console.error("Error updating scenario:", error);

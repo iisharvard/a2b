@@ -21,6 +21,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 import { ChatBotProps } from './types';
 import { useChatState } from './useChatState';
+import { useLogging } from '../../contexts/LoggingContext';
 // import { useDebugState } from './useDebugState';
 // import { DebugWindow } from './DebugWindow';
 
@@ -57,11 +58,42 @@ const ChatBot: React.FC<ChatBotProps & {
     contextItems = CONTEXT_ITEMS.map(item => ({...item, active: false})),
   } = props;
 
+  // Get logging context
+  const { logger, isLoggingInitialized } = useLogging();
+
   const {
     state: chatState,
     refs,
-    handlers,
+    handlers: originalHandlers,
   } = useChatState(props);
+
+  // Wrap handlers to include logging
+  const handlers = {
+    ...originalHandlers,
+    // Override handleSubmit to include logging
+    handleSubmit: async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      // If no input, return early
+      if (!chatState.inputValue.trim()) return;
+      
+      // Log the user's message before sending
+      if (isLoggingInitialized && logger) {
+        try {
+          // Log user message (caseId will be handled by LoggingHelper)
+          await logger.logChat('user', chatState.inputValue, 'chat_bot');
+        } catch (err) {
+          console.error('Error logging chat message:', err);
+        }
+      }
+      
+      // Call the original handler
+      const result = await originalHandlers.handleSubmit(e);
+      
+      // The bot's response will be handled separately by the useEffect below
+      return result;
+    }
+  };
 
   // Debug state is commented out
   /*
@@ -79,7 +111,7 @@ const ChatBot: React.FC<ChatBotProps & {
 
   const { isOpen, messages, inputValue, isTyping, currentStreamedMessage } = chatState;
   const { messagesEndRef, inputRef } = refs;
-  const { handleInputChange, handleSubmit, handleKeyPress, toggleChat } = handlers;
+  const { handleInputChange, handleKeyPress, toggleChat } = handlers;
 
   // Debug mode keyboard shortcut is commented out
   /*
@@ -97,6 +129,34 @@ const ChatBot: React.FC<ChatBotProps & {
     }
   }, [toggleDebugWindow, disableDebug]);
   */
+
+  // Log bot responses
+  useEffect(() => {
+    // Check for new bot messages to log
+    if (isLoggingInitialized && logger && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      
+      // Only log bot messages (not user messages, as those are logged in handleSubmit)
+      if (
+        // First try the 'role' property
+        (lastMessage.role === 'assistant' || 
+        // Fall back to 'sender' property if role is not available
+        (lastMessage.role === undefined && lastMessage.sender === 'bot')) && 
+        // Check if not already logged
+        lastMessage.logged !== true
+      ) {
+        // Mark as logged to prevent re-logging
+        lastMessage.logged = true;
+        
+        // Get the message content, favoring 'content' with fallback to 'text'
+        const messageContent = lastMessage.content || lastMessage.text;
+        
+        // Log the bot's message (caseId will be handled by LoggingHelper)
+        logger.logChat('bot', messageContent, 'chat_bot')
+          .catch(err => console.error('Error logging bot message:', err));
+      }
+    }
+  }, [isLoggingInitialized, logger, messages]);
 
   // In split-screen mode, we're always visible
   const shouldRenderChat = splitScreenMode || isOpen;
@@ -392,7 +452,7 @@ const ChatBot: React.FC<ChatBotProps & {
           {/* Chat input */}
           <Box
             component="form"
-            onSubmit={handleSubmit}
+            onSubmit={handlers.handleSubmit}
             sx={{
               p: 2,
               borderTop: '1px solid rgba(0, 0, 0, 0.1)',
@@ -419,7 +479,7 @@ const ChatBot: React.FC<ChatBotProps & {
             <IconButton
               color="primary"
               aria-label="send"
-              onClick={handleSubmit}
+              type="submit"
               disabled={!inputValue.trim()}
               sx={{
                 bgcolor: primaryColor,

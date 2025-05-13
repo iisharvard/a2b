@@ -42,6 +42,7 @@ import {
 } from '../store/negotiationSlice';
 import { api } from '../services/api';
 import { extractTextFromFile, getFileTypeDescription } from '../utils/fileExtractor';
+import { useLogging } from '../contexts/LoggingContext';
 
 /**
  * InitialSetup component for entering case details and party information
@@ -50,6 +51,7 @@ const InitialSetup = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { currentCase } = useSelector((state: RootState) => state.negotiation);
+  const { logger, isLoggingInitialized } = useLogging();
   
   // Form state
   const [caseContent, setCaseContent] = useState('');
@@ -71,6 +73,21 @@ const InitialSetup = () => {
   
   // File input ref
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Log page visit
+  useEffect(() => {
+    if (isLoggingInitialized && logger) {
+      // Log page visit with app_global case ID since we might not have a specific case yet
+      logger.logPageVisit('initial_setup', 'enter', undefined, 'app_global')
+        .catch(err => console.error('Error logging page visit:', err));
+      
+      // Log exit on unmount
+      return () => {
+        logger.logPageVisit('initial_setup', 'exit', undefined, 'app_global')
+          .catch(err => console.error('Error logging page exit:', err));
+      };
+    }
+  }, [isLoggingInitialized, logger]);
   
   // Load case content from Redux if available
   useEffect(() => {
@@ -108,6 +125,14 @@ const InitialSetup = () => {
     setError(null);
     
     try {
+      // Log the framework usage
+      if (isLoggingInitialized && logger) {
+        await logger.logFramework('IoA', 'generate', { 
+          inputSize: caseContent.length,
+          wasEdited: false
+        }, 'app_global');
+      }
+      
       const result = await api.identifyParties(caseContent);
       
       if ('rateLimited' in result) {
@@ -122,6 +147,17 @@ const InitialSetup = () => {
         setParty1Description(result[0].description || '');
         setParty2Description(result[1].description || '');
         setPartiesIdentified(true);
+        
+        // Log the parties
+        if (isLoggingInitialized && logger) {
+          for (const party of result) {
+            await logger.logParty(party.name, {
+              partyRole: party.isPrimary ? 'primary' : 'secondary',
+              partyType: party.name === result[0].name ? 'self' : 'counterpart',
+              metadata: { description: party.description }
+            }, 'app_global');
+          }
+        }
       } else {
         setError('Could not identify parties in the case. Please enter them manually.');
       }
@@ -131,7 +167,7 @@ const InitialSetup = () => {
     } finally {
       setLoading(false);
     }
-  }, [caseContent]);
+  }, [caseContent, isLoggingInitialized, logger]);
   
   /**
    * Handle party selection changes
@@ -246,6 +282,16 @@ const InitialSetup = () => {
             extractedTextResult += '\n\n-------------------\n\n';
           }
           extractedTextResult += `[Content from: ${file.name}]\n\n${extractedText}`;
+          
+          // Log case file upload 
+          if (isLoggingInitialized && logger) {
+            try {
+              const { caseId } = await logger.logCaseFile(file, extractedText);
+              console.log(`Case file logged with ID: ${caseId}`);
+            } catch (logErr) {
+              console.error('Error logging case file:', logErr);
+            }
+          }
         } catch (err) {
           console.error(`Error processing file ${file.name}:`, err);
           // Continue with other files if possible
@@ -481,7 +527,7 @@ const InitialSetup = () => {
     <Container maxWidth="xl">
       <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom align="center">
-          Case Setup
+            Case Setup
         </Typography>
         
         <Divider sx={{ mb: 4 }} />

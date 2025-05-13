@@ -24,6 +24,8 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { RootState } from '../store';
 import ExperimentalWarningDialog from './ExperimentalWarningDialog';
 import { useFirebaseAuth } from '../contexts/FirebaseAuthContext';
+import ClearButtons from './ClearButtons';
+import { useLogging } from '../contexts/LoggingContext';
 
 // Import all pages
 import InitialSetup from '../pages/InitialSetup';
@@ -71,6 +73,7 @@ const MainLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useFirebaseAuth();
+  const { logger, isLoggingInitialized } = useLogging();
   
   const { currentCase } = useSelector(
     (state: RootState) => state.negotiation
@@ -170,6 +173,18 @@ const MainLayout = () => {
     }
   };
 
+  const handleClearCache = (type: 'chat' | 'interface') => {
+    if (isLoggingInitialized && logger) {
+        logger.logFramework(
+            'Iceberg', // Placeholder for general app action
+            'edit', 
+            { /* metadata: { action_type: `clear_${type}_cache` } */ }, //Temporarily commenting out metadata as it's not in the current FrameworkLogOptions
+            'app_global'
+        ).catch((err: any) => console.error(`Error logging ${type} cache clear:`, err));
+    }
+    console.log(`${type} cache cleared by user.`);
+  };
+
   // Custom tab with enhanced visual indicators
   const CustomTab = ({ icon, label, index }: { icon: React.ReactNode, label: string, index: number }) => {
     const status = getTabStatus(index);
@@ -259,6 +274,12 @@ const MainLayout = () => {
           <Typography variant="subtitle1" component="div" sx={{ flexGrow: 1 }}>
             A2B Negotiation Assistant
           </Typography>
+          <Box sx={{ mr: 2 }}>
+            <ClearButtons 
+              onClearChat={() => handleClearCache('chat')} 
+              onClearInterface={() => handleClearCache('interface')}
+            />
+          </Box>
           {currentCase && (
             <Tooltip title="Your work is automatically saved">
               <Chip

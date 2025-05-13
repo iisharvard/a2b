@@ -31,6 +31,9 @@ import {
   updateComponents
 } from '../store/negotiationSlice';
 import { api } from '../services/api';
+import { useLogging } from '../contexts/LoggingContext';
+import { debounce } from '../utils/debounce';
+import { truncateText } from '../utils/textUtils';
 
 /**
  * RedlineBottomline component for setting redlines and bottomlines for each component
@@ -38,6 +41,7 @@ import { api } from '../services/api';
 const RedlineBottomline = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { logger, isLoggingInitialized } = useLogging();
   
   // Redux state
   const { currentCase } = useSelector((state: RootState) => state.negotiation);
@@ -49,6 +53,34 @@ const RedlineBottomline = () => {
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [recalculationSuccess, setRecalculationSuccess] = useState<string | null>(null);
   const componentsRef = useRef<Component[]>([]);
+
+  // Create a debounced version of the logging function for boundary edits
+  const debouncedLogBoundaryEdit = useCallback(
+    debounce((componentId: string, field: string, value: string, caseId: string, componentToLog: Component | undefined) => {
+      if (isLoggingInitialized && logger && componentToLog) {
+        // Log a snapshot of the specific component's boundaries
+        const contentToLog = {
+          id: componentToLog.id,
+          name: componentToLog.name,
+          redlineParty1: componentToLog.redlineParty1,
+          bottomlineParty1: componentToLog.bottomlineParty1,
+          redlineParty2: componentToLog.redlineParty2,
+          bottomlineParty2: componentToLog.bottomlineParty2,
+        };
+        logger.logFramework(
+          'Redline',
+          'edit',
+          {
+            inputSize: value.length,
+            wasEdited: true,
+            frameworkContent: truncateText(JSON.stringify(contentToLog))
+          },
+          caseId
+        ).catch(err => console.error(`Error logging debounced boundary edit for ${componentId}-${field}:`, err));
+      }
+    }, 1500),
+    [isLoggingInitialized, logger]
+  );
 
   // Load components from Redux when component mounts or when currentCase changes
   useEffect(() => {
@@ -163,8 +195,13 @@ const RedlineBottomline = () => {
     const updatedComponent = updatedComponents.find(c => c.id === componentId);
     if (updatedComponent) {
       dispatch(updateComponent(updatedComponent));
+      const caseId = logger?.getCaseId(true);
+      if (caseId) {
+        // Pass the updatedComponent for logging its state
+        debouncedLogBoundaryEdit(componentId, field, value, caseId, updatedComponent);
+      }
     }
-  }, [components, dispatch]);
+  }, [components, dispatch, debouncedLogBoundaryEdit, logger]);
   
   /**
    * Validates that all components have redlines and bottomlines
@@ -220,13 +257,26 @@ const RedlineBottomline = () => {
       dispatch(updateComponents(updatedComponents));
       
       setRecalculationSuccess('Boundaries recalculated successfully.');
+
+      if (isLoggingInitialized && logger && logger.getCaseId(true)) {
+        logger.logFramework(
+          'Redline',
+          'generate',
+          {
+            inputSize: components.reduce((sum, c) => sum + (c.description?.length || 0), 0),
+            wasEdited: false,
+            frameworkContent: truncateText(JSON.stringify(updatedComponents)) // Log all recalculated components
+          },
+          logger.getCaseId(true)
+        ).catch(err => console.error('Error logging boundaries recalculation:', err));
+      }
     } catch (err) {
       console.error('Error recalculating boundaries:', err);
       setError('Failed to recalculate boundaries. Please try again.');
     } finally {
       setIsRecalculating(false);
     }
-  }, [currentCase, components, dispatch]);
+  }, [currentCase, components, dispatch, isLoggingInitialized, logger]);
   
   /**
    * Renders a component card with redline and bottomline inputs

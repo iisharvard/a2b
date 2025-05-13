@@ -33,6 +33,8 @@ import IslandOfAgreementsTable from '../components/IslandOfAgreementsTable';
 import IcebergVisualization from '../components/IcebergVisualization';
 import NegotiationIssuesTable from '../components/NegotiationIssuesTable';
 import { parseComponentsFromMarkdown, componentsToMarkdown } from '../utils/componentParser';
+import { useLogging } from '../contexts/LoggingContext';
+import { truncateText } from '../utils/textUtils';
 
 // Types
 type ApiResponse<T> = T | { rateLimited: true };
@@ -54,6 +56,7 @@ const ReviewAndRevise = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const analysisInProgress = useRef(false);
+  const { logger, isLoggingInitialized } = useLogging();
   
   // Redux state
   const { currentCase } = useSelector(
@@ -154,6 +157,20 @@ const ReviewAndRevise = () => {
       setIoaLoaded(true);
       setIcebergLoaded(true);
       setComponentsLoaded(true);
+      
+      // Log that existing analysis was loaded (considered a form of generation for this view)
+      if (isLoggingInitialized && logger && logger.getCaseId(true)) {
+        logger.logFramework(
+          'IoA', 
+          'generate',
+          { 
+            inputSize: currentCase.content?.length, 
+            wasEdited: false,
+            frameworkContent: truncateText(currentCase.analysis?.ioa + "\n\n" + currentCase.analysis?.iceberg + "\n\n" + componentsToMarkdown(currentCase.analysis?.components || []))
+          },
+          logger.getCaseId(true) 
+        ).catch(err => console.error('Error logging existing analysis load:', err));
+      }
       return;
     }
 
@@ -194,7 +211,7 @@ const ReviewAndRevise = () => {
       setLoading(false);
       analysisInProgress.current = false;
     }
-  }, [currentCase, dispatch, analyzeWithProgress, validateParties]);
+  }, [currentCase, dispatch, analyzeWithProgress, validateParties, isLoggingInitialized, logger]);
 
   // Load analysis when component mounts
   useEffect(() => {
@@ -218,12 +235,28 @@ const ReviewAndRevise = () => {
   const handleIoaChange = useCallback((value: string) => {
     setIoa(value);
     dispatch(updateIoA(value));
-  }, [dispatch]);
+    if (isLoggingInitialized && logger && logger.getCaseId(true)) {
+      logger.logFramework(
+        'IoA',
+        'edit',
+        { inputSize: value.length, wasEdited: true, frameworkContent: truncateText(value) },
+        logger.getCaseId(true)
+      ).catch(err => console.error('Error logging IoA edit:', err));
+    }
+  }, [dispatch, isLoggingInitialized, logger]);
 
   const handleIcebergChange = useCallback((value: string) => {
     setIceberg(value);
     dispatch(updateIceberg(value));
-  }, [dispatch]);
+    if (isLoggingInitialized && logger && logger.getCaseId(true)) {
+      logger.logFramework(
+        'Iceberg',
+        'edit',
+        { inputSize: value.length, wasEdited: true, frameworkContent: truncateText(value) },
+        logger.getCaseId(true)
+      ).catch(err => console.error('Error logging Iceberg edit:', err));
+    }
+  }, [dispatch, isLoggingInitialized, logger]);
 
   const handleComponentsChange = useCallback((value: string) => {
     // Update the UI state first
@@ -261,8 +294,20 @@ const ReviewAndRevise = () => {
     if (updatedComponents.length > 0) {
       // Update Redux with the full component data
       dispatch(updateComponents(updatedComponents));
+      if (isLoggingInitialized && logger && logger.getCaseId(true)) {
+        logger.logFramework(
+          'IoA', 
+          'edit',
+          {
+            inputSize: value.length, 
+            wasEdited: true, 
+            frameworkContent: truncateText(value)
+          },
+          logger.getCaseId(true)
+        ).catch(err => console.error('Error logging Issues/Components edit:', err));
+      }
     }
-  }, [currentCase, dispatch]);
+  }, [currentCase, dispatch, isLoggingInitialized, logger]);
 
   /**
    * Navigate to the next page
@@ -347,6 +392,20 @@ const ReviewAndRevise = () => {
       dispatch(setAnalysis(analysisResult));
       dispatch(setAnalysisRecalculated(true));
       
+      // Log successful new analysis generation
+      if (isLoggingInitialized && logger && logger.getCaseId(true)) {
+        logger.logFramework(
+          'IoA', 
+          'generate',
+          { 
+            inputSize: currentCase?.content?.length, 
+            wasEdited: false,
+            frameworkContent: truncateText(analysisResult.ioa + "\n\n" + analysisResult.iceberg + "\n\n" + componentsToMarkdown(analysisResult.components || []))
+          },
+          logger.getCaseId(true)
+        ).catch(err => console.error('Error logging new analysis generation:', err));
+      }
+
       setIoa(analysisResult.ioa);
       setIceberg(analysisResult.iceberg);
       
@@ -361,7 +420,7 @@ const ReviewAndRevise = () => {
       setLoading(false);
       analysisInProgress.current = false;
     }
-  }, [currentCase, analyzeWithProgress, validateParties, dispatch, startRetryCountdown, cancelRetryCountdown]);
+  }, [currentCase, analyzeWithProgress, validateParties, dispatch, startRetryCountdown, cancelRetryCountdown, isLoggingInitialized, logger]);
 
   // If no case is available, don't render anything
   if (!currentCase) {

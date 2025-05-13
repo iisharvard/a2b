@@ -16,6 +16,9 @@ import { ChatBotWithState } from './components/ChatBot/ChatBotWithState';
 import DebugWindow from './components/DebugWindow';
 // Import Firebase Auth components
 import { FirebaseAuthProvider, useFirebaseAuth } from './contexts/FirebaseAuthContext';
+// Import Logging Provider
+import { LoggingProvider } from './contexts/LoggingContext';
+import { db, storage } from './firebase';
 // Removed ProtectedRoute import as logic will be handled differently
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
@@ -83,16 +86,26 @@ Always be constructive, specific, and focused on helping the user improve their 
 };
 
 // Protected layout component
-const ProtectedLayout = () => (
-  <ChatBotProvider 
-    apiKey={OPENAI_API_KEY}
-    useSplitScreen={true}
-  >
-    <ChatSplitScreen chatBotProps={chatBotProps}>
-      <MainLayout />
-    </ChatSplitScreen>
-  </ChatBotProvider>
-);
+const ProtectedLayout = () => {
+  const { user } = useFirebaseAuth();
+  
+  return (
+    <LoggingProvider
+      db={db}
+      storage={storage}
+      userId={user?.uid || null}
+    >
+      <ChatBotProvider 
+        apiKey={OPENAI_API_KEY}
+        useSplitScreen={true}
+      >
+        <ChatSplitScreen chatBotProps={chatBotProps}>
+          <MainLayout />
+        </ChatSplitScreen>
+      </ChatBotProvider>
+    </LoggingProvider>
+  );
+};
 
 // New Wrapper Component to check Auth and Survey status
 const AuthAndSurveyCheck: React.FC<{ children: React.ReactNode }> = ({ children }) => {
