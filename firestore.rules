@@ -1,0 +1,95 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // User Profiles Collection:
+    match /userProfiles/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null
+                     && request.auth.uid == userId
+                     && request.resource.data.uid == request.auth.uid
+                     && request.resource.data.demographicsCompleted == false
+                     && request.resource.data.createdAt == request.time;
+      allow update: if request.auth != null
+                     && request.auth.uid == userId
+                     && request.resource.data.uid == resource.data.uid
+                     && !(resource.data.demographicsCompleted == true && request.resource.data.demographicsCompleted == false);
+      allow delete: if false;
+    }
+
+    // --- Logging Collections ---
+
+    // Page Visits Logs
+    match /page_visits/{logId} {
+      // Allow create if the user is authenticated and the log's userId matches their own UID.
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // Optionally, allow the owner to read their own logs:
+      // allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      // Disallow update and delete for these immutable logs by default.
+      allow update, delete: if false;
+    }
+
+    // Chat Logs
+    match /chat_logs/{logId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Framework Logs
+    match /framework_logs/{logId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Export Logs
+    match /export_logs/{logId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Case File Logs (metadata about uploaded case files)
+    match /case_file_logs/{logId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Negotiation Party Logs
+    match /negotiation_party_logs/{logId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Negotiation Issue Logs
+    match /negotiation_issue_logs/{logId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Negotiation Boundary Logs
+    match /negotiation_boundary_logs/{logId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Negotiation Scenario Logs
+    match /negotiation_scenario_logs/{logId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // --- Add rules for any OTHER collections below this line ---
+    // Example:
+    // match /yourOtherCollection/{docId} {
+    //   allow read, write: if request.auth != null; // Allow any logged-in user
+    // }
+  }
+} 

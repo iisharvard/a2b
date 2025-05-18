@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Paper,
@@ -43,6 +43,16 @@ const DemographicsSurvey: React.FC = () => {
   });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading) { // Only run navigation logic once auth state is resolved
+      if (!user) {
+        navigate('/login');
+      } else if (profile?.demographicsCompleted) {
+        navigate('/');
+      }
+    }
+  }, [user, profile, authLoading, navigate]); // Dependencies for the effect
 
   const handleChange = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { name: string; value: any } }
@@ -112,24 +122,21 @@ const DemographicsSurvey: React.FC = () => {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || (!authLoading && !user) || (!authLoading && profile?.demographicsCompleted)) {
+    // Return loading indicator or null while redirecting to prevent rendering the form
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <CircularProgress />
+        <CircularProgress /> 
       </Box>
     );
-  }
-
-  if (!user) {
-    navigate('/login'); // Should not happen if routing is correct, but good failsafe
-    return null;
+    // Or simply: return null; if you don't want a flash of the loading spinner.
   }
   
-  // If survey already completed, redirect (can also be handled by router wrapper)
-  if (profile?.demographicsCompleted) {
-    navigate('/');
-    return null;
-  }
+  // Now, if we reach here, it means:
+  // 1. authLoading is false
+  // 2. user exists
+  // 3. profile.demographicsCompleted is false (or profile is null)
+  // So, it's safe to render the survey form.
 
   return (
     <Container component="main" maxWidth="md" sx={{ mt: 4, mb: 4 }}>

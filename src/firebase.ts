@@ -1,8 +1,8 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { getStorage, connectStorageEmulator } from "firebase/storage";
 // import { getAnalytics } from "firebase/analytics"; // Optional
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -31,4 +31,26 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// Configure storage with custom settings
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+// Use emulator for storage in development environment
+if (isLocalhost && import.meta.env.DEV) {
+  try {
+    // Connect to Firebase storage emulator if it's running locally
+    // Default port is 9199, change if you're using a different port
+    connectStorageEmulator(storage, 'localhost', 9199);
+    console.log('Connected to Firebase Storage emulator');
+
+    // Connect to Firebase Firestore emulator if it's running locally
+    // Default port is 8080
+    connectFirestoreEmulator(db, 'localhost', 8080);
+    console.log('Connected to Firebase Firestore emulator');
+
+  } catch (error) {
+    console.warn('Failed to connect to Emulators, using production Firebase:', error);
+  }
+}
+
 // export const analytics = getAnalytics(app); // Optional

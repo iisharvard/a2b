@@ -201,6 +201,7 @@ const DebugWindow: React.FC = () => {
     }
   }, [analysis, currentCase?.scenarios]);
   
+  /*
   // Handler for keyboard shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -214,6 +215,7 @@ const DebugWindow: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+  */
   
   // Load example data based on current tab
   const loadExampleData = () => {
@@ -353,6 +355,7 @@ const DebugWindow: React.FC = () => {
   return (
     <>
       {/* Floating button in the bottom-right corner */}
+      {/*
       <Box 
         sx={{ 
           position: 'fixed', 
@@ -377,6 +380,7 @@ const DebugWindow: React.FC = () => {
           <CodeIcon />
         </Paper>
       </Box>
+      */}
     
       {/* Debug Dialog */}
       <Dialog 

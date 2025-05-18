@@ -352,12 +352,18 @@ export const logCaseFileUpload = async (
     // Hash the file
     const fileHash = await hashFile(file);
     const fileExtension = file.name.split('.').pop() || '';
+    // Align with storage rule: /case_files/{fileHashWithExt}
     const storagePath = `case_files/${fileHash}${fileExtension ? '.' + fileExtension : ''}`;
     const storageRef = ref(storage, storagePath);
 
+    try {
     // Upload to Firebase Storage
     await uploadBytes(storageRef, file);
     console.log(`Case file uploaded to: ${storagePath}`);
+    } catch (uploadError) {
+      console.error('Error uploading to Firebase Storage:', uploadError);
+      // Continue with Firestore logging even if storage upload fails
+    }
 
     // Log the case file in Firestore
     const docRef = await addDoc(collection(db, 'case_file_logs'), {
