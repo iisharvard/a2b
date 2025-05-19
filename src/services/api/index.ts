@@ -48,12 +48,13 @@ export const api = {
         onPartialResult('ioa', ioaResponse.ioa);
       }
       
+      // Using the combined iceberg + shared prompt instead of the separate iceberg prompt
       const icebergInput: IcebergInput = {
         caseContent: content,
         party1Name: party1.name,
         party2Name: party2.name
       };
-      const icebergResponse = await callLanguageModel('iceberg.txt', icebergInput);
+      const icebergResponse = await callLanguageModel('icebergWithShared.txt', icebergInput);
       
       // Call the callback with iceberg result as soon as it's available
       if (onPartialResult) {
