@@ -9,8 +9,13 @@ import {
   Paper,
   Typography,
   Box,
-  styled
+  styled,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Divider
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 // Define styled components for the table
 const TableWrapper = styled(Paper)(({ theme }) => ({
@@ -52,6 +57,29 @@ const ContentCell = styled(TableCell)(({ theme }) => ({
   }
 }));
 
+const SectionBox = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(2),
+  marginTop: theme.spacing(2),
+  borderRadius: theme.shape.borderRadius,
+  backgroundColor: '#f5f5f5',
+  '&[contentEditable="true"]': {
+    outline: 'none',
+    whiteSpace: 'pre-wrap',
+    overflowWrap: 'break-word',
+    '&:focus': {
+      boxShadow: 'inset 0 0 0 2px ' + theme.palette.primary.main,
+    },
+  },
+  '& ul': {
+    paddingLeft: '20px',
+    marginTop: 0,
+    marginBottom: 0
+  },
+  '& li': {
+    marginBottom: '8px'
+  }
+}));
+
 interface IslandOfAgreementsTableProps {
   value: string;
   onChange: (value: string) => void;
@@ -62,6 +90,8 @@ interface IslandData {
   agreedFacts: string[];
   convergentNorms: string[];
   divergentNorms: string[];
+  whatToPrioritize: string[];
+  whatToAvoid: string[];
 }
 
 const IslandOfAgreementsTable: React.FC<IslandOfAgreementsTableProps> = ({ value, onChange }) => {
@@ -69,8 +99,15 @@ const IslandOfAgreementsTable: React.FC<IslandOfAgreementsTableProps> = ({ value
     contestedFacts: [],
     agreedFacts: [],
     convergentNorms: [],
-    divergentNorms: []
+    divergentNorms: [],
+    whatToPrioritize: [],
+    whatToAvoid: []
   });
+  const [guidanceExpanded, setGuidanceExpanded] = useState(false);
+
+  const handleGuidanceChange = (event: React.SyntheticEvent, isExpanded: boolean) => {
+    setGuidanceExpanded(isExpanded);
+  };
 
   // Parse the markdown content when it changes
   useEffect(() => {
@@ -79,7 +116,9 @@ const IslandOfAgreementsTable: React.FC<IslandOfAgreementsTableProps> = ({ value
         contestedFacts: [],
         agreedFacts: [],
         convergentNorms: [],
-        divergentNorms: []
+        divergentNorms: [],
+        whatToPrioritize: [],
+        whatToAvoid: []
       };
 
       // Simple parser for the markdown format
@@ -100,6 +139,12 @@ const IslandOfAgreementsTable: React.FC<IslandOfAgreementsTableProps> = ({ value
         } else if (line.match(/^## Divergent Norms/i)) {
           currentSection = 'divergentNorms';
           continue;
+        } else if (line.match(/^## What to Prioritize/i)) {
+          currentSection = 'whatToPrioritize';
+          continue;
+        } else if (line.match(/^## What to Avoid/i)) {
+          currentSection = 'whatToAvoid';
+          continue;
         }
 
         // Extract bullet points
@@ -116,6 +161,8 @@ const IslandOfAgreementsTable: React.FC<IslandOfAgreementsTableProps> = ({ value
       if (data.agreedFacts.length === 0) data.agreedFacts = ["Click to add agreed facts..."];
       if (data.convergentNorms.length === 0) data.convergentNorms = ["Click to add convergent norms..."];
       if (data.divergentNorms.length === 0) data.divergentNorms = ["Click to add divergent norms..."];
+      if (data.whatToPrioritize.length === 0) data.whatToPrioritize = ["Click to add priorities..."];
+      if (data.whatToAvoid.length === 0) data.whatToAvoid = ["Click to add items to avoid..."];
 
       return data;
     };
@@ -128,7 +175,9 @@ const IslandOfAgreementsTable: React.FC<IslandOfAgreementsTableProps> = ({ value
         contestedFacts: ["Click to add contested facts..."],
         agreedFacts: ["Click to add agreed facts..."],
         convergentNorms: ["Click to add convergent norms..."],
-        divergentNorms: ["Click to add divergent norms..."]
+        divergentNorms: ["Click to add divergent norms..."],
+        whatToPrioritize: ["Click to add priorities..."],
+        whatToAvoid: ["Click to add items to avoid..."]
       };
       setIslandData(defaultData);
     }
@@ -149,6 +198,12 @@ ${newData.convergentNorms.map(norm => `- ${norm}`).join('\n')}
 
 ## Divergent Norms
 ${newData.divergentNorms.map(norm => `- ${norm}`).join('\n')}
+
+## What to Prioritize
+${newData.whatToPrioritize.map(item => `- ${item}`).join('\n')}
+
+## What to Avoid
+${newData.whatToAvoid.map(item => `- ${item}`).join('\n')}
 `;
     onChange(markdown);
   };
@@ -240,7 +295,52 @@ ${newData.divergentNorms.map(norm => `- ${norm}`).join('\n')}
         </Table>
       </TableContainer>
       
-      <Box sx={{ mt: 2, p: 2, bgcolor: '#f9f9f9', borderRadius: 1 }}>
+      <Box sx={{ mt: 3 }}>
+        <Accordion expanded={guidanceExpanded} onChange={handleGuidanceChange}>
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            aria-controls="negotiation-guidance-content"
+            id="negotiation-guidance-header"
+          >
+            <Typography variant="h6">Negotiation Guidance</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Box sx={{ display: 'flex', flexDirection: {xs: 'column', md: 'row'}, gap: 2 }}>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                  What to Prioritize
+                </Typography>
+                <SectionBox
+                  contentEditable
+                  suppressContentEditableWarning
+                  dangerouslySetInnerHTML={{ 
+                    __html: formatContentAsList(islandData.whatToPrioritize)
+                  }}
+                  onBlur={(e) => handleContentUpdate('whatToPrioritize', e.currentTarget.innerText)}
+                  sx={{ backgroundColor: '#e3f2fd' }} // light blue for priorities
+                />
+              </Box>
+              
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                  What to Avoid
+                </Typography>
+                <SectionBox
+                  contentEditable
+                  suppressContentEditableWarning
+                  dangerouslySetInnerHTML={{ 
+                    __html: formatContentAsList(islandData.whatToAvoid)
+                  }}
+                  onBlur={(e) => handleContentUpdate('whatToAvoid', e.currentTarget.innerText)}
+                  sx={{ backgroundColor: '#fce4ec' }} // light pink for things to avoid
+                />
+              </Box>
+            </Box>
+          </AccordionDetails>
+        </Accordion>
+      </Box>
+      
+      <Box sx={{ mt: 3, p: 2, bgcolor: '#f9f9f9', borderRadius: 1 }}>
         <Typography variant="subtitle2" gutterBottom>
           <strong>Contested Facts:</strong> Facts that need to be clarified with factual evidence
         </Typography>

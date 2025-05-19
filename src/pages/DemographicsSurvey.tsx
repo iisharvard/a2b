@@ -126,7 +126,7 @@ const DemographicsSurvey: React.FC = () => {
     // Return loading indicator or null while redirecting to prevent rendering the form
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <CircularProgress /> 
+        <CircularProgress />
       </Box>
     );
     // Or simply: return null; if you don't want a flash of the loading spinner.
