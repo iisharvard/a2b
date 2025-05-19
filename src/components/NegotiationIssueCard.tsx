@@ -79,42 +79,58 @@ const NegotiationIssueCard = ({
         
         <Divider sx={{ my: 2 }} />
         
-        <Typography variant="subtitle1" gutterBottom>
-          {party1Name}
-        </Typography>
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            Redline
-          </Typography>
-          <Typography variant="body1" paragraph>
-            {component.redlineParty1 || 'Not set'}
+        {/* Redlines Section */}
+        <Box sx={{ mb: 3, p: 2, bgcolor: 'rgba(244, 67, 54, 0.05)', borderRadius: 1 }}>
+          <Typography variant="h6" sx={{ color: 'error.main', mb: 2 }}>
+            Redlines
           </Typography>
           
-          <Typography variant="body2" color="text.secondary">
-            Bottomline
-          </Typography>
-          <Typography variant="body1" paragraph>
-            {component.bottomlineParty1 || 'Not set'}
-          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                {party1Name}
+              </Typography>
+              <Typography variant="body1">
+                {component.redlineParty1 || 'Not set'}
+              </Typography>
+            </Box>
+            
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                {party2Name}
+              </Typography>
+              <Typography variant="body1">
+                {component.redlineParty2 || 'Not set'}
+              </Typography>
+            </Box>
+          </Box>
         </Box>
         
-        <Typography variant="subtitle1" gutterBottom>
-          {party2Name}
-        </Typography>
-        <Box>
-          <Typography variant="body2" color="text.secondary">
-            Redline
-          </Typography>
-          <Typography variant="body1" paragraph>
-            {component.redlineParty2 || 'Not set'}
+        {/* Bottomlines Section */}
+        <Box sx={{ p: 2, bgcolor: 'rgba(33, 150, 243, 0.05)', borderRadius: 1 }}>
+          <Typography variant="h6" sx={{ color: 'primary.main', mb: 2 }}>
+            Bottomlines
           </Typography>
           
-          <Typography variant="body2" color="text.secondary">
-            Bottomline
-          </Typography>
-          <Typography variant="body1" paragraph>
-            {component.bottomlineParty2 || 'Not set'}
-          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                {party1Name}
+              </Typography>
+              <Typography variant="body1">
+                {component.bottomlineParty1 || 'Not set'}
+              </Typography>
+            </Box>
+            
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                {party2Name}
+              </Typography>
+              <Typography variant="body1">
+                {component.bottomlineParty2 || 'Not set'}
+              </Typography>
+            </Box>
+          </Box>
         </Box>
         
         {showDiff && hasChanges && onAcceptChange && onRejectChange && (

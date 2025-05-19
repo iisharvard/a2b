@@ -296,63 +296,79 @@ const RedlineBottomline = () => {
           </Typography>
         </Box>
         
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Typography variant="subtitle1" gutterBottom>
-              {party1}
-            </Typography>
-            
-            <TextField
-              fullWidth
-              label="Redline (won't accept worse than this)"
-              value={component.redlineParty1 || ''}
-              onChange={(e) => handleComponentUpdate(component.id, 'redlineParty1', e.target.value)}
-              margin="normal"
-              variant="outlined"
-              multiline
-              rows={3}
-            />
-            
-            <TextField
-              fullWidth
-              label="Bottomline (willing to accept this)"
-              value={component.bottomlineParty1 || ''}
-              onChange={(e) => handleComponentUpdate(component.id, 'bottomlineParty1', e.target.value)}
-              margin="normal"
-              variant="outlined"
-              multiline
-              rows={3}
-            />
+        {/* Redline Section - Both parties */}
+        <Box sx={{ mb: 4, p: 2, bgcolor: 'rgba(244, 67, 54, 0.05)', borderRadius: 1 }}>
+          <Typography variant="h6" gutterBottom sx={{ color: 'error.main' }}>
+            Redlines (won't accept worse than this)
+          </Typography>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Typography variant="subtitle1" gutterBottom>
+                {party1}
+              </Typography>
+              <TextField
+                fullWidth
+                value={component.redlineParty1 || ''}
+                onChange={(e) => handleComponentUpdate(component.id, 'redlineParty1', e.target.value)}
+                margin="normal"
+                variant="outlined"
+                multiline
+                rows={3}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Typography variant="subtitle1" gutterBottom>
+                {party2}
+              </Typography>
+              <TextField
+                fullWidth
+                value={component.redlineParty2 || ''}
+                onChange={(e) => handleComponentUpdate(component.id, 'redlineParty2', e.target.value)}
+                margin="normal"
+                variant="outlined"
+                multiline
+                rows={3}
+              />
+            </Grid>
           </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Typography variant="subtitle1" gutterBottom>
-              {party2}
-            </Typography>
-            
-            <TextField
-              fullWidth
-              label="Redline (won't accept worse than this)"
-              value={component.redlineParty2 || ''}
-              onChange={(e) => handleComponentUpdate(component.id, 'redlineParty2', e.target.value)}
-              margin="normal"
-              variant="outlined"
-              multiline
-              rows={3}
-            />
-            
-            <TextField
-              fullWidth
-              label="Bottomline (willing to accept this)"
-              value={component.bottomlineParty2 || ''}
-              onChange={(e) => handleComponentUpdate(component.id, 'bottomlineParty2', e.target.value)}
-              margin="normal"
-              variant="outlined"
-              multiline
-              rows={3}
-            />
+        </Box>
+        
+        {/* Bottomline Section - Both parties */}
+        <Box sx={{ p: 2, bgcolor: 'rgba(33, 150, 243, 0.05)', borderRadius: 1 }}>
+          <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+            Bottomlines (willing to accept this)
+          </Typography>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Typography variant="subtitle1" gutterBottom>
+                {party1}
+              </Typography>
+              <TextField
+                fullWidth
+                value={component.bottomlineParty1 || ''}
+                onChange={(e) => handleComponentUpdate(component.id, 'bottomlineParty1', e.target.value)}
+                margin="normal"
+                variant="outlined"
+                multiline
+                rows={3}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Typography variant="subtitle1" gutterBottom>
+                {party2}
+              </Typography>
+              <TextField
+                fullWidth
+                value={component.bottomlineParty2 || ''}
+                onChange={(e) => handleComponentUpdate(component.id, 'bottomlineParty2', e.target.value)}
+                margin="normal"
+                variant="outlined"
+                multiline
+                rows={3}
+              />
+            </Grid>
           </Grid>
-        </Grid>
+        </Box>
       </Box>
     );
   }, [currentCase, handleComponentUpdate]);
