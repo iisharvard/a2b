@@ -25,7 +25,7 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const DemographicsSurvey: React.FC = () => {
-  const { user, profile, loading: authLoading } = useFirebaseAuth();
+  const { user, profile, loading: authLoading, refreshUserProfile } = useFirebaseAuth();
   const navigate = useNavigate();
   const [formState, setFormState] = useState({
     experienceYears: '',
@@ -109,6 +109,7 @@ const DemographicsSurvey: React.FC = () => {
           },
           { merge: true }
         );
+        await refreshUserProfile();
         navigate('/');
       } catch (err: any) {
         console.error('Error submitting survey:', err);

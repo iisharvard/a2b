@@ -36,6 +36,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  refreshUserProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -84,6 +85,15 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
     });
     return () => unsubscribe();
   }, [fetchUserProfile]);
+
+  const refreshUserProfile = useCallback(async () => {
+    if (user) {
+      setLoading(true);
+      const updatedProfile = await fetchUserProfile(user);
+      setProfile(updatedProfile);
+      setLoading(false);
+    }
+  }, [user, fetchUserProfile]);
 
   const register = async (username: string, email: string, password: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -142,7 +152,8 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
         register, 
         login, 
         logout, 
-        signInWithGoogle 
+        signInWithGoogle,
+        refreshUserProfile
       }}
     >
       {children}
