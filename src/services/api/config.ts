@@ -2,11 +2,12 @@
 
 // OpenAI API configuration
 export const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
+export let OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || ''; // Default to empty string if not set
 
-// In a real application, this would be set from environment variables
-// For tests, this is mocked in the test files
-// In the browser, this will be set from the env.ts file
-export let OPENAI_API_KEY = '';
+// Gemini API configuration
+export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent';
+export let GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''; // Default to empty string if not set
+export const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
 
 // Try to load environment variables from the env.ts file in the browser
 if (typeof window !== 'undefined') {
@@ -14,6 +15,10 @@ if (typeof window !== 'undefined') {
   import('./env').then(env => {
     const envVars = env.getEnv();
     OPENAI_API_KEY = envVars.OPENAI_API_KEY;
+    // Attempt to load Gemini API key from env.ts as well
+    if (envVars.GEMINI_API_KEY) {
+      GEMINI_API_KEY = envVars.GEMINI_API_KEY;
+    }
   }).catch(() => {
     // Ignore errors in test environment
   });
@@ -21,6 +26,10 @@ if (typeof window !== 'undefined') {
 
 export const MODEL = 'gpt-4o'; // or 'gpt-3.5-turbo' for a more cost-effective option
 export const TEMPERATURE = 0.5;
+
+// Default model for general processing (can be overridden)
+export const PROCESSING_MODEL = GEMINI_MODEL_NAME;
+export const CHAT_MODEL = MODEL; // Keep OpenAI for chat
 
 // Rate limiting configuration
 export const RATE_LIMIT = {

@@ -3,7 +3,7 @@
  */
 
 import { LLMProvider, LLMRequest, LLMResponse, LLMError } from '../types/llm';
-import { callOpenAI, streamOpenAI } from './api/openaiClient';
+import { callOpenAI, streamOpenAI } from './api/llmClient';
 import { OpenAIMessage } from './api/types';
 import { MODEL, OPENAI_API_URL, TEMPERATURE, OPENAI_API_KEY } from './api/config';
 
@@ -18,15 +18,10 @@ export interface ResponseChunk {
   annotations?: any[];
 }
 
-export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
 interface StreamCallbacks {
   onStart?: () => void;
   onToken?: (token: string) => void;
-  onComplete?: (fullResponse: string) => void;
+  onComplete?: () => void;
   onError?: (error: Error) => void;
 }
 
@@ -66,21 +61,6 @@ export const getChatCompletion = async (
 };
 
 /**
- * Stream a chat completion from OpenAI
- */
-export const streamChatCompletion = async (
-  messages: Array<{ role: string; content: string }>,
-  callbacks: {
-    onToken: (token: string) => void;
-    onComplete: () => void;
-    onError: (error: LLMError) => void;
-  },
-  model: string = MODEL
-): Promise<void> => {
-  return streamOpenAI(messages, callbacks, TEMPERATURE, OPENAI_API_KEY, true, model);
-};
-
-/**
  * Streams a response from OpenAI API
  * @param messages - Array of messages to send to the API
  * @param apiKey - OpenAI API key
@@ -88,7 +68,7 @@ export const streamChatCompletion = async (
  * @param model - Model to use (defaults to gpt-4o)
  */
 export const streamResponse = async (
-  messages: ChatMessage[],
+  messages: OpenAIMessage[],
   apiKey: string = OPENAI_API_KEY,
   callbacks: StreamCallbacks,
   model: string = MODEL
@@ -104,12 +84,12 @@ export const streamResponse = async (
       messages,
       {
         onToken: (token) => onToken?.(token),
-        onComplete: () => onComplete?.(''),
+        onComplete: () => onComplete?.(),
         onError: (error) => onError?.(error instanceof Error ? error : new Error(String(error)))
       },
       TEMPERATURE,
       apiKey,
-      false, // Use array format instead of string format
+      true,
       model
     );
   } catch (error) {
@@ -125,7 +105,7 @@ export const streamResponse = async (
  * @returns The AI response text
  */
 export const getResponse = async (
-  messages: ChatMessage[],
+  messages: OpenAIMessage[],
   apiKey: string = OPENAI_API_KEY,
   model: string = MODEL
 ): Promise<string> => {

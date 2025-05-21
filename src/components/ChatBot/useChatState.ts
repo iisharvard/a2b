@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChatState, Message, ChatBotProps } from './types';
-import { ChatMessage, streamResponse } from '../../services/chatService';
+import { streamResponse } from '../../services/chatService';
+import { OpenAIMessage } from '../../services/api/types';
 
 export const useChatState = (props: ChatBotProps) => {
   const {

@@ -2,7 +2,7 @@ import { store } from '../../store';
 import { Analysis, Component, Party, Scenario } from '../../store/negotiationSlice';
 import { ApiResponse, AnalysisResponse } from '../../types/api';
 import { callLanguageModel } from './promptHandler';
-import { callOpenAI } from './openaiClient';
+import { callOpenAI } from './llmClient';
 import { apiCache, clearScenariosForComponent } from './cache';
 import { 
   IslandOfAgreementInput, 
@@ -381,7 +381,7 @@ export const api = {
 export * from './config';
 export * from './types';
 export * from './requestQueue';
-export * from './openaiClient';
+export * from './llmClient';
 export * from './promptHandler';
 export * from './cache';
 

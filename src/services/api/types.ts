@@ -137,4 +137,68 @@ export const partiesSchema = {
     }
   },
   required: ["parties"]
-}; 
+};
+
+// Gemini API types
+export interface GeminiMessage {
+  role: 'user' | 'model'; // Gemini uses 'model' for assistant
+  parts: Array<{ text: string }>;
+}
+
+// Type for the content generation request to Gemini
+export interface GeminiGenerationConfig {
+  temperature?: number;
+  topP?: number;
+  topK?: number;
+  maxOutputTokens?: number;
+  // Add other configuration parameters as needed
+}
+
+export interface GeminiSafetySetting {
+  category: string; // e.g., HARM_CATEGORY_HARASSMENT
+  threshold: string; // e.g., BLOCK_MEDIUM_AND_ABOVE
+}
+
+export interface GeminiRequest {
+  contents: GeminiMessage[];
+  generationConfig?: GeminiGenerationConfig;
+  safetySettings?: GeminiSafetySetting[];
+  // tools, tool_config, etc. can be added if needed for function calling
+}
+
+// Simplified Gemini API Response (adjust as needed based on actual API and usage)
+export interface GeminiResponse {
+  candidates: Array<{
+    content: {
+      parts: Array<{ text: string }>;
+      role: string;
+    };
+    finishReason?: string;
+    index?: number;
+    safetyRatings?: Array<{
+      category: string;
+      probability: string;
+    }>;
+    // tokenCount, etc.
+  }>;
+  promptFeedback?: {
+    blockReason?: string;
+    safetyRatings?: Array<{
+      category: string;
+      probability: string;
+    }>;
+    // blockReasonMessage might also be available
+  };
+  // usageMetadata for token counts could be here or within candidates
+}
+
+export interface GeminiStreamChunk {
+ candidates: Array<{
+    content: {
+      parts: Array<{ text: string }>;
+      role: string;
+    };
+    // Other fields like finishReason might appear in the last chunk
+  }>;
+  // promptFeedback might also be streamed
+} 

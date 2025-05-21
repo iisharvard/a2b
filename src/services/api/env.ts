@@ -4,6 +4,7 @@
 // Access environment variables using Vite's approach
 export const getEnv = () => {
   return {
-    OPENAI_API_KEY: import.meta.env.VITE_OPENAI_API_KEY || ''
+    OPENAI_API_KEY: import.meta.env.VITE_OPENAI_API_KEY || '',
+    GEMINI_API_KEY: import.meta.env.VITE_GEMINI_API_KEY || ''
   };
 }; 

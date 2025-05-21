@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { LLMProvider, LLMRequest, LLMResponse, LLMError } from '../../../types/llm';
 import { OPENAI_API_URL, OPENAI_API_KEY, MODEL, TEMPERATURE } from '../../api/config';
-import { callOpenAI, streamOpenAI } from '../../api/openaiClient';
+import { callOpenAI, streamOpenAI } from '../../api/llmClient';
 
 export class OpenAIProvider implements LLMProvider {
   private apiKey: string;

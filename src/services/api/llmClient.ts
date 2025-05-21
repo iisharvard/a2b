@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { LLMError } from '../../types/llm';
-import { OPENAI_API_URL, OPENAI_API_KEY, MODEL, TEMPERATURE } from './config';
+import { OPENAI_API_URL, OPENAI_API_KEY, MODEL, TEMPERATURE, GEMINI_API_KEY, GEMINI_MODEL_NAME, GEMINI_API_URL } from './config';
 import { requestQueue } from './requestQueue';
-import { OpenAIMessage, OpenAIResponseRequest } from './types';
+import { OpenAIMessage, OpenAIResponseRequest, GeminiMessage, GeminiRequest, GeminiResponse, GeminiStreamChunk } from './types';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Define OpenAIError interface locally since it was removed from types.ts
 interface OpenAIError {
@@ -402,5 +403,151 @@ const makeRequest = async (request: OpenAIRequest): Promise<OpenAIResponse> => {
 
     // For all other errors, throw the original error
     throw error;
+  }
+}; 
+
+/**
+ * Helper to convert OpenAI messages to Gemini messages
+ */
+const convertToGeminiMessages = (messages: OpenAIMessage[] | Array<{ role: string; content: string }>): GeminiMessage[] => {
+  return messages.map(msg => ({
+    role: msg.role === 'assistant' ? 'model' : 'user', // Gemini uses 'model' for assistant messages
+    parts: [{ text: msg.content }],
+  }));
+};
+
+/**
+ * Call Gemini API with error handling
+ */
+export const callGemini = async (
+  messages: OpenAIMessage[] | Array<{ role: string; content: string }>,
+  responseFormat?: { type: string }, // Note: Gemini's JSON mode is handled differently
+  temperature?: number,
+  apiKey: string = GEMINI_API_KEY,
+  modelName: string = GEMINI_MODEL_NAME
+): Promise<{ text: string; usage?: any }> => {
+  try {
+    if (!apiKey) {
+      throw { code: 'AUTH_ERROR', message: 'Gemini API key is not configured' } as LLMError;
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: modelName });
+
+    // Convert messages to Gemini format
+    const geminiMessages = convertToGeminiMessages(messages);
+
+    // Configure generation settings
+    const generationConfig = {
+      temperature: temperature ?? TEMPERATURE,
+      // Add JSON mode if requested
+      ...(responseFormat?.type === 'json_object' && {
+        responseMimeType: 'application/json'
+      })
+    };
+
+    const result = await model.generateContent({
+      contents: geminiMessages,
+      generationConfig,
+    });
+
+    const response = await result.response;
+    const text = response.text();
+
+    if (!text) {
+      throw { code: 'EMPTY_RESPONSE', message: 'Empty response from Gemini API' } as LLMError;
+    }
+
+    return {
+      text,
+      usage: {
+        // Gemini doesn't provide token usage information in the same way as OpenAI
+        // You might want to implement your own token counting if needed
+      }
+    };
+  } catch (error: any) {
+    console.error('Gemini API error:', error);
+    
+    if (error.message?.includes('API key')) {
+      throw { code: 'AUTH_ERROR', message: 'Invalid Gemini API key' } as LLMError;
+    }
+    
+    if (error.message?.includes('safety')) {
+      throw { code: 'CONTENT_FILTER', message: 'Content blocked by Gemini safety filters' } as LLMError;
+    }
+    
+    throw { 
+      code: 'API_ERROR', 
+      message: error.message || 'Unknown error from Gemini API'
+    } as LLMError;
+  }
+};
+
+/**
+ * Stream Gemini API responses with error handling
+ */
+export const streamGemini = async (
+  messages: OpenAIMessage[] | Array<{ role: string; content: string }>,
+  callbacks: {
+    onToken: (token: string) => void;
+    onComplete: () => void;
+    onError: (error: LLMError) => void;
+  },
+  responseFormat?: { type: string },
+  temperature?: number,
+  apiKey: string = GEMINI_API_KEY,
+  modelName: string = GEMINI_MODEL_NAME
+): Promise<void> => {
+  try {
+    if (!apiKey) {
+      callbacks.onError({ code: 'AUTH_ERROR', message: 'Gemini API key is not configured' } as LLMError);
+      return;
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: modelName });
+
+    // Convert messages to Gemini format
+    const geminiMessages = convertToGeminiMessages(messages);
+
+    // Configure generation settings
+    const generationConfig = {
+      temperature: temperature ?? TEMPERATURE,
+      // Add JSON mode if requested
+      ...(responseFormat?.type === 'json_object' && {
+        responseMimeType: 'application/json'
+      })
+    };
+
+    const result = await model.generateContentStream({
+      contents: geminiMessages,
+      generationConfig,
+    });
+
+    for await (const chunk of result.stream) {
+      const text = chunk.text();
+      if (text) {
+        callbacks.onToken(text);
+      }
+    }
+
+    callbacks.onComplete();
+  } catch (error: any) {
+    console.error('Gemini streaming error:', error);
+    
+    if (error.message?.includes('API key')) {
+      callbacks.onError({ code: 'AUTH_ERROR', message: 'Invalid Gemini API key' } as LLMError);
+      return;
+    }
+    
+    if (error.message?.includes('safety')) {
+      callbacks.onError({ code: 'CONTENT_FILTER', message: 'Content blocked by Gemini safety filters' } as LLMError);
+      return;
+    }
+    
+    callbacks.onError({ 
+      code: 'API_ERROR', 
+      message: error.message || 'Unknown error from Gemini API'
+    } as LLMError);
   }
 }; 

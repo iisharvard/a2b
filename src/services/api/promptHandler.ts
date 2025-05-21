@@ -1,5 +1,6 @@
-import { callOpenAI } from './openaiClient';
+import { callOpenAI, callGemini } from './llmClient';
 import { OpenAIMessage } from './types';
+import { PROCESSING_MODEL, GEMINI_MODEL_NAME } from './config';
 
 /**
  * Read a prompt file from the public/prompts directory
@@ -39,28 +40,37 @@ export const callLanguageModel = async (promptFile: string, inputs: Record<strin
     // Add instructions to return JSON
     const systemPrompt = `${promptContent}\n\nIMPORTANT: Your response MUST be valid JSON.`;
     
-    // Prepare messages for OpenAI
+    // Prepare messages for the LLM
     const messages: OpenAIMessage[] = [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: JSON.stringify(inputs) }
     ];
     
-    console.log('📤 Sending request to OpenAI...');
-    // Call OpenAI API with JSON response format
-    const response = await callOpenAI(messages, { type: 'json_object' });
-    
-    console.log('📥 Received response from OpenAI:', response);
+    let response;
+    // Check which model to use (this is a simple way, could be more sophisticated)
+    // For now, we assume if PROCESSING_MODEL is GEMINI_MODEL_NAME, we use Gemini.
+    if (PROCESSING_MODEL === GEMINI_MODEL_NAME) {
+      console.log('📤 Sending request to Gemini...');
+      response = await callGemini(messages, { type: 'json_object' });
+      console.log('📥 Received response from Gemini:', response);
+    } else {
+      console.log('📤 Sending request to OpenAI...');
+      response = await callOpenAI(messages, { type: 'json_object' });
+      console.log('📥 Received response from OpenAI:', response);
+    }
     
     // Try to parse the response as JSON
     try {
+      // The underlying LLM clients (callGemini with responseMimeType: 'application/json' 
+      // and callOpenAI with responseFormat: { type: 'json_object' })
+      // are now expected to return clean JSON directly.
       const parsedResponse = JSON.parse(response.text);
-      console.log('✅ Successfully parsed OpenAI response:', parsedResponse);
+      console.log('✅ Successfully parsed LLM response:', parsedResponse);
       return parsedResponse;
     } catch (e) {
       console.error('❌ Error parsing JSON response:', e);
       console.error('Raw response text:', response.text);
-      // If parsing fails, return the raw content
-      return { error: 'Failed to parse JSON response', rawContent: response.text };
+      throw new Error('Invalid response format');
     }
   } catch (error) {
     console.error('❌ Error calling language model:', error);
