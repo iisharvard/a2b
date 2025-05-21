@@ -26,7 +26,9 @@ import { RootState } from '../store';
 import { 
   setScenarios, 
   selectScenario, 
-  Scenario
+  Scenario,
+  Component,
+  saveScenariosForCurrentPair
 } from '../store/negotiationSlice';
 import { 
   setScenariosRecalculated
@@ -200,7 +202,7 @@ const NegotiationScenario = () => {
           );
           
           // Then update Redux state with the filtered scenarios + new ones
-          dispatch(setScenarios([...filteredScenarios, ...uniqueScenarios]));
+          dispatch(saveScenariosForCurrentPair([...filteredScenarios, ...uniqueScenarios]));
           
           // Log successful scenario generation for this component
           if (isLoggingInitialized && logger && logger.getCaseId(true)) {
@@ -330,7 +332,7 @@ const NegotiationScenario = () => {
         const filteredScenarios = currentCase.scenarios.filter(
           s => s.componentId !== componentId
         );
-        dispatch(setScenarios(filteredScenarios));
+        dispatch(saveScenariosForCurrentPair(filteredScenarios));
       }
       
       // Always use the regular generateScenarios method - don't try to use forceGenerateScenarios
@@ -354,7 +356,7 @@ const NegotiationScenario = () => {
       const existingScenarios = currentCase.scenarios.filter(
         s => s.componentId !== componentId
       );
-      dispatch(setScenarios([...existingScenarios, ...uniqueScenarios]));
+      dispatch(saveScenariosForCurrentPair([...existingScenarios, ...uniqueScenarios]));
       
       // Log successful scenario generation for this specific issue
       if (isLoggingInitialized && logger && logger.getCaseId(true)) {
@@ -452,116 +454,28 @@ const NegotiationScenario = () => {
     }
   }, [currentCase, dispatch, recalculationStatus.scenariosRecalculated, selectedIssue?.name, resetLoadedScenariosForComponent, isLoggingInitialized, logger]);
 
-  // Initial setup - check if we have a case, then select first issue
+  // First useEffect - add selectedPartyPair to dependency array
   useEffect(() => {
-    // Skip this effect if we have already processed it
+    // Check if we can navigate to this page
     if (!currentCase || !currentCase.analysis) {
-      navigate('/boundaries');
+      navigate('/review');
       return;
     }
 
-    // Check if we've already run the initial setup for this case
-    if (initialSetupRan.current.caseId === currentCase.id) {
-      // If we've run this more than once, log with a counter for debugging
-      if (initialSetupRan.current.count > 0) {
-        console.log(`Initial setup effect re-run #${initialSetupRan.current.count + 1} for case ${currentCase.id}`);
-      }
-      initialSetupRan.current.count++;
-      return;
-    }
-
-    // Mark that we're running this setup for the first time for this case
-    console.log('Running initial setup effect for case:', currentCase.id);
-    initialSetupRan.current = {caseId: currentCase.id, count: 0};
-    
-    // Clean up any potential duplicate scenarios
-    // This helps resolve any existing data with more than 5 scenarios per component
-    if (currentCase.scenarios.length > 0) {
-      const componentsMap = new Map<string, Scenario[]>();
-      
-      // Group scenarios by component
-      currentCase.scenarios.forEach(scenario => {
-        if (!componentsMap.has(scenario.componentId)) {
-          componentsMap.set(scenario.componentId, []);
-        }
-        componentsMap.get(scenario.componentId)?.push(scenario);
-      });
-      
-      // Check if any component has more than 5 scenarios
-      let needsCleanup = false;
-      componentsMap.forEach((scenarios, componentId) => {
-        if (scenarios.length > 5) {
-          needsCleanup = true;
-        }
-      });
-      
-      // If we have any components with more than 5 scenarios, clean them up
-      if (needsCleanup) {
-        console.log('Cleaning up scenarios to ensure at most 5 per component');
-        
-        let cleanedScenarios: Scenario[] = [];
-        componentsMap.forEach((scenarios, componentId) => {
-          // Sort by ID to ensure consistent ordering and take only the first 5
-          scenarios.sort((a: Scenario, b: Scenario) => a.id.localeCompare(b.id));
-          const limitedScenarios = scenarios.slice(0, 5).map((scenario: Scenario, index: number) => ({
-            ...scenario,
-            id: `${componentId}-${index + 1}`
-          }));
-          cleanedScenarios = [...cleanedScenarios, ...limitedScenarios];
-        });
-        
-        // Update Redux with cleaned scenarios
-        dispatch(setScenarios(cleanedScenarios));
-      }
-    }
-    
-    // Only set the first component as selected if no issue is already selected
+    // Set the first component as selected if we don't have one
     if (currentCase.analysis.components.length > 0 && !selectedIssueId) {
-      const firstComponentId = currentCase.analysis.components[0].id;
-      setSelectedIssueId(firstComponentId);
-      
-      // Mark any existing scenarios for this component as loaded
-      if (currentCase.scenarios.length > 0) {
-        const existingScenarios = currentCase.scenarios.filter(
-          s => s.componentId === firstComponentId
-        );
-        
-        if (existingScenarios.length > 0) {
-          // Check if we need to update loadedScenarios
-          const needToUpdateLoaded = existingScenarios.some(scenario => 
-            !loadedScenarios.includes(scenario.id)
-          );
-          
-          if (needToUpdateLoaded) {
-            setLoadedScenarios(prev => {
-              const newLoaded = [...prev];
-              existingScenarios.forEach(scenario => {
-                if (!newLoaded.includes(scenario.id)) {
-                  newLoaded.push(scenario.id);
-                }
-              });
-              return newLoaded;
-            });
-          }
-        }
-      }
+      setSelectedIssueId(currentCase.analysis.components[0].id);
     }
-    
-    // Prevent duplicate generation - only run auto-generation once
-    if (autoGenerationRan.current) {
-      console.log('Auto-generation already ran, skipping redundant generation');
-      return;
+
+    // Determine if we need to generate all scenarios
+    const needToGenerateAll = 
+      currentCase.scenarios.length === 0 ||
+      !recalculationStatus.scenariosRecalculated;
+
+    // Reset loaded scenarios state if we're completely regenerating
+    if (needToGenerateAll || currentCase.scenarios.length === 0) {
+      setLoadedScenarios([]);
     }
-    
-    // Set the flag immediately to prevent other renders from triggering generation
-    autoGenerationRan.current = true;
-    
-    // Check if we need to generate all scenarios
-    const needToGenerateAll = currentCase.analysis.components.some(component => {
-      // Check if this component has scenarios
-      const hasScenarios = currentCase.scenarios.some(s => s.componentId === component.id);
-      return !hasScenarios || !recalculationStatus.scenariosRecalculated;
-    });
     
     // Generate all scenarios when the page first loads if they don't exist or need recalculation
     if (currentCase.analysis.components.length > 0 && needToGenerateAll) {
@@ -590,11 +504,10 @@ const NegotiationScenario = () => {
         }
       }
     }
-    // We're intentionally only running this on initial mount and when currentCase changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentCase, navigate]);
+    // We're now also responding to selectedPartyPair changes
+  }, [currentCase, navigate, generateAllScenarios, recalculationStatus.scenariosRecalculated, selectedIssueId, loadedScenarios, currentCase?.selectedPartyPair]);
 
-  // Load scenarios when issue is selected
+  // Second useEffect - add selectedPartyPair to dependency array
   useEffect(() => {
     if (!selectedIssueId || !currentCase || isGeneratingAll) {
       return;
@@ -648,7 +561,7 @@ const NegotiationScenario = () => {
       console.log(`Triggering scenario generation for issue: ${selectedIssueId} (missing: ${existingScenarios.length === 0}, needs recalc: ${!recalculationStatus.scenariosRecalculated})`);
       generateScenariosForIssue(selectedIssueId, false);
     }
-  }, [currentCase, selectedIssueId, recalculationStatus.scenariosRecalculated, generateScenariosForIssue, loadedScenarios, isGeneratingAll, isGeneratingIssue]);
+  }, [currentCase, selectedIssueId, recalculationStatus.scenariosRecalculated, generateScenariosForIssue, loadedScenarios, isGeneratingAll, isGeneratingIssue, currentCase?.selectedPartyPair]);
 
   // Event Handlers
   const handleIssueChange = (issueId: string) => {
@@ -697,7 +610,7 @@ const NegotiationScenario = () => {
       });
       
       // Remove all scenarios from Redux
-      dispatch(setScenarios([]));
+      dispatch(saveScenariosForCurrentPair([]));
     }
     
     // Generate all scenarios
@@ -732,7 +645,7 @@ const NegotiationScenario = () => {
       const updatedScenarios = currentCase.scenarios.map(scenario => 
         scenario.id === updatedScenario.id ? updatedScenario : scenario
       );
-      dispatch(setScenarios(updatedScenarios));
+      dispatch(saveScenariosForCurrentPair(updatedScenarios));
       
       if (isLoggingInitialized && logger && logger.getCaseId(true)) {
         logger.logFramework(

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import React from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -12,6 +12,14 @@ import {
   Tooltip,
   Chip,
   Button,
+  Select,
+  MenuItem,
+  SelectChangeEvent,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
 } from '@mui/material';
 import DescriptionIcon from '@mui/icons-material/Description';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
@@ -22,6 +30,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { RootState } from '../store';
+import { setSelectedPartyPair, clearState } from '../store/negotiationSlice';
 import ExperimentalWarningDialog from './ExperimentalWarningDialog';
 import { useFirebaseAuth } from '../contexts/FirebaseAuthContext';
 import ClearButtons from './ClearButtons';
@@ -70,14 +79,33 @@ function a11yProps(index: number) {
 const MainLayout = () => {
   const [tabValue, setTabValue] = useState(0);
   const [showWarning, setShowWarning] = useState(true);
+  const [clearChatDialogOpen, setClearChatDialogOpen] = useState(false);
+  const [clearInterfaceDialogOpen, setClearInterfaceDialogOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useFirebaseAuth();
   const { logger, isLoggingInitialized } = useLogging();
+  const dispatch = useDispatch();
   
   const { currentCase } = useSelector(
     (state: RootState) => state.negotiation
   );
+
+  const partyOptions = currentCase?.suggestedParties || [];
+  const selectedPair = currentCase?.selectedPartyPair;
+  const party1Id = selectedPair?.party1Id || '';
+  const party2Id = selectedPair?.party2Id || '';
+
+  // Initialize selected party pair if needed
+  useEffect(() => {
+    if (currentCase && partyOptions.length >= 2 && !selectedPair) {
+      // Set the first two parties as the default pair
+      dispatch(setSelectedPartyPair({
+        party1Id: 'party-1',
+        party2Id: 'party-2'
+      }));
+    }
+  }, [currentCase, partyOptions.length, selectedPair, dispatch]);
 
   // Set the active tab based on the current path
   useEffect(() => {
@@ -173,16 +201,56 @@ const MainLayout = () => {
     }
   };
 
-  const handleClearCache = (type: 'chat' | 'interface') => {
+  // Handle clear cache with confirmation dialogs
+  const handleClearChatClick = () => {
+    setClearChatDialogOpen(true);
+  };
+
+  const handleClearInterfaceClick = () => {
+    setClearInterfaceDialogOpen(true);
+  };
+
+  const handleConfirmClearChat = () => {
     if (isLoggingInitialized && logger) {
-        logger.logFramework(
-            'Iceberg', // Placeholder for general app action
-            'edit', 
-            { /* metadata: { action_type: `clear_${type}_cache` } */ }, //Temporarily commenting out metadata as it's not in the current FrameworkLogOptions
-            'app_global'
-        ).catch((err: any) => console.error(`Error logging ${type} cache clear:`, err));
+      logger.logFramework(
+        'Iceberg',
+        'edit', 
+        { /* metadata: { action_type: 'clear_chat_cache' } */ },
+        'app_global'
+      ).catch((err: any) => console.error('Error logging chat cache clear:', err));
     }
-    console.log(`${type} cache cleared by user.`);
+    console.log('Chat cache cleared by user.');
+    setClearChatDialogOpen(false);
+  };
+
+  const handleConfirmClearInterface = () => {
+    if (isLoggingInitialized && logger) {
+      logger.logFramework(
+        'Iceberg',
+        'edit', 
+        { /* metadata: { action_type: 'clear_interface_cache' } */ },
+        'app_global'
+      ).catch((err: any) => console.error('Error logging interface cache clear:', err));
+    }
+    
+    // Clear all state and localStorage
+    dispatch(clearState());
+    console.log('Interface cache and app state cleared by user.');
+    setClearInterfaceDialogOpen(false);
+    
+    // Redirect to home page
+    navigate('/');
+  };
+
+  const handlePartyChange = (which: 'party1' | 'party2', value: string) => {
+    if (!currentCase) return;
+    let newParty1 = party1Id;
+    let newParty2 = party2Id;
+    if (which === 'party1') newParty1 = value;
+    if (which === 'party2') newParty2 = value;
+    if (newParty1 && newParty2 && newParty1 !== newParty2) {
+      dispatch(setSelectedPartyPair({ party1Id: newParty1, party2Id: newParty2 }));
+    }
   };
 
   // Custom tab with enhanced visual indicators
@@ -269,15 +337,116 @@ const MainLayout = () => {
         open={showWarning}
         onClose={() => setShowWarning(false)}
       />
+      
+      {/* Clear Chat Confirmation Dialog */}
+      <Dialog
+        open={clearChatDialogOpen}
+        onClose={() => setClearChatDialogOpen(false)}
+        aria-labelledby="clear-chat-dialog-title"
+      >
+        <DialogTitle id="clear-chat-dialog-title">
+          Clear Chat History?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will clear all chat history. This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClearChatDialogOpen(false)} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmClearChat} color="error" autoFocus>
+            Clear History
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Clear Interface Confirmation Dialog */}
+      <Dialog
+        open={clearInterfaceDialogOpen}
+        onClose={() => setClearInterfaceDialogOpen(false)}
+        aria-labelledby="clear-interface-dialog-title"
+      >
+        <DialogTitle id="clear-interface-dialog-title">
+          Clear All Application Data?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will clear all case content, party information, analysis data, and other application state.
+            This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClearInterfaceDialogOpen(false)} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmClearInterface} color="error" autoFocus>
+            Clear All Data
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
       <AppBar position="static" color="default" elevation={1}>
         <Toolbar variant="dense" sx={{ minHeight: '48px' }}>
           <Typography variant="subtitle1" component="div" sx={{ flexGrow: 1 }}>
             A2B Negotiation Assistant
           </Typography>
+          
+          {/* Party selection dropdowns */}
+          {currentCase && partyOptions.length >= 2 && (
+            <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+              <Select
+                size="small"
+                value={party1Id}
+                onChange={(e: SelectChangeEvent) => handlePartyChange('party1', e.target.value)}
+                displayEmpty
+                sx={{ minWidth: 120, mr: 1 }}
+              >
+                <MenuItem value="" disabled>Select Party 1</MenuItem>
+                {partyOptions.map((party, index) => (
+                  <MenuItem 
+                    key={`party-${index + 1}`} 
+                    value={`party-${index + 1}`} 
+                    disabled={`party-${index + 1}` === party2Id}
+                  >
+                    {party.name} {party.isPrimary ? "(Primary)" : ""}
+                  </MenuItem>
+                ))}
+              </Select>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ mx: 1 }}>
+                  vs
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                  {partyOptions.length} parties
+                </Typography>
+              </Box>
+              <Select
+                size="small"
+                value={party2Id}
+                onChange={(e: SelectChangeEvent) => handlePartyChange('party2', e.target.value)}
+                displayEmpty
+                sx={{ minWidth: 120 }}
+              >
+                <MenuItem value="" disabled>Select Party 2</MenuItem>
+                {partyOptions.map((party, index) => (
+                  <MenuItem 
+                    key={`party-${index + 1}`} 
+                    value={`party-${index + 1}`} 
+                    disabled={`party-${index + 1}` === party1Id}
+                  >
+                    {party.name} {party.isPrimary ? "(Primary)" : ""}
+                  </MenuItem>
+                ))}
+              </Select>
+            </Box>
+          )}
+          
           <Box sx={{ mr: 2 }}>
             <ClearButtons 
-              onClearChat={() => handleClearCache('chat')} 
-              onClearInterface={() => handleClearCache('interface')}
+              onClearChat={handleClearChatClick} 
+              onClearInterface={handleClearInterfaceClick}
             />
           </Box>
           {currentCase && (
