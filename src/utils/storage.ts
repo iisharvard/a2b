@@ -102,8 +102,7 @@ export const getStoredSessionId = (): string | null => {
  * Clears all app-related data from local storage
  */
 export const clearAllStorage = (): void => {
-  Object.values(STORAGE_KEYS).forEach(key => {
-    localStorage.removeItem(key);
-  });
-  console.log('All app data cleared from local storage');
+  // Clear all localStorage items completely instead of just the predefined keys
+  localStorage.clear();
+  console.log('All app data completely cleared from local storage');
 }; 
