@@ -22,11 +22,9 @@ import {
   updateIoA,
   updateIceberg,
   updateComponents,
-  updateComponent,
   Analysis,
   Component,
   Party,
-  saveAnalysisForCurrentPair
 } from '../store/negotiationSlice';
 import { setAnalysisRecalculated } from '../store/recalculationSlice';
 import { api } from '../services/api';
@@ -37,7 +35,6 @@ import NegotiationIssuesTable from '../components/NegotiationIssuesTable';
 import { parseComponentsFromMarkdown, componentsToMarkdown } from '../utils/componentParser';
 import { useLogging } from '../contexts/LoggingContext';
 import { truncateText } from '../utils/textUtils';
-import { getPartyById, getSelectedParties } from '../utils/partyUtils';
 
 // Types
 type ApiResponse<T> = T | { rateLimited: true };
@@ -77,26 +74,6 @@ const ReviewAndRevise = () => {
   const [componentsLoaded, setComponentsLoaded] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState(0);
   const retryTimeoutRef = useRef<number | null>(null);
-  
-  // Helper function to get the names of the selected parties
-  const getSelectedPartyNames = useCallback(() => {
-    if (!currentCase || !currentCase.selectedPartyPair || !currentCase.suggestedParties) {
-      return {
-        party1Name: "User's Organization",
-        party2Name: "Counterparty"
-      };
-    }
-    
-    const { party1, party2 } = getSelectedParties(
-      currentCase.suggestedParties,
-      currentCase.selectedPartyPair
-    );
-    
-    return {
-      party1Name: party1?.name || "User's Organization",
-      party2Name: party2?.name || "Counterparty"
-    };
-  }, [currentCase]);
   
   // Clear timeout on unmount
   useEffect(() => {
@@ -209,22 +186,10 @@ const ReviewAndRevise = () => {
     setError(null);
     
     try {
-      // Get the selected parties using our utility function
-      const { party1, party2 } = getSelectedParties(
-        currentCase.suggestedParties,
-        currentCase.selectedPartyPair
-      );
-      
-      if (!party1 || !party2) {
-        throw new Error('Selected party pair is missing or invalid');
-      }
-      
-      console.log(`Analyzing with parties: ${party1.name} and ${party2.name}`);
-      
       const analysisResult = await analyzeWithProgress(
         currentCase.content,
-        party1,
-        party2
+        currentCase.suggestedParties[0],
+        currentCase.suggestedParties[1]
       );
       
       // Check if we hit a rate limit
@@ -233,7 +198,7 @@ const ReviewAndRevise = () => {
         return;
       }
       
-      dispatch(saveAnalysisForCurrentPair(analysisResult));
+      dispatch(setAnalysis(analysisResult));
       setIoa(analysisResult.ioa);
       setIceberg(analysisResult.iceberg);
       
@@ -241,14 +206,14 @@ const ReviewAndRevise = () => {
       setComponentsMarkdown(componentsText);
     } catch (err) {
       console.error('Error fetching analysis:', err);
-      setError(`Failed to analyze case: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setError('Failed to analyze case. Please try again.');
     } finally {
       setLoading(false);
       analysisInProgress.current = false;
     }
   }, [currentCase, dispatch, analyzeWithProgress, validateParties, isLoggingInitialized, logger]);
 
-  // Load analysis when component mounts or selectedPartyPair changes
+  // Load analysis when component mounts
   useEffect(() => {
     if (!currentCase) {
       navigate('/');
@@ -260,26 +225,9 @@ const ReviewAndRevise = () => {
       navigate('/');
       return;
     }
-    
-    // Reset UI state when party pair changes to prevent stale content display
-    if (currentCase.selectedPartyPair) {
-      setIoa('');
-      setIceberg('');
-      setComponentsMarkdown('');
-      setIoaLoaded(false);
-      setIcebergLoaded(false);
-      setComponentsLoaded(false);
-      
-      // Log party selection change
-      console.log(`ReviewAndRevise: Loading content for party pair: ${
-        currentCase.selectedPartyPair.party1Id}|${currentCase.selectedPartyPair.party2Id}`);
-    }
 
     fetchAnalysis();
-  }, [currentCase, fetchAnalysis, navigate, validateParties, 
-      // Adding explicit dependency on selectedPartyPair for better reactivity
-      currentCase?.selectedPartyPair?.party1Id, 
-      currentCase?.selectedPartyPair?.party2Id]);
+  }, [currentCase, fetchAnalysis, navigate, validateParties]);
 
   /**
    * Handlers for updating analysis content
@@ -429,22 +377,10 @@ const ReviewAndRevise = () => {
       setError(null);
       analysisInProgress.current = true;
       
-      // Get the selected parties using our utility function
-      const { party1, party2 } = getSelectedParties(
-        currentCase.suggestedParties,
-        currentCase.selectedPartyPair
-      );
-      
-      if (!party1 || !party2) {
-        throw new Error('Selected party pair is missing or invalid');
-      }
-      
-      console.log(`Re-analyzing with parties: ${party1.name} and ${party2.name}`);
-      
       const analysisResult = await analyzeWithProgress(
         currentCase.content,
-        party1,
-        party2
+        currentCase.suggestedParties[0],
+        currentCase.suggestedParties[1]
       );
 
       if ('rateLimited' in analysisResult) {
@@ -453,7 +389,8 @@ const ReviewAndRevise = () => {
         return;
       }
 
-      dispatch(saveAnalysisForCurrentPair(analysisResult));
+      dispatch(setAnalysis(analysisResult));
+      dispatch(setAnalysisRecalculated(true));
       
       // Log successful new analysis generation
       if (isLoggingInitialized && logger && logger.getCaseId(true)) {
@@ -478,7 +415,7 @@ const ReviewAndRevise = () => {
       setError('Analysis completed successfully.');
     } catch (err) {
       console.error('Analysis error:', err);
-      setError(`Failed to analyze case: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setError('Failed to analyze case. Please try again.');
     } finally {
       setLoading(false);
       analysisInProgress.current = false;
@@ -575,8 +512,8 @@ const ReviewAndRevise = () => {
               <IcebergVisualization
                 value={iceberg}
                 onChange={handleIcebergChange}
-                party1Name={getSelectedPartyNames().party1Name}
-                party2Name={getSelectedPartyNames().party2Name}
+                party1Name={currentCase.suggestedParties[0].name}
+                party2Name={currentCase.suggestedParties[1].name}
               />
             )}
           </Grid>

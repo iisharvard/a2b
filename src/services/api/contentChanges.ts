@@ -4,8 +4,7 @@ import {
   updateIceberg, 
   updateComponents,
   Component,
-  Scenario,
-  saveScenariosForCurrentPair
+  Scenario
 } from '../../store/negotiationSlice';
 import { parseComponentsFromMarkdown, componentsToMarkdown } from '../../utils/componentParser';
 import { ApiResponse } from '../../types/api';
@@ -335,7 +334,12 @@ export const changeScenarios = (scenarios: Scenario[]): ApiResponse<{ success: b
     }
 
     // Update the Scenarios in the store
-    store.dispatch(saveScenariosForCurrentPair(scenarios));
+    // Note: We need to update the setScenarios action in the store
+    // For now, we'll use a workaround using the actual Redux store dispatch
+    store.dispatch({ 
+      type: 'negotiation/setScenarios', 
+      payload: scenarios 
+    });
 
     return {
       success: true,

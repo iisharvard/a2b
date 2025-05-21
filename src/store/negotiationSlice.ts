@@ -3,21 +3,12 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 // Define localStorage keys
 const STORAGE_KEY_CURRENT_CASE = 'a2b_current_case';
 
-// Default state to use when nothing is in localStorage
-const defaultState: NegotiationState = {
-  currentCase: null,
-  loading: false,
-  error: null,
-  selectedScenario: null,
-};
-
 // Helper function to load state from localStorage
 const loadStateFromStorage = (): NegotiationState => {
   try {
     const savedCase = localStorage.getItem(STORAGE_KEY_CURRENT_CASE);
     if (savedCase) {
       const parsedCase = JSON.parse(savedCase);
-      console.log(`loadStateFromStorage: Loaded case with ${parsedCase.suggestedParties?.length || 0} parties`);
       return {
         currentCase: parsedCase,
         loading: false,
@@ -28,7 +19,7 @@ const loadStateFromStorage = (): NegotiationState => {
   } catch (error) {
     console.error('Error loading state from localStorage:', error);
   }
-  return defaultState;
+  return initialState;
 };
 
 // Helper function to save state to localStorage
@@ -95,13 +86,6 @@ export interface Case {
     analysis: Analysis | null;
     scenarios: Scenario[];
   };
-  selectedPartyPair: { party1Id: string; party2Id: string } | null;
-  pairContent: {
-    [pairKey: string]: {
-      analysis: Analysis | null;
-      scenarios: Scenario[];
-    };
-  };
 }
 
 export interface NegotiationState {
@@ -139,9 +123,7 @@ export const negotiationSlice = createSlice({
         originalContent: {
           analysis: null,
           scenarios: [],
-        },
-        selectedPartyPair: null,
-        pairContent: {},
+        }
       };
       saveStateToStorage(state);
     },
@@ -274,87 +256,6 @@ export const negotiationSlice = createSlice({
       state.error = null;
       state.selectedScenario = null;
     },
-    setSelectedPartyPair: (state, action: PayloadAction<{ party1Id: string; party2Id: string }>) => {
-      if (state.currentCase) {
-        // Save all parties to make sure we don't lose any
-        const allParties = Array.isArray(state.currentCase.suggestedParties) ? [...state.currentCase.suggestedParties] : [];
-        console.log(`setSelectedPartyPair: Saving ${allParties.length} parties from state.currentCase.suggestedParties`);
-
-        // Store previous selectedPartyPair to check if this is a real change
-        const previousPairKey = state.currentCase.selectedPartyPair ? 
-          `${state.currentCase.selectedPartyPair.party1Id}|${state.currentCase.selectedPartyPair.party2Id}` : null;
-        
-        // Update selected pair
-        state.currentCase.selectedPartyPair = action.payload;
-        const pairKey = `${action.payload.party1Id}|${action.payload.party2Id}`;
-
-        // If this is a different pair than before
-        if (previousPairKey !== pairKey) {
-          console.log(`setSelectedPartyPair: Switched from pair key ${previousPairKey} to ${pairKey}`);
-          
-          // Initialize pairContent if it doesn't exist
-          if (!state.currentCase.pairContent[pairKey]) {
-            state.currentCase.pairContent[pairKey] = { analysis: null, scenarios: [] };
-            console.log(`setSelectedPartyPair: Created new pairContent for ${pairKey}`);
-          }
-
-          // Load content for the selected pair
-          const pairData = state.currentCase.pairContent[pairKey];
-          
-          // Update current analysis and scenarios with the pair-specific content
-          state.currentCase.analysis = pairData.analysis;
-          state.currentCase.scenarios = pairData.scenarios;
-          
-          console.log(`setSelectedPartyPair: Loaded ${pairKey} pair data: analysis=${!!pairData.analysis}, scenarios=${pairData.scenarios.length}`);
-        } else {
-          console.log(`setSelectedPartyPair: Same pair selected (${pairKey}), no content changes needed`);
-        }
-
-        // Always restore all parties to ensure the full list is preserved
-        state.currentCase.suggestedParties = allParties;
-        console.log(`setSelectedPartyPair: Restored ${state.currentCase.suggestedParties.length} parties into state.currentCase.suggestedParties`);
-        
-        saveStateToStorage(state);
-      }
-    },
-    saveAnalysisForCurrentPair: (state, action: PayloadAction<Analysis>) => {
-      if (state.currentCase && state.currentCase.selectedPartyPair) {
-        // Save current suggestedParties
-        const allParties = [...state.currentCase.suggestedParties];
-        
-        const { party1Id, party2Id } = state.currentCase.selectedPartyPair;
-        const pairKey = `${party1Id}|${party2Id}`;
-        if (!state.currentCase.pairContent[pairKey]) {
-          state.currentCase.pairContent[pairKey] = { analysis: null, scenarios: [] };
-        }
-        state.currentCase.pairContent[pairKey].analysis = action.payload;
-        state.currentCase.analysis = action.payload;
-        
-        // Restore all parties
-        state.currentCase.suggestedParties = allParties;
-        
-        saveStateToStorage(state);
-      }
-    },
-    saveScenariosForCurrentPair: (state, action: PayloadAction<Scenario[]>) => {
-      if (state.currentCase && state.currentCase.selectedPartyPair) {
-        // Save current suggestedParties
-        const allParties = [...state.currentCase.suggestedParties];
-        
-        const { party1Id, party2Id } = state.currentCase.selectedPartyPair;
-        const pairKey = `${party1Id}|${party2Id}`;
-        if (!state.currentCase.pairContent[pairKey]) {
-          state.currentCase.pairContent[pairKey] = { analysis: null, scenarios: [] };
-        }
-        state.currentCase.pairContent[pairKey].scenarios = action.payload;
-        state.currentCase.scenarios = action.payload;
-        
-        // Restore all parties
-        state.currentCase.suggestedParties = allParties;
-        
-        saveStateToStorage(state);
-      }
-    },
   },
 });
 
@@ -372,9 +273,6 @@ export const {
   setCaseProcessed,
   selectScenario,
   clearState,
-  setSelectedPartyPair,
-  saveAnalysisForCurrentPair,
-  saveScenariosForCurrentPair,
 } = negotiationSlice.actions;
 
 export default negotiationSlice.reducer; 

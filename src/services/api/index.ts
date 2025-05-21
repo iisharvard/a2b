@@ -14,7 +14,6 @@ import {
 } from './types';
 import { diffLines, Change } from 'diff';
 import { contentChangesApi } from './contentChanges';
-import { getSelectedParties } from '../../utils/partyUtils';
 
 /**
  * API functions for interacting with the language model
@@ -134,19 +133,9 @@ export const api = {
         throw new Error(`Component with ID ${componentId} not found or party information missing`);
       }
       
-      // Get the selected parties
-      const { party1, party2 } = getSelectedParties(
-        currentCase.suggestedParties,
-        currentCase.selectedPartyPair
-      );
-      
-      if (!party1 || !party2) {
-        throw new Error('Selected parties are missing or invalid');
-      }
-      
       // Get party names
-      const party1Name = party1.name;
-      const party2Name = party2.name;
+      const party1Name = currentCase.suggestedParties[0].name;
+      const party2Name = currentCase.suggestedParties[1].name;
       
       // Call the language model with the scenarios prompt and component details
       const scenarioInput: ScenarioInput = {
@@ -281,22 +270,12 @@ export const api = {
         throw new Error('Case or party information missing');
       }
 
-      // Get the selected parties
-      const { party1, party2 } = getSelectedParties(
-        currentCase.suggestedParties,
-        currentCase.selectedPartyPair
-      );
-      
-      if (!party1 || !party2) {
-        throw new Error('Selected parties are missing or invalid');
-      }
-
       const boundariesInput: RecalculateBoundariesInput = {
         ioa: analysis.ioa,
         iceberg: analysis.iceberg,
         components: JSON.stringify(analysis.components),
-        party1Name: party1.name,
-        party2Name: party2.name
+        party1Name: currentCase.suggestedParties[0].name,
+        party2Name: currentCase.suggestedParties[1].name
       };
       
       const result = await callLanguageModel('redlinebottomline.txt', boundariesInput);

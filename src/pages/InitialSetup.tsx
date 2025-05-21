@@ -52,9 +52,7 @@ import {
   setCase,
   setParties,
   clearState,
-  setCaseProcessed,
   Party,
-  setSelectedPartyPair
 } from '../store/negotiationSlice';
 import { api } from '../services/api';
 import { extractTextFromFile, getFileTypeDescription } from '../utils/fileExtractor';
@@ -117,7 +115,6 @@ const InitialSetup = () => {
   // Load case content from Redux if available
   useEffect(() => {
     if (currentCase) {
-      console.log('InitialSetup useEffect [currentCase]: currentCase.suggestedParties from Redux:', JSON.stringify(currentCase.suggestedParties, null, 2));
       setCaseContent(currentCase.content || '');
       
       if (currentCase.suggestedParties && currentCase.suggestedParties.length >= 2) {
@@ -141,16 +138,13 @@ const InitialSetup = () => {
         
         // Set custom parties (any parties beyond the first two primary parties)
         if (currentCase.suggestedParties.length > 2) {
-          const partiesToSetAsCustom = currentCase.suggestedParties.slice(2).map(party => ({
-            name: party.name,
-            description: party.description,
-            isPrimary: party.isPrimary
-          }));
-          console.log('InitialSetup useEffect [currentCase]: Setting local customParties with:', JSON.stringify(partiesToSetAsCustom, null, 2));
-          setCustomParties(partiesToSetAsCustom);
-        } else {
-          console.log('InitialSetup useEffect [currentCase]: Not setting local customParties, currentCase.suggestedParties.length <= 2 or undefined.');
-          setCustomParties([]); // Ensure customParties is reset if there are no additional parties
+          setCustomParties(
+            currentCase.suggestedParties.slice(2).map(party => ({
+              name: party.name,
+              description: party.description,
+              isPrimary: party.isPrimary
+            }))
+          );
         }
         
         setPartiesIdentified(true);
@@ -246,42 +240,6 @@ const InitialSetup = () => {
             }, 'app_global');
           }
         }
-
-        // *** IMPORTANT ADDITION ***
-        // Directly save the parties to Redux to ensure they are persisted immediately
-        // This also ensures the parties are correctly displayed in the main toolbar
-        console.log("identifyParties: Immediately saving the following parties to Redux:", JSON.stringify(mergedParties, null, 2));
-        const reduxParties = mergedParties.map(party => ({
-          name: party.name,
-          description: party.description,
-          isPrimary: party.name === (party1Name || filteredResult[0]?.name) || 
-                     party.name === (party2Name || filteredResult[1]?.name)
-        }));
-        dispatch(setParties(reduxParties));
-
-        // Set selected party pair (the first two primary parties)
-        const p1Name = party1Name || filteredResult[0]?.name || '';
-        const p2Name = party2Name || filteredResult[1]?.name || '';
-
-        // Find indices of the selected parties to determine their assigned IDs
-        let p1Index = -1;
-        let p2Index = -1;
-        reduxParties.forEach((party, index) => {
-          if (party.name === p1Name) p1Index = index;
-          if (party.name === p2Name) p2Index = index;
-        });
-
-        if (p1Index >= 0 && p2Index >= 0) {
-          console.log(`identifyParties: Setting selected party pair to party-${p1Index + 1} and party-${p2Index + 1}`);
-          dispatch(setSelectedPartyPair({
-            party1Id: `party-${p1Index + 1}`,
-            party2Id: `party-${p2Index + 1}`
-          }));
-        }
-
-        // Display success message
-        setSuccessMessage(`Successfully identified ${mergedParties.length} parties and saved them to storage.`);
-
       } else {
         setError('Could not identify parties in the case. Please enter them manually.');
       }
@@ -291,7 +249,7 @@ const InitialSetup = () => {
     } finally {
       setLoading(false);
     }
-  }, [caseContent, isLoggingInitialized, logger, customParties, party1Name, party2Name, dispatch]);
+  }, [caseContent, isLoggingInitialized, logger, customParties, party1Name, party2Name]);
   
   /**
    * Handle party selection changes
@@ -324,110 +282,49 @@ const InitialSetup = () => {
    * Handles form submission
    */
   const handleSubmit = useCallback(() => {
-    console.log("🛑 handleSubmit FUNCTION CALLED 🛑");
-    
     if (!caseContent.trim()) {
       setError('Please enter case content.');
-      console.log("⚠️ handleSubmit validation failed: No case content");
       return;
     }
     
     if (!party1Name.trim() || !party2Name.trim()) {
-      setError('Please enter names for both primary parties.');
-      console.log("⚠️ handleSubmit validation failed: Missing party names");
+      setError('Please enter names for both parties.');
       return;
     }
-
-    console.log("✅ handleSubmit validations passed, preparing to dispatch parties");
     
-    // Use the locally managed suggestedPartiesState which contains all identified parties
-    // Mark the selected party1Name and party2Name as primary.
-    const updatedParties = suggestedParties.map(party => ({
-      ...party, // Spread existing properties like name, description
-      isPrimary: party.name === party1Name || party.name === party2Name
-    }));
-
-    // Ensure that if party1Name or party2Name were manually typed and are not in suggestedParties, they are added.
-    // This is a fallback, ideally selection enforces they are from the list.
-    if (!updatedParties.some(p => p.name === party1Name)) {
-      updatedParties.push({ name: party1Name, description: party1Description, isPrimary: true });
-    }
-    if (!updatedParties.some(p => p.name === party2Name)) {
-      updatedParties.push({ name: party2Name, description: party2Description, isPrimary: true });
-    }
-    
-    // Deduplicate in case of manual additions that might already exist by name
-    const finalPartiesMap = new Map<string, {name: string; description: string; isPrimary: boolean}>();
-    updatedParties.forEach(p => {
-      if (!finalPartiesMap.has(p.name) || p.isPrimary) { // Prioritize primary marking
-        finalPartiesMap.set(p.name, p);
-      }
-    });
-    const finalUpdatedParties = Array.from(finalPartiesMap.values());
-
-    console.log('handleSubmit: finalUpdatedParties being dispatched:', JSON.stringify(finalUpdatedParties, null, 2));
-    console.log('handleSubmit: party1Name:', party1Name, 'party2Name:', party2Name);
-    console.log('handleSubmit: local suggestedPartiesState:', JSON.stringify(suggestedParties, null, 2));
+    // Update parties with user input
+    const updatedParties = [
+      {
+        name: party1Name,
+        description: party1Description,
+        isPrimary: true
+      },
+      {
+        name: party2Name,
+        description: party2Description,
+        isPrimary: true
+      },
+      ...customParties
+    ];
     
     // Save to Redux
-    // Ensure currentCase ID is preserved if it exists, otherwise generate new one.
-    const caseId = currentCase?.id || Date.now().toString();
     dispatch(setCase({ 
-      id: caseId, 
+      id: Date.now().toString(), 
       content: caseContent 
     }));
-    dispatch(setParties(finalUpdatedParties)); // Dispatch the comprehensive list
+    dispatch(setParties(updatedParties));
     
-    // setSelectedPartyPair expects party IDs (e.g., party-1, party-2)
-    // We need to find the IDs from finalUpdatedParties that correspond to party1Name and party2Name
-    const p1 = finalUpdatedParties.find(p => p.name === party1Name);
-    const p2 = finalUpdatedParties.find(p => p.name === party2Name);
-
-    // The setParties action assigns IDs like 'party-1', 'party-2'. 
-    // We need to rely on the order for the default selection here for now,
-    // or ideally get the generated IDs back if setParties was synchronous (which it isn't directly).
-    // For simplicity, assuming the first two primary parties in the list are party-1 and party-2 by convention after setParties runs.
-    // This might need refinement if party IDs are not strictly party-1, party-2 for the first two primaries.
-
-    // Find the actual IDs that will be assigned by setParties reducer.
-    // The setParties reducer maps the payload index to party- (index+1).
-    let p1AssignedId = '';
-    let p2AssignedId = '';
-
-    finalUpdatedParties.forEach((party, index) => {
-      if (party.name === party1Name) p1AssignedId = `party-${index + 1}`;
-      if (party.name === party2Name) p2AssignedId = `party-${index + 1}`;
-    });
-
-    if (p1AssignedId && p2AssignedId) {
-      dispatch(setSelectedPartyPair({
-        party1Id: p1AssignedId, 
-        party2Id: p2AssignedId
-      }));
-    } else {
-      // Fallback if names didn't match, select first two as default
-      // This case should be rare if UI enforces selection from list properly.
-      if (finalUpdatedParties.length >= 2) {
-        dispatch(setSelectedPartyPair({
-          party1Id: `party-1`, 
-          party2Id: `party-2`
-        }));
-      }
-      console.warn('handleSubmit: Could not find assigned IDs for selected party names, defaulted to party-1/2');
-    }
-    
+    // Navigate to review page (this matches the route in MainLayout.tsx)
     navigate('/review');
   }, [
     caseContent,
     party1Name,
     party2Name,
-    party1Description, // Added to dependency array
-    party2Description, // Added to dependency array
-    customParties, // Kept for now, though its direct use in updatedParties is removed
-    suggestedParties, // Added local suggestedPartiesState to dependency array
+    party1Description,
+    party2Description,
+    customParties,
     dispatch,
     navigate,
-    currentCase?.id // Added currentCase.id for stable caseId generation
   ]);
   
   /**
@@ -888,24 +785,22 @@ const InitialSetup = () => {
                   </Box>
                 }
                 action={
-                  <Box sx={{ display: 'flex', gap: 2 }}>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={identifyParties}
-                      disabled={loading || !caseContent.trim() || fileProcessing}
-                      startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
-                      sx={{ 
-                        minWidth: '180px',
-                        boxShadow: 2,
-                        '&:hover': {
-                          boxShadow: 4,
-                        }
-                      }}
-                    >
-                      {loading ? 'Identifying...' : 'Identify Parties'}
-                    </Button>
-                  </Box>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={identifyParties}
+                    disabled={loading || !caseContent.trim() || fileProcessing}
+                    startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
+                    sx={{ 
+                      minWidth: '180px',
+                      boxShadow: 2,
+                      '&:hover': {
+                        boxShadow: 4,
+                      }
+                    }}
+                  >
+                    {loading ? 'Identifying...' : 'Identify Parties'}
+                  </Button>
                 }
                 subheader="Select or add parties involved in the negotiation"
               />
@@ -1173,10 +1068,7 @@ const InitialSetup = () => {
             <Button
               variant="contained"
               color="primary"
-              onClick={() => {
-                console.log("Continue to Analysis button clicked - calling handleSubmit()");
-                handleSubmit();
-              }}
+              onClick={handleSubmit}
               disabled={!caseContent.trim() || !party1Name.trim() || !party2Name.trim() || fileProcessing}
               endIcon={<CheckCircleIcon />}
               size="large"
