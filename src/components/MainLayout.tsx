@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import React from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -12,6 +12,11 @@ import {
   Tooltip,
   Chip,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
 } from '@mui/material';
 import DescriptionIcon from '@mui/icons-material/Description';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
@@ -22,10 +27,12 @@ import SaveIcon from '@mui/icons-material/Save';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { RootState } from '../store';
+import { clearState } from '../store/negotiationSlice';
 import ExperimentalWarningDialog from './ExperimentalWarningDialog';
 import { useFirebaseAuth } from '../contexts/FirebaseAuthContext';
 import ClearButtons from './ClearButtons';
 import { useLogging } from '../contexts/LoggingContext';
+import { clearInterfaceState, clearAllStorage } from '../utils/storage';
 
 // Import all pages
 import InitialSetup from '../pages/InitialSetup';
@@ -70,8 +77,10 @@ function a11yProps(index: number) {
 const MainLayout = () => {
   const [tabValue, setTabValue] = useState(0);
   const [showWarning, setShowWarning] = useState(true);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useDispatch();
   const { user, logout } = useFirebaseAuth();
   const { logger, isLoggingInitialized } = useLogging();
   
@@ -173,16 +182,33 @@ const MainLayout = () => {
     }
   };
 
-  const handleClearCache = (type: 'chat' | 'interface') => {
+  const handleClearInterface = () => {
+    setClearConfirmOpen(true);
+  };
+
+  const confirmClearInterface = () => {
+    // Log the action
     if (isLoggingInitialized && logger) {
-        logger.logFramework(
-            'Iceberg', // Placeholder for general app action
-            'edit', 
-            { /* metadata: { action_type: `clear_${type}_cache` } */ }, //Temporarily commenting out metadata as it's not in the current FrameworkLogOptions
-            'app_global'
-        ).catch((err: any) => console.error(`Error logging ${type} cache clear:`, err));
+      logger.logFramework(
+        'Iceberg', // Placeholder for general app action
+        'edit', 
+        { /* metadata: { action_type: 'clear_interface_cache' } */ }, // Temporarily commenting out metadata
+        'app_global'
+      ).catch((err: any) => console.error('Error logging interface cache clear:', err));
     }
-    console.log(`${type} cache cleared by user.`);
+    
+    // Clear both the local storage and the Redux store state
+    clearInterfaceState();
+    clearAllStorage();
+    dispatch(clearState());
+    
+    console.log('Interface content cleared by user.');
+    
+    // Close the dialog
+    setClearConfirmOpen(false);
+    
+    // Force a complete page reload to ensure all state is refreshed
+    window.location.href = '/';
   };
 
   // Custom tab with enhanced visual indicators
@@ -269,6 +295,28 @@ const MainLayout = () => {
         open={showWarning}
         onClose={() => setShowWarning(false)}
       />
+      <Dialog
+        open={clearConfirmOpen}
+        onClose={() => setClearConfirmOpen(false)}
+        aria-labelledby="clear-confirm-dialog-title"
+      >
+        <DialogTitle id="clear-confirm-dialog-title">
+          Clear Application Data?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will clear all current work, including case content, analysis, and scenarios. All data will be permanently removed from the application. This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClearConfirmOpen(false)} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={confirmClearInterface} color="error" autoFocus>
+            Clear All Data
+          </Button>
+        </DialogActions>
+      </Dialog>
       <AppBar position="static" color="default" elevation={1}>
         <Toolbar variant="dense" sx={{ minHeight: '48px' }}>
           <Typography variant="subtitle1" component="div" sx={{ flexGrow: 1 }}>
@@ -276,8 +324,7 @@ const MainLayout = () => {
           </Typography>
           <Box sx={{ mr: 2 }}>
             <ClearButtons 
-              onClearChat={() => handleClearCache('chat')} 
-              onClearInterface={() => handleClearCache('interface')}
+              onClearInterface={handleClearInterface}
             />
           </Box>
           {currentCase && (

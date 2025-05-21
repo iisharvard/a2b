@@ -3,36 +3,6 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 // Define localStorage keys
 const STORAGE_KEY_CURRENT_CASE = 'a2b_current_case';
 
-// Helper function to load state from localStorage
-const loadStateFromStorage = (): NegotiationState => {
-  try {
-    const savedCase = localStorage.getItem(STORAGE_KEY_CURRENT_CASE);
-    if (savedCase) {
-      const parsedCase = JSON.parse(savedCase);
-      return {
-        currentCase: parsedCase,
-        loading: false,
-        error: null,
-        selectedScenario: null,
-      };
-    }
-  } catch (error) {
-    console.error('Error loading state from localStorage:', error);
-  }
-  return initialState;
-};
-
-// Helper function to save state to localStorage
-const saveStateToStorage = (state: NegotiationState) => {
-  try {
-    if (state.currentCase) {
-      localStorage.setItem(STORAGE_KEY_CURRENT_CASE, JSON.stringify(state.currentCase));
-    }
-  } catch (error) {
-    console.error('Error saving state to localStorage:', error);
-  }
-};
-
 // Define types for our state
 export interface Party {
   id: string;
@@ -95,6 +65,45 @@ export interface NegotiationState {
   error: string | null;
 }
 
+// Define the empty initial state first
+const emptyInitialState: NegotiationState = {
+  currentCase: null,
+  selectedScenario: null,
+  loading: false,
+  error: null
+};
+
+// Helper function to load state from localStorage
+const loadStateFromStorage = (): NegotiationState => {
+  try {
+    const savedCase = localStorage.getItem(STORAGE_KEY_CURRENT_CASE);
+    if (savedCase) {
+      const parsedCase = JSON.parse(savedCase);
+      return {
+        currentCase: parsedCase,
+        loading: false,
+        error: null,
+        selectedScenario: null,
+      };
+    }
+  } catch (error) {
+    console.error('Error loading state from localStorage:', error);
+  }
+  return emptyInitialState;
+};
+
+// Helper function to save state to localStorage
+const saveStateToStorage = (state: NegotiationState) => {
+  try {
+    if (state.currentCase) {
+      localStorage.setItem(STORAGE_KEY_CURRENT_CASE, JSON.stringify(state.currentCase));
+    }
+  } catch (error) {
+    console.error('Error saving state to localStorage:', error);
+  }
+};
+
+// Now we initialize with the loaded state
 const initialState: NegotiationState = loadStateFromStorage();
 
 export const negotiationSlice = createSlice({
