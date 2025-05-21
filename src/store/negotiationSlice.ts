@@ -95,12 +95,7 @@ export interface NegotiationState {
   error: string | null;
 }
 
-const initialState: NegotiationState = {
-  currentCase: null,
-  loading: false,
-  error: null,
-  selectedScenario: null,
-};
+const initialState: NegotiationState = loadStateFromStorage();
 
 export const negotiationSlice = createSlice({
   name: 'negotiation',
