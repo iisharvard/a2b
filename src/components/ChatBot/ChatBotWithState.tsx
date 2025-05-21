@@ -3,7 +3,6 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { ChatBot } from './ChatBot';
 import { ChatBotProps } from './types';
-import { getSelectedParties } from '../../utils/partyUtils';
 
 export const ChatBotWithState: React.FC<ChatBotProps> = (props) => {
   // Get the current case from Redux store
@@ -11,31 +10,8 @@ export const ChatBotWithState: React.FC<ChatBotProps> = (props) => {
 
   // Create a dynamic system message that includes the generated content
   const dynamicSystemMessage = React.useMemo(() => {
-    if (!currentCase) {
+    if (!currentCase?.analysis) {
       return props.systemMessage;
-    }
-
-    // Get the selected parties
-    let partiesInfo = '';
-    if (currentCase.suggestedParties?.length > 0) {
-      const { party1, party2 } = getSelectedParties(
-        currentCase.suggestedParties,
-        currentCase.selectedPartyPair
-      );
-
-      partiesInfo = `Current Parties:
-- Party 1 (Your Side): ${party1?.name || 'Not selected'} - ${party1?.description || 'No description'}
-- Party 2 (Other Side): ${party2?.name || 'Not selected'} - ${party2?.description || 'No description'}
-- Total parties identified: ${currentCase.suggestedParties.length}
-
-`;
-    }
-
-    // If no analysis yet, just return the parties info
-    if (!currentCase.analysis) {
-      return `${props.systemMessage}
-
-${partiesInfo}`;
     }
 
     const { ioa, iceberg, components } = currentCase.analysis;
@@ -43,7 +19,7 @@ ${partiesInfo}`;
 
     return `${props.systemMessage}
 
-${partiesInfo}Current Generated Content:
+Current Generated Content:
 
 1. Islands of Agreement (IoA):
 ${ioa}
@@ -69,7 +45,6 @@ Use this information to provide more informed and relevant responses to the user
   const contextItems = React.useMemo(() => {
     // Default context items - removed 'case' since it's not actually added to the context
     const items = [
-      { key: 'parties', label: 'Current Parties', active: false },
       { key: 'ioa', label: 'Islands of Agreement', active: false },
       { key: 'iceberg', label: 'Iceberg Analysis', active: false },
       { key: 'issues', label: 'Issues', active: false },
@@ -80,11 +55,6 @@ Use this information to provide more informed and relevant responses to the user
     // No case data available
     if (!currentCase) {
       return items;
-    }
-
-    // Check parties
-    if (currentCase.suggestedParties && currentCase.suggestedParties.length > 0) {
-      items.find(item => item.key === 'parties')!.active = true;
     }
 
     // Analysis data available
