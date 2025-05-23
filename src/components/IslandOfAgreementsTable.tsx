@@ -13,9 +13,11 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Divider
+  Divider,
+  Stack
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import CopyButton from './CopyButton';
 
 // Define styled components for the table
 const TableWrapper = styled(Paper)(({ theme }) => ({
@@ -236,11 +238,55 @@ ${newData.whatToAvoid.map(item => `- ${item}`).join('\n')}
     updateMarkdown(newData);
   };
 
+  // Function to generate copyable text content
+  const generateCopyText = (): string => {
+    let text = "ISLAND OF AGREEMENTS\n\n";
+    
+    text += "CONTESTED FACTS:\n";
+    islandData.contestedFacts.forEach(item => {
+      text += `• ${item}\n`;
+    });
+    
+    text += "\nAGREED FACTS:\n";
+    islandData.agreedFacts.forEach(item => {
+      text += `• ${item}\n`;
+    });
+    
+    text += "\nCONVERGENT NORMS:\n";
+    islandData.convergentNorms.forEach(item => {
+      text += `• ${item}\n`;
+    });
+    
+    text += "\nDIVERGENT NORMS:\n";
+    islandData.divergentNorms.forEach(item => {
+      text += `• ${item}\n`;
+    });
+    
+    text += "\nWHAT TO PRIORITIZE:\n";
+    islandData.whatToPrioritize.forEach(item => {
+      text += `• ${item}\n`;
+    });
+    
+    text += "\nWHAT TO AVOID:\n";
+    islandData.whatToAvoid.forEach(item => {
+      text += `• ${item}\n`;
+    });
+    
+    return text;
+  };
+
   return (
     <TableWrapper>
-      <Typography variant="h5" gutterBottom>
-        Island of Agreements
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Typography variant="h5">
+          Island of Agreements
+        </Typography>
+        <CopyButton 
+          text={generateCopyText()}
+          tooltipTitle="Copy Island of Agreements to clipboard"
+          color="primary"
+        />
+      </Box>
       
       <TableContainer>
         <Table sx={{ tableLayout: 'fixed' }}>

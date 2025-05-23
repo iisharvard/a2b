@@ -10,24 +10,43 @@ export const ChatBotWithState: React.FC<ChatBotProps> = (props) => {
 
   // Create a dynamic system message that includes the generated content
   const dynamicSystemMessage = React.useMemo(() => {
-    if (!currentCase?.analysis) {
+    if (!currentCase) {
       return props.systemMessage;
     }
 
-    const { ioa, iceberg, components } = currentCase.analysis;
-    const scenarios = currentCase.scenarios;
-
-    return `${props.systemMessage}
+    // Get only the first two parties (party 1 and party 2)
+    const allParties = currentCase.suggestedParties || [];
+    const selectedParties = allParties.slice(0, 2);
+    
+    // Base message
+    let message = `${props.systemMessage}
 
 Current Generated Content:
 
-1. Islands of Agreement (IoA):
+`;
+
+    // Add parties section if selected parties exist
+    if (selectedParties.length > 0) {
+      message += `1. Parties:
+${selectedParties.map(party => `- ${party.name}: ${party.description}`).join('\n')}
+
+`;
+    }
+
+    // Add analysis sections if analysis exists
+    if (currentCase.analysis) {
+      const { ioa, iceberg, components } = currentCase.analysis;
+      const scenarios = currentCase.scenarios;
+      
+      const sectionNumber = selectedParties.length > 0 ? 2 : 1;
+
+      message += `${sectionNumber}. Islands of Agreement (IoA):
 ${ioa}
 
-2. Iceberg Analysis:
+${sectionNumber + 1}. Iceberg Analysis:
 ${iceberg}
 
-3. Issues:
+${sectionNumber + 2}. Issues:
 ${components.map(comp => `- ${comp.name}: ${comp.description}
   - Party 1 Redline: ${comp.redlineParty1}
   - Party 1 Bottomline: ${comp.bottomlineParty1}
@@ -35,16 +54,22 @@ ${components.map(comp => `- ${comp.name}: ${comp.description}
   - Party 2 Bottomline: ${comp.bottomlineParty2}
   - Priority: ${comp.priority}`).join('\n')}
 
-4. Scenarios:
-${scenarios.map(scenario => `- ${scenario.type}: ${scenario.description}`).join('\n')}
+${sectionNumber + 3}. Scenarios:
+${scenarios.map(scenario => `- ${scenario.type}: ${scenario.description}`).join('\n')}`;
+    }
+
+    message += `
 
 Use this information to provide more informed and relevant responses to the user.`;
+
+    return message;
   }, [currentCase, props.systemMessage]);
 
   // Determine which context items are active based on current case
   const contextItems = React.useMemo(() => {
     // Default context items - removed 'case' since it's not actually added to the context
     const items = [
+      { key: 'parties', label: 'Parties', active: false },
       { key: 'ioa', label: 'Islands of Agreement', active: false },
       { key: 'iceberg', label: 'Iceberg Analysis', active: false },
       { key: 'issues', label: 'Issues', active: false },
@@ -55,6 +80,11 @@ Use this information to provide more informed and relevant responses to the user
     // No case data available
     if (!currentCase) {
       return items;
+    }
+
+    // Check if parties exist
+    if (currentCase.suggestedParties && currentCase.suggestedParties.length > 0) {
+      items.find(item => item.key === 'parties')!.active = true;
     }
 
     // Analysis data available

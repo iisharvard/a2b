@@ -40,6 +40,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import React, { ReactNode } from 'react';
 import { useLogging } from '../contexts/LoggingContext';
 import { truncateText } from '../utils/textUtils';
+import CopyButton from '../components/CopyButton';
 
 const NegotiationScenario = () => {
   const navigate = useNavigate();
@@ -861,13 +862,68 @@ const NegotiationScenario = () => {
     );
   };
 
+  // Function to generate copyable text content for scenarios
+  const generateCopyText = (): string => {
+    const selectedIssue = currentCase?.analysis?.components.find(c => c.id === selectedIssueId);
+    const issueScenarios = currentCase?.scenarios.filter(s => s.componentId === selectedIssueId) || [];
+    
+    let text = "NEGOTIATION SCENARIOS\n\n";
+    
+    if (selectedIssue) {
+      text += `ISSUE: ${selectedIssue.name}\n`;
+      text += `Description: ${selectedIssue.description}\n\n`;
+      
+      if (selectedIssue.redlineParty1 || selectedIssue.bottomlineParty1) {
+        const party1Name = currentCase?.suggestedParties && currentCase.suggestedParties.length > 0 ? 
+          currentCase.suggestedParties[0].name : "Party 1";
+        
+        text += `${party1Name} BOUNDARIES:\n`;
+        if (selectedIssue.redlineParty1) text += `Redline: ${selectedIssue.redlineParty1}\n`;
+        if (selectedIssue.bottomlineParty1) text += `Bottomline: ${selectedIssue.bottomlineParty1}\n`;
+        text += "\n";
+      }
+      
+      if (selectedIssue.redlineParty2 || selectedIssue.bottomlineParty2) {
+        const party2Name = currentCase?.suggestedParties && currentCase.suggestedParties.length > 1 ? 
+          currentCase.suggestedParties[1].name : "Party 2";
+        
+        text += `${party2Name} BOUNDARIES:\n`;
+        if (selectedIssue.redlineParty2) text += `Redline: ${selectedIssue.redlineParty2}\n`;
+        if (selectedIssue.bottomlineParty2) text += `Bottomline: ${selectedIssue.bottomlineParty2}\n`;
+        text += "\n";
+      }
+      
+      text += "SCENARIOS:\n\n";
+      
+      if (issueScenarios.length === 0) {
+        text += "No scenarios generated yet.\n";
+      } else {
+        issueScenarios.forEach((scenario, index) => {
+          text += `SCENARIO ${index + 1}: ${scenario.type.replace(/_/g, ' ').toUpperCase()}\n`;
+          text += `${scenario.description}\n\n`;
+        });
+      }
+    } else {
+      text += "No issue selected. Please select an issue to view its scenarios.\n";
+    }
+    
+    return text;
+  };
+
   // Main Render
   return (
     <Container maxWidth="xl">
       <Paper elevation={3} sx={{ p: { xs: 2, md: 4 }, mb: 4, borderRadius: 2 }}>
-        <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ fontWeight: 'bold', color: 'primary.dark', mb: 2 }}>
-          Negotiation Scenarios
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+          <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ fontWeight: 'bold', color: 'primary.dark', mr: 2 }}>
+            Negotiation Scenarios
+          </Typography>
+          <CopyButton 
+            text={generateCopyText()}
+            tooltipTitle="Copy Scenarios to clipboard"
+            color="primary"
+          />
+        </Box>
         
         <Divider sx={{ mb: 4 }} />
         

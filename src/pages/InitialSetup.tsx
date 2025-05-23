@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, ChangeEvent, DragEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import { store } from '../store';
 import {
   Container,
   Typography,
@@ -37,6 +38,7 @@ import {
   TableHead,
   TableRow,
   Autocomplete,
+  Collapse,
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import DescriptionIcon from '@mui/icons-material/Description';
@@ -47,6 +49,8 @@ import PersonIcon from '@mui/icons-material/Person';
 import GroupsIcon from '@mui/icons-material/Groups';
 import EditIcon from '@mui/icons-material/Edit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { RootState } from '../store';
 import {
   setCase,
@@ -88,6 +92,7 @@ const InitialSetup = () => {
   const [fileInfo, setFileInfo] = useState<Array<{name: string; type: string}>>([]);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [additionalPartiesExpanded, setAdditionalPartiesExpanded] = useState(false);
   
   // File input ref
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -230,6 +235,38 @@ const InitialSetup = () => {
         
         setPartiesIdentified(true);
         
+        // Immediately save parties to Redux store
+        // Mark the first two as primary, but include all identified parties
+        // Primary parties should always come first in the list
+        const primaryParties = [
+          {
+            name: filteredResult[0]?.name || party1Name,
+            description: filteredResult[0]?.description || party1Description,
+            isPrimary: true
+          },
+          {
+            name: filteredResult[1]?.name || party2Name,
+            description: filteredResult[1]?.description || party2Description,
+            isPrimary: true
+          }
+        ];
+        
+        // Add all the other identified parties (except the first two which we've already added)
+        const otherIdentifiedParties = filteredResult.slice(2).map(party => ({
+          name: party.name,
+          description: party.description,
+          isPrimary: party.isPrimary
+        }));
+        
+        // Combine primary parties, other identified parties, and existing custom parties
+        const updatedParties = [
+          ...primaryParties,
+          ...otherIdentifiedParties,
+          ...existingCustomParties
+        ];
+        
+        dispatch(setParties(updatedParties));
+        
         // Log the parties
         if (isLoggingInitialized && logger) {
           for (const party of filteredResult) {
@@ -264,7 +301,64 @@ const InitialSetup = () => {
     if (selectedParty) {
       setParty1Description(selectedParty.description);
     }
-  }, [suggestedParties, party1Name]);
+    
+    // Get current parties from the Redux store to ensure we don't lose any
+    const currentCase = store.getState().negotiation.currentCase;
+    let currentParties = currentCase?.suggestedParties || [];
+    
+    // Create a map to track parties by name (case insensitive) to avoid duplicates
+    const partyMap = new Map<string, {name: string; description: string; isPrimary: boolean}>();
+    
+    // First add the primary parties
+    partyMap.set(selectedName.toLowerCase(), {
+      name: selectedName,
+      description: selectedParty?.description || party1Description,
+      isPrimary: true
+    });
+    
+    partyMap.set(party2Name.toLowerCase(), {
+      name: party2Name,
+      description: party2Description,
+      isPrimary: true
+    });
+    
+    // Add custom parties
+    customParties.forEach((party: {name: string; description: string; isPrimary: boolean}) => {
+      // Skip if it's the same as one of the primary parties
+      if (party.name.toLowerCase() !== selectedName.toLowerCase() && 
+          party.name.toLowerCase() !== party2Name.toLowerCase()) {
+        partyMap.set(party.name.toLowerCase(), party);
+      }
+    });
+    
+    // Add all other parties from the current state, avoiding duplicates
+    currentParties.forEach((party: {name: string; description: string; isPrimary: boolean; id?: string; isUserSide?: boolean; idealOutcomes?: string[]}) => {
+      const lowerName = party.name.toLowerCase();
+      // Only add if not already in map and not the same as primary parties
+      if (!partyMap.has(lowerName) && 
+          lowerName !== selectedName.toLowerCase() && 
+          lowerName !== party2Name.toLowerCase()) {
+        partyMap.set(lowerName, {
+          name: party.name,
+          description: party.description,
+          isPrimary: party.isPrimary
+        });
+      }
+    });
+    
+    // Convert map to array, ensuring primary parties are first
+    const primaryParties = [
+      partyMap.get(selectedName.toLowerCase())!,
+      partyMap.get(party2Name.toLowerCase())!
+    ];
+    partyMap.delete(selectedName.toLowerCase());
+    partyMap.delete(party2Name.toLowerCase());
+    
+    const otherParties = Array.from(partyMap.values());
+    const updatedParties = [...primaryParties, ...otherParties];
+    
+    dispatch(setParties(updatedParties));
+  }, [suggestedParties, party1Name, party2Name, party1Description, party2Description, customParties, dispatch]);
 
   const handleParty2Change = useCallback((event: SelectChangeEvent) => {
     const selectedName = event.target.value;
@@ -276,7 +370,64 @@ const InitialSetup = () => {
     if (selectedParty) {
       setParty2Description(selectedParty.description);
     }
-  }, [suggestedParties, party2Name]);
+    
+    // Get current parties from the Redux store to ensure we don't lose any
+    const currentCase = store.getState().negotiation.currentCase;
+    let currentParties = currentCase?.suggestedParties || [];
+    
+    // Create a map to track parties by name (case insensitive) to avoid duplicates
+    const partyMap = new Map<string, {name: string; description: string; isPrimary: boolean}>();
+    
+    // First add the primary parties
+    partyMap.set(party1Name.toLowerCase(), {
+      name: party1Name,
+      description: party1Description,
+      isPrimary: true
+    });
+    
+    partyMap.set(selectedName.toLowerCase(), {
+      name: selectedName,
+      description: selectedParty?.description || party2Description,
+      isPrimary: true
+    });
+    
+    // Add custom parties
+    customParties.forEach((party: {name: string; description: string; isPrimary: boolean}) => {
+      // Skip if it's the same as one of the primary parties
+      if (party.name.toLowerCase() !== party1Name.toLowerCase() && 
+          party.name.toLowerCase() !== selectedName.toLowerCase()) {
+        partyMap.set(party.name.toLowerCase(), party);
+      }
+    });
+    
+    // Add all other parties from the current state, avoiding duplicates
+    currentParties.forEach((party: {name: string; description: string; isPrimary: boolean; id?: string; isUserSide?: boolean; idealOutcomes?: string[]}) => {
+      const lowerName = party.name.toLowerCase();
+      // Only add if not already in map and not the same as primary parties
+      if (!partyMap.has(lowerName) && 
+          lowerName !== party1Name.toLowerCase() && 
+          lowerName !== selectedName.toLowerCase()) {
+        partyMap.set(lowerName, {
+          name: party.name,
+          description: party.description,
+          isPrimary: party.isPrimary
+        });
+      }
+    });
+    
+    // Convert map to array, ensuring primary parties are first
+    const primaryParties = [
+      partyMap.get(party1Name.toLowerCase())!,
+      partyMap.get(selectedName.toLowerCase())!
+    ];
+    partyMap.delete(party1Name.toLowerCase());
+    partyMap.delete(selectedName.toLowerCase());
+    
+    const otherParties = Array.from(partyMap.values());
+    const updatedParties = [...primaryParties, ...otherParties];
+    
+    dispatch(setParties(updatedParties));
+  }, [suggestedParties, party2Name, party1Name, party1Description, party2Description, customParties, dispatch]);
   
   /**
    * Handles form submission
@@ -609,6 +760,76 @@ const InitialSetup = () => {
       if (newParties.length > 1) {
         setSuccessMessage(`Added ${newParties.length} parties: ${newParties.map(p => p.name).join(', ')}`);
       }
+      
+      // Immediately save updated parties to Redux using the same duplication-prevention approach
+      // Get current parties from the Redux store to ensure we don't lose any
+      const currentCase = store.getState().negotiation.currentCase;
+      let currentParties = currentCase?.suggestedParties || [];
+      
+      // Create a map to track parties by name (case insensitive) to avoid duplicates
+      const partyMap = new Map<string, {name: string; description: string; isPrimary: boolean}>();
+      
+      // First add the primary parties
+      if (party1Name) {
+        partyMap.set(party1Name.toLowerCase(), {
+          name: party1Name,
+          description: party1Description,
+          isPrimary: true
+        });
+      }
+      
+      if (party2Name) {
+        partyMap.set(party2Name.toLowerCase(), {
+          name: party2Name,
+          description: party2Description,
+          isPrimary: true
+        });
+      }
+      
+      // Add the newly created parties
+      newParties.forEach((party: {name: string; description: string; isPrimary: boolean}) => {
+        partyMap.set(party.name.toLowerCase(), party);
+      });
+      
+      // Add existing custom parties
+      customParties.forEach((party: {name: string; description: string; isPrimary: boolean}) => {
+        // Skip if it's already in the map
+        if (!partyMap.has(party.name.toLowerCase())) {
+          partyMap.set(party.name.toLowerCase(), party);
+        }
+      });
+      
+      // Add all other parties from the current state, avoiding duplicates
+      currentParties.forEach((party: {name: string; description: string; isPrimary: boolean; id?: string; isUserSide?: boolean; idealOutcomes?: string[]}) => {
+        const lowerName = party.name.toLowerCase();
+        // Only add if not already in map
+        if (!partyMap.has(lowerName)) {
+          partyMap.set(lowerName, {
+            name: party.name,
+            description: party.description,
+            isPrimary: party.isPrimary
+          });
+        }
+      });
+      
+      // Extract primary parties to ensure they come first
+      const primaryParties: Array<{name: string; description: string; isPrimary: boolean}> = [];
+      
+      if (party1Name && partyMap.has(party1Name.toLowerCase())) {
+        primaryParties.push(partyMap.get(party1Name.toLowerCase())!);
+        partyMap.delete(party1Name.toLowerCase());
+      }
+      
+      if (party2Name && partyMap.has(party2Name.toLowerCase())) {
+        primaryParties.push(partyMap.get(party2Name.toLowerCase())!);
+        partyMap.delete(party2Name.toLowerCase());
+      }
+      
+      // Convert remaining map to array
+      const otherParties = Array.from(partyMap.values());
+      const updatedParties = [...primaryParties, ...otherParties];
+      
+      dispatch(setParties(updatedParties));
     }
     
     // Show error for duplicates if any were found
@@ -622,13 +843,30 @@ const InitialSetup = () => {
    */
   const removeCustomParty = useCallback((partyName: string) => {
     // Remove from custom parties list
-    setCustomParties(prev => prev.filter(party => party.name !== partyName));
+    const updatedCustomParties = customParties.filter(party => party.name !== partyName);
+    setCustomParties(updatedCustomParties);
     
     // Also remove from dropdown options if it's not selected for either party
     if (partyName !== party1Name && partyName !== party2Name) {
       setSuggestedPartiesState(prev => prev.filter(party => party.name !== partyName));
     }
-  }, [party1Name, party2Name]);
+    
+    // Immediately save updated parties to Redux
+    const updatedParties = [
+      {
+        name: party1Name,
+        description: party1Description,
+        isPrimary: true
+      },
+      {
+        name: party2Name,
+        description: party2Description,
+        isPrimary: true
+      },
+      ...updatedCustomParties
+    ];
+    dispatch(setParties(updatedParties));
+  }, [party1Name, party2Name, party1Description, party2Description, customParties, dispatch]);
   
   /**
    * Handle key press for custom party input
@@ -946,46 +1184,83 @@ const InitialSetup = () => {
                         </TableCell>
                       </TableRow>
                       
-                      {/* Custom Parties */}
-                      {customParties.map((party) => (
-                        <TableRow key={party.name}>
-                          <TableCell>
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <Typography variant="body2" sx={{ mr: 1 }}>
-                                {party.name}
+                      {/* Additional Parties Section Header - only shown if there are custom parties */}
+                      {customParties.length > 0 && (
+                        <TableRow sx={{ bgcolor: 'rgba(0, 0, 0, 0.04)' }}>
+                          <TableCell colSpan={3}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <Typography variant="subtitle2">
+                                Additional Parties ({customParties.length})
                               </Typography>
                               <IconButton 
                                 size="small" 
-                                color="error" 
-                                onClick={() => removeCustomParty(party.name)}
+                                onClick={() => setAdditionalPartiesExpanded(!additionalPartiesExpanded)}
+                                aria-expanded={additionalPartiesExpanded}
+                                aria-label="show additional parties"
                               >
-                                <CloseIcon fontSize="small" />
+                                {additionalPartiesExpanded ? 
+                                  <ExpandLessIcon fontSize="small" /> : 
+                                  <ExpandMoreIcon fontSize="small" />}
                               </IconButton>
                             </Box>
                           </TableCell>
-                          <TableCell>
-                            <Typography 
-                              variant="body2" 
-                              sx={{ 
-                                whiteSpace: 'pre-wrap',
-                                color: 'text.secondary',
-                                maxHeight: '60px',
-                                overflow: 'auto'
-                              }}
-                            >
-                              {party.description}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Chip 
-                              label="Additional" 
-                              color="default" 
-                              size="small"
-                              variant="outlined"
-                            />
+                        </TableRow>
+                      )}
+                      
+                      {/* Collapsible Custom Parties Section */}
+                      {customParties.length > 0 && (
+                        <TableRow>
+                          <TableCell colSpan={3} sx={{ p: 0, border: 0 }}>
+                            <Collapse in={additionalPartiesExpanded} timeout="auto" unmountOnExit>
+                              <Box sx={{ margin: 1 }}>
+                                <Table size="small">
+                                  <TableBody>
+                                    {customParties.map((party) => (
+                                      <TableRow key={party.name}>
+                                        <TableCell>
+                                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                            <Typography variant="body2" sx={{ mr: 1 }}>
+                                              {party.name}
+                                            </Typography>
+                                            <IconButton 
+                                              size="small" 
+                                              color="error" 
+                                              onClick={() => removeCustomParty(party.name)}
+                                            >
+                                              <CloseIcon fontSize="small" />
+                                            </IconButton>
+                                          </Box>
+                                        </TableCell>
+                                        <TableCell>
+                                          <Typography 
+                                            variant="body2" 
+                                            sx={{ 
+                                              whiteSpace: 'pre-wrap',
+                                              color: 'text.secondary',
+                                              maxHeight: '60px',
+                                              overflow: 'auto'
+                                            }}
+                                          >
+                                            {party.description}
+                                          </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                          <Chip 
+                                            label="Additional" 
+                                            color="default" 
+                                            size="small"
+                                            variant="outlined"
+                                          />
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </Box>
+                            </Collapse>
                           </TableCell>
                         </TableRow>
-                      ))}
+                      )}
                     </TableBody>
                   </Table>
                 </TableContainer>

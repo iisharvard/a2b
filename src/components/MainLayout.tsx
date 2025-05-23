@@ -97,11 +97,15 @@ const MainLayout = () => {
     else if (path === '/scenarios') setTabValue(3);
   }, [location.pathname]);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     // Check if the tab is ready to be navigated to
     if (isTabDisabled(newValue) || !isTabReady(newValue)) {
       return; // Prevent navigation
     }
+    
+    // Save the current state explicitly before navigating away
+    // Nothing to do here since we've already updated our Redux state functions to 
+    // save changes immediately when parties are modified in the InitialSetup component
     
     setTabValue(newValue);
     

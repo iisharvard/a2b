@@ -19,6 +19,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import { Component } from '../store/negotiationSlice';
 import { parseComponentsFromMarkdown, componentsToMarkdown } from '../utils/componentParser';
+import CopyButton from './CopyButton';
 
 // Define styled components for the table
 const TableWrapper = styled(Paper)(({ theme }) => ({
@@ -260,23 +261,47 @@ const NegotiationIssuesTable: React.FC<NegotiationIssuesTableProps> = ({ value, 
     onChange(markdown);
   }, [components, onChange]);
 
+  // Function to generate copyable text content
+  const generateCopyText = (): string => {
+    let text = "ISSUES TO NEGOTIATE\n\n";
+    
+    components.forEach((component, index) => {
+      text += `ISSUE ${index + 1}: ${component.name}\n`;
+      text += `Description: ${component.description}\n`;
+      if (component.redlineParty1) text += `Party 1 Redline: ${component.redlineParty1}\n`;
+      if (component.bottomlineParty1) text += `Party 1 Bottomline: ${component.bottomlineParty1}\n`;
+      if (component.redlineParty2) text += `Party 2 Redline: ${component.redlineParty2}\n`;
+      if (component.bottomlineParty2) text += `Party 2 Bottomline: ${component.bottomlineParty2}\n`;
+      text += "\n";
+    });
+    
+    return text;
+  };
+
   return (
     <TableWrapper>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5">
           Issues to Negotiate
         </Typography>
-        <Tooltip title="Add a new issue to negotiate">
-          <Button 
-            variant="contained" 
-            color="primary" 
-            startIcon={<AddIcon />}
-            onClick={handleAddComponent}
-            sx={{ mb: 1 }}
-          >
-            Add Issue
-          </Button>
-        </Tooltip>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <CopyButton 
+            text={generateCopyText()}
+            tooltipTitle="Copy Issues to clipboard"
+            color="primary"
+          />
+          <Tooltip title="Add a new issue to negotiate">
+            <Button 
+              variant="contained" 
+              color="primary" 
+              startIcon={<AddIcon />}
+              onClick={handleAddComponent}
+              sx={{ mb: 1 }}
+            >
+              Add Issue
+            </Button>
+          </Tooltip>
+        </Box>
       </Box>
       
       <TableContainer sx={{ mb: 3 }}>

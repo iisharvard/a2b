@@ -14,8 +14,11 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  IconButton,
+  Tooltip,
+  Snackbar,
 } from '@mui/material';
-import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
+import { ExpandMore as ExpandMoreIcon, ContentCopy as ContentCopyIcon } from '@mui/icons-material';
 import { RootState } from '../store';
 import {
   setAnalysis,
@@ -26,6 +29,7 @@ import {
   Component,
   Party,
 } from '../store/negotiationSlice';
+import CopyButton from '../components/CopyButton';
 import { setAnalysisRecalculated } from '../store/recalculationSlice';
 import { api } from '../services/api';
 import MarkdownEditor from '../components/MarkdownEditor';
@@ -74,6 +78,8 @@ const ReviewAndRevise = () => {
   const [componentsLoaded, setComponentsLoaded] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState(0);
   const retryTimeoutRef = useRef<number | null>(null);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   
   // Clear timeout on unmount
   useEffect(() => {
@@ -248,6 +254,8 @@ const ReviewAndRevise = () => {
   const handleIcebergChange = useCallback((value: string) => {
     setIceberg(value);
     dispatch(updateIceberg(value));
+    
+    // Log the action if logging is initialized
     if (isLoggingInitialized && logger && logger.getCaseId(true)) {
       logger.logFramework(
         'Iceberg',
@@ -257,55 +265,65 @@ const ReviewAndRevise = () => {
       ).catch(err => console.error('Error logging Iceberg edit:', err));
     }
   }, [dispatch, isLoggingInitialized, logger]);
-
-  const handleComponentsChange = useCallback((value: string) => {
-    // Update the UI state first
-    setComponentsMarkdown(value);
-    
-    // Parse the components from markdown and preserve existing boundaries
-    let parsedComponents;
+  
+  // Process components from markdown string
+  const handleComponentsMarkdownChange = useCallback((markdownValue: string) => {
     try {
-      parsedComponents = parseComponentsFromMarkdown(
-        value,
-        currentCase?.analysis?.components || []
-      );
+      // Parse the markdown into component objects
+      const parsedComponents = parseComponentsFromMarkdown(markdownValue);
+      // Update the local state
+      setComponentsMarkdown(markdownValue);
+      // Pass the parsed components to the actual handler
+      handleProcessedComponents(parsedComponents);
     } catch (err) {
-      console.error('Error parsing components:', err);
-      return; // Don't update if there's a parsing error
+      console.error('Error parsing components from markdown:', err);
     }
+  }, []);
+  
+  // Handle components change when they come as parsed Component objects
+  const handleProcessedComponents = useCallback((components: Component[]) => {
+    if (!components || components.length === 0) return;
     
-    // Make sure we're keeping the most up-to-date component data
-    const updatedComponents = parsedComponents.map((newComp) => {
-      // Find the existing component if it exists (by id)
-      const existingComp = currentCase?.analysis?.components?.find(c => c.id === newComp.id);
+    try {
+      dispatch(updateComponents(components));
       
-      if (!existingComp) return newComp;
+      // Make sure we're keeping the most up-to-date component data
+      const updatedComponents = components.map((newComp) => {
+        // Find the existing component if it exists (by id)
+        const existingComp = currentCase?.analysis?.components?.find(c => c.id === newComp.id);
+        
+        if (!existingComp) return newComp;
+        
+        // Keep the redlines and bottomlines from the existing component
+        // but update the name and description from the new component
+        return {
+          ...existingComp,
+          name: newComp.name,
+          description: newComp.description,
+        };
+      });
       
-      // Keep the redlines and bottomlines from the existing component
-      // but update the name and description from the new component
-      return {
-        ...existingComp,
-        name: newComp.name,
-        description: newComp.description,
-      };
-    });
-    
-    // Ensure we have valid data before updating Redux
-    if (updatedComponents.length > 0) {
-      // Update Redux with the full component data
-      dispatch(updateComponents(updatedComponents));
-      if (isLoggingInitialized && logger && logger.getCaseId(true)) {
-        logger.logFramework(
-          'IoA', 
-          'edit',
-          {
-            inputSize: value.length, 
-            wasEdited: true, 
-            frameworkContent: truncateText(value)
-          },
-          logger.getCaseId(true)
-        ).catch(err => console.error('Error logging Issues/Components edit:', err));
+      // Ensure we have valid data before updating Redux
+      if (updatedComponents.length > 0) {
+        // Update Redux with the full component data
+        dispatch(updateComponents(updatedComponents));
+        if (isLoggingInitialized && logger && logger.getCaseId(true)) {
+          // Get the components as text for logging
+          const componentsText = componentsToMarkdown(updatedComponents);
+          logger.logFramework(
+            'IoA', 
+            'edit',
+            {
+              inputSize: componentsText.length, 
+              wasEdited: true, 
+              frameworkContent: truncateText(componentsText)
+            },
+            logger.getCaseId(true)
+          ).catch(err => console.error('Error logging Issues/Components edit:', err));
+        }
       }
+    } catch (err) {
+      console.error('Error updating components:', err);
     }
   }, [currentCase, dispatch, isLoggingInitialized, logger]);
 
@@ -530,7 +548,7 @@ const ReviewAndRevise = () => {
             ) : (
               <NegotiationIssuesTable
                 value={componentsMarkdown}
-                onChange={handleComponentsChange}
+                onChange={handleComponentsMarkdownChange}
               />
             )}
           </Grid>

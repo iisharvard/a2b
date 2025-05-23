@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import SyncIcon from '@mui/icons-material/Sync';
 import { callLanguageModel } from '../services/api/promptHandler';
+import CopyButton from './CopyButton';
 
 // Define styled components for the visualization
 const VisualizationContainer = styled(Paper)(({ theme }) => ({
@@ -512,11 +513,73 @@ ${newData.shared.values.map(v => `- ${v}`).join('\n')}
     updateMarkdown(newData);
   };
 
+  // Function to generate copyable text content
+  const generateCopyText = (): string => {
+    let text = "ICEBERG ANALYSIS\n\n";
+    
+    // Party 1
+    text += `${icebergData.party1.name} POSITIONS (WHAT):\n`;
+    icebergData.party1.positions.forEach(item => {
+      text += `• ${item}\n`;
+    });
+    
+    text += `\n${icebergData.party1.name} REASONING (HOW):\n`;
+    icebergData.party1.reasoning.forEach(item => {
+      text += `• ${item}\n`;
+    });
+    
+    text += `\n${icebergData.party1.name} VALUES (WHY):\n`;
+    icebergData.party1.values.forEach(item => {
+      text += `• ${item}\n`;
+    });
+    
+    // Party 2
+    text += `\n${icebergData.party2.name} POSITIONS (WHAT):\n`;
+    icebergData.party2.positions.forEach(item => {
+      text += `• ${item}\n`;
+    });
+    
+    text += `\n${icebergData.party2.name} REASONING (HOW):\n`;
+    icebergData.party2.reasoning.forEach(item => {
+      text += `• ${item}\n`;
+    });
+    
+    text += `\n${icebergData.party2.name} VALUES (WHY):\n`;
+    icebergData.party2.values.forEach(item => {
+      text += `• ${item}\n`;
+    });
+    
+    // Shared Items
+    text += "\nSHARED POSITIONS (WHAT):\n";
+    icebergData.shared.positions.forEach(item => {
+      text += `• ${item}\n`;
+    });
+    
+    text += "\nSHARED REASONING (HOW):\n";
+    icebergData.shared.reasoning.forEach(item => {
+      text += `• ${item}\n`;
+    });
+    
+    text += "\nSHARED VALUES (WHY):\n";
+    icebergData.shared.values.forEach(item => {
+      text += `• ${item}\n`;
+    });
+    
+    return text;
+  };
+
   return (
     <VisualizationContainer>
-      <Typography variant="h5" gutterBottom>
-        Iceberg Analysis
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Typography variant="h5">
+          Iceberg Analysis
+        </Typography>
+        <CopyButton 
+          text={generateCopyText()}
+          tooltipTitle="Copy Iceberg Analysis to clipboard"
+          color="primary"
+        />
+      </Box>
       
       <TableContainer>
         <Table sx={{ tableLayout: 'fixed', width: '100%' }}>

@@ -25,6 +25,7 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { RootState } from '../store';
+import CopyButton from '../components/CopyButton';
 import { 
   updateComponent,
   Component,
@@ -435,12 +436,47 @@ const RedlineBottomline = () => {
   // Get the selected component
   const selectedComponent = components.find(c => c.id === selectedComponentId);
 
+  // Function to generate copyable text content for boundaries
+  const generateCopyText = (): string => {
+    // Get party names from the current case
+    const party1Name = currentCase?.suggestedParties && currentCase.suggestedParties.length > 0 ? 
+      currentCase.suggestedParties[0].name : "Party 1";
+    const party2Name = currentCase?.suggestedParties && currentCase.suggestedParties.length > 1 ? 
+      currentCase.suggestedParties[1].name : "Party 2";
+      
+    let text = "REDLINES AND BOTTOMLINES\n\n";
+    
+    components.forEach((component) => {
+      text += `ISSUE: ${component.name}\n`;
+      text += `Description: ${component.description}\n\n`;
+      
+      text += "REDLINES (won't accept worse than this):\n";
+      text += `${party1Name}: ${component.redlineParty1 || 'Not set'}\n`;
+      text += `${party2Name}: ${component.redlineParty2 || 'Not set'}\n\n`;
+      
+      text += "BOTTOMLINES (willing to accept this):\n";
+      text += `${party1Name}: ${component.bottomlineParty1 || 'Not set'}\n`;
+      text += `${party2Name}: ${component.bottomlineParty2 || 'Not set'}\n\n`;
+      
+      text += "---------------------\n\n";
+    });
+    
+    return text;
+  };
+
   return (
     <Container maxWidth="xl">
       <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom align="center">
-          Redlines and Bottomlines
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+          <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mr: 2 }}>
+            Redlines and Bottomlines
+          </Typography>
+          <CopyButton 
+            text={generateCopyText()}
+            tooltipTitle="Copy Boundaries to clipboard"
+            color="primary"
+          />
+        </Box>
         
         <Divider sx={{ mb: 4 }} />
         
