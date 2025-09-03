@@ -61,7 +61,6 @@ import {
 import { api } from '../services/api';
 import { extractTextFromFile, getFileTypeDescription } from '../utils/fileExtractor';
 import { useLogging } from '../contexts/LoggingContext';
-import { auth } from '../firebase'; // Import Firebase auth instance
 
 /**
  * InitialSetup component for entering case details and party information
@@ -106,13 +105,7 @@ const InitialSetup = () => {
       
       // Log exit on unmount
       return () => {
-        // Only attempt to log page exit if the user is still authenticated
-        if (auth.currentUser && isLoggingInitialized && logger) {
-        logger.logPageVisit('initial_setup', 'exit', undefined, 'app_global')
-            .catch(err => console.warn('Error logging page exit (user might be signing out):', err));
-        } else if (isLoggingInitialized && logger) {
-          console.log('User signed out or logger not available, skipping page exit log for initial_setup.');
-        }
+        // Logging is disabled
       };
     }
   }, [isLoggingInitialized, logger]);

@@ -42,6 +42,13 @@ export const api = {
         party2Name: party2.name
       };
       const ioaResponse = await callLanguageModel('islandOfAgreement.txt', ioaInput);
+      console.log('IoA Response:', ioaResponse);
+      
+      // Ensure we have the expected structure
+      if (!ioaResponse || !ioaResponse.ioa) {
+        console.error('Invalid IoA response structure:', ioaResponse);
+        throw new Error('Invalid IoA response: missing ioa field');
+      }
       
       // Call the callback with IoA result as soon as it's available
       if (onPartialResult) {

@@ -19,6 +19,11 @@ Please format your response as a JSON object with a "parties" array containing p
 
 IMPORTANT: Return ONLY the JSON object as specified above. Do NOT wrap it in markdown code blocks (```). Do NOT include any explanatory text before or after the JSON.
 
+CRITICAL: If any party names or descriptions contain quotes, you MUST escape them with backslash (\").
+Examples:
+❌ WRONG: "description": "The "Red Cross" organization"
+✅ CORRECT: "description": "The \"Red Cross\" organization"
+
 Focus on identifying actual organizations, entities, or groups that could be negotiation parties. Avoid listing individuals unless they are specifically representing a distinct interest. Aim to identify all distinct potential parties from the case content. List as many as you can robustly identify based on the text.
 
 If you cannot identify clear parties, return an empty array: { "parties": [] }

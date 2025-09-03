@@ -1,9 +1,15 @@
 import { readPromptFile, callLanguageModel } from '../promptHandler';
-import { callOpenAI } from '../openaiClient';
+import { callOpenAI, callGemini } from '../llmClient';
+import * as schemas from '../schemas';
+import * as jsonFixer from '../jsonFixer';
 
-// Mock fetch and callOpenAI
+// Mock fetch and LLM clients
 global.fetch = jest.fn();
-jest.mock('../openaiClient');
+jest.mock('../llmClient');
+jest.mock('../config', () => ({
+  PROCESSING_MODEL: 'gpt-3.5-turbo',
+  GEMINI_MODEL_NAME: 'gemini-pro'
+}));
 
 describe('Prompt Handler', () => {
   const mockCallOpenAI = callOpenAI as jest.MockedFunction<typeof callOpenAI>;
@@ -65,7 +71,7 @@ describe('Prompt Handler', () => {
       expect(result).toEqual({ result: 'success' });
       expect(mockCallOpenAI).toHaveBeenCalledWith(
         [
-          { role: 'system', content: 'You are a helpful assistant.\n\nIMPORTANT: Your response MUST be valid JSON.' },
+          { role: 'system', content: 'You are a helpful assistant.\n\nIMPORTANT: Your response MUST be valid JSON. Make sure to properly escape any quotes (") inside string values by using backslash (\\"). For example, if you need to include the phrase "example" inside a string, it should be \\"example\\".' },
           { role: 'user', content: '{"input":"test"}' }
         ],
         { type: 'json_object' }
@@ -93,16 +99,16 @@ describe('Prompt Handler', () => {
       expect(result).toEqual({ rateLimited: true });
     });
 
-    test('should handle invalid JSON response', async () => {
+    test('should fix malformed JSON with unescaped quotes', async () => {
       // Mock successful prompt file read
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         text: () => Promise.resolve('You are a helpful assistant.'),
       });
 
-      // Mock invalid JSON response
+      // Mock response with unescaped quotes
       mockCallOpenAI.mockResolvedValueOnce({
-        text: 'Invalid JSON',
+        text: '{"result":"User said "hello" to the assistant"}',
         usage: {
           input_tokens: 5,
           output_tokens: 10,
@@ -111,10 +117,28 @@ describe('Prompt Handler', () => {
       });
 
       const result = await callLanguageModel('test.txt', { input: 'test' });
-      expect(result).toEqual({
-        error: 'Failed to parse JSON response',
-        rawContent: 'Invalid JSON',
+      // The JSON fixer should escape the quotes
+      expect(result).toEqual({ result: 'User said "hello" to the assistant' });
+    });
+
+    test('should throw error for completely invalid JSON', async () => {
+      // Mock successful prompt file read
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve('You are a helpful assistant.'),
       });
+
+      // Mock completely invalid JSON response
+      mockCallOpenAI.mockResolvedValueOnce({
+        text: 'This is not JSON at all',
+        usage: {
+          input_tokens: 5,
+          output_tokens: 10,
+          total_tokens: 15
+        }
+      });
+
+      await expect(callLanguageModel('test.txt', { input: 'test' })).rejects.toThrow('Invalid response format');
     });
 
     test('should handle OpenAI error', async () => {

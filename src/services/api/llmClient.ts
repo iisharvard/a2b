@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { LLMError } from '../../types/llm';
-import { OPENAI_API_URL, OPENAI_API_KEY, MODEL, TEMPERATURE, GEMINI_API_KEY, GEMINI_MODEL_NAME, GEMINI_API_URL } from './config';
+import { OPENAI_API_URL, OPENAI_API_KEY, MODEL, TEMPERATURE, MAX_OUTPUT_TOKENS, GEMINI_API_KEY, GEMINI_MODEL_NAME, GEMINI_API_URL } from './config';
 import { requestQueue } from './requestQueue';
 import { OpenAIMessage, OpenAIResponseRequest, GeminiMessage, GeminiRequest, GeminiResponse, GeminiStreamChunk } from './types';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -127,6 +127,7 @@ export const callOpenAI = async (
         model: MODEL,
         input: messages,
         temperature: finalTemperature,
+        max_output_tokens: MAX_OUTPUT_TOKENS, // Limit response length
         ...(responseFormat && { text: { format: responseFormat } })
       },
       {
@@ -220,6 +221,7 @@ export const streamOpenAI = async (
         model: model,
         input: input,
         temperature: temperature ?? TEMPERATURE,
+        max_output_tokens: MAX_OUTPUT_TOKENS, // Limit response length
         stream: true,
         ...(useStringInput && {
         text: {
@@ -440,6 +442,7 @@ export const callGemini = async (
     // Configure generation settings
     const generationConfig = {
       temperature: temperature ?? TEMPERATURE,
+      maxOutputTokens: MAX_OUTPUT_TOKENS, // Limit response length
       // Add JSON mode if requested
       ...(responseFormat?.type === 'json_object' && {
         responseMimeType: 'application/json'
@@ -513,6 +516,7 @@ export const streamGemini = async (
     // Configure generation settings
     const generationConfig = {
       temperature: temperature ?? TEMPERATURE,
+      maxOutputTokens: MAX_OUTPUT_TOKENS, // Limit response length
       // Add JSON mode if requested
       ...(responseFormat?.type === 'json_object' && {
         responseMimeType: 'application/json'

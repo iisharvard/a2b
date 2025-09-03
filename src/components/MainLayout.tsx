@@ -24,14 +24,10 @@ import BorderAllIcon from '@mui/icons-material/BorderAll';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import LockIcon from '@mui/icons-material/Lock';
 import SaveIcon from '@mui/icons-material/Save';
-import LogoutIcon from '@mui/icons-material/Logout';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { RootState } from '../store';
 import { clearState } from '../store/negotiationSlice';
 import ExperimentalWarningDialog from './ExperimentalWarningDialog';
-import { useFirebaseAuth } from '../contexts/FirebaseAuthContext';
 import ClearButtons from './ClearButtons';
-import { useLogging } from '../contexts/LoggingContext';
 import { clearInterfaceState, clearAllStorage } from '../utils/storage';
 
 // Import all pages
@@ -81,8 +77,6 @@ const MainLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
-  const { user, logout } = useFirebaseAuth();
-  const { logger, isLoggingInitialized } = useLogging();
   
   const { currentCase } = useSelector(
     (state: RootState) => state.negotiation
@@ -175,31 +169,12 @@ const MainLayout = () => {
     }
   };
 
-  // Handle logout
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigate('/login'); // Redirect to login after logout
-    } catch (error) {
-      console.error("Error signing out: ", error);
-      // Handle error appropriately, maybe show a notification
-    }
-  };
 
   const handleClearInterface = () => {
     setClearConfirmOpen(true);
   };
 
   const confirmClearInterface = () => {
-    // Log the action
-    if (isLoggingInitialized && logger) {
-      logger.logFramework(
-        'Iceberg', // Placeholder for general app action
-        'edit', 
-        { /* metadata: { action_type: 'clear_interface_cache' } */ }, // Temporarily commenting out metadata
-        'app_global'
-      ).catch((err: any) => console.error('Error logging interface cache clear:', err));
-    }
     
     // Clear both the local storage and the Redux store state
     clearInterfaceState();
@@ -342,22 +317,6 @@ const MainLayout = () => {
                 sx={{ mr: 1 }}
               />
             </Tooltip>
-          )}
-          {user && (
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <AccountCircleIcon sx={{ mr: 0.5, fontSize: '1.25rem', color: 'action.active' }} />
-              <Typography variant="body2" sx={{ mr: 2, color: 'text.secondary' }}>
-                {user.displayName || user.email}
-              </Typography>
-              <Button 
-                color="inherit" 
-                onClick={handleLogout}
-                startIcon={<LogoutIcon />}
-                size="small"
-              >
-                Logout
-              </Button>
-            </Box>
           )}
         </Toolbar>
         <Tabs

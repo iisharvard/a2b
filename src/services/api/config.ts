@@ -7,7 +7,7 @@ export let OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || ''; // Defaul
 // Gemini API configuration
 export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent';
 export let GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''; // Default to empty string if not set
-export const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
+export const GEMINI_MODEL_NAME = 'gemini-2.5-flash';
 
 // Try to load environment variables from the env.ts file in the browser
 if (typeof window !== 'undefined') {
@@ -26,6 +26,7 @@ if (typeof window !== 'undefined') {
 
 export const MODEL = 'gpt-4o'; // or 'gpt-3.5-turbo' for a more cost-effective option
 export const TEMPERATURE = 0.5;
+export const MAX_OUTPUT_TOKENS = 2000; // Limit LLM response length
 
 // Default model for general processing (can be overridden)
 export const PROCESSING_MODEL = GEMINI_MODEL_NAME;
