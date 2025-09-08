@@ -69,6 +69,7 @@ export class GeminiProvider implements LLMProvider {
       await streamGemini(
         openAIMessages,
         callbacks,
+        undefined, // responseFormat
         request.temperature ?? this.temperature,
         this.apiKey,
         this.model

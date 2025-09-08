@@ -77,7 +77,7 @@ const RedlineBottomline = () => {
             frameworkContent: truncateText(JSON.stringify(contentToLog))
           },
           caseId
-        ).catch(err => console.error(`Error logging debounced boundary edit for ${componentId}-${field}:`, err));
+        ).catch((err: Error) => console.error(`Error logging debounced boundary edit for ${componentId}-${field}:`, err));
       }
     }, 1500),
     [isLoggingInitialized, logger]
@@ -269,7 +269,7 @@ const RedlineBottomline = () => {
             frameworkContent: truncateText(JSON.stringify(updatedComponents)) // Log all recalculated components
           },
           logger.getCaseId(true)
-        ).catch(err => console.error('Error logging boundaries recalculation:', err));
+        ).catch((err: Error) => console.error('Error logging boundaries recalculation:', err));
       }
     } catch (err) {
       console.error('Error recalculating boundaries:', err);

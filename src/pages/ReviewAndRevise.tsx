@@ -175,7 +175,7 @@ const ReviewAndRevise = () => {
             frameworkContent: truncateText(currentCase.analysis?.ioa + "\n\n" + currentCase.analysis?.iceberg + "\n\n" + componentsToMarkdown(currentCase.analysis?.components || []))
           },
           logger.getCaseId(true) 
-        ).catch(err => console.error('Error logging existing analysis load:', err));
+        ).catch((err: Error) => console.error('Error logging existing analysis load:', err));
       }
       return;
     }
@@ -247,7 +247,7 @@ const ReviewAndRevise = () => {
         'edit',
         { inputSize: value.length, wasEdited: true, frameworkContent: truncateText(value) },
         logger.getCaseId(true)
-      ).catch(err => console.error('Error logging IoA edit:', err));
+      ).catch((err: Error) => console.error('Error logging IoA edit:', err));
     }
   }, [dispatch, isLoggingInitialized, logger]);
 
@@ -262,7 +262,7 @@ const ReviewAndRevise = () => {
         'edit',
         { inputSize: value.length, wasEdited: true, frameworkContent: truncateText(value) },
         logger.getCaseId(true)
-      ).catch(err => console.error('Error logging Iceberg edit:', err));
+      ).catch((err: Error) => console.error('Error logging Iceberg edit:', err));
     }
   }, [dispatch, isLoggingInitialized, logger]);
   
@@ -319,7 +319,7 @@ const ReviewAndRevise = () => {
               frameworkContent: truncateText(componentsText)
             },
             logger.getCaseId(true)
-          ).catch(err => console.error('Error logging Issues/Components edit:', err));
+          ).catch((err: Error) => console.error('Error logging Issues/Components edit:', err));
         }
       }
     } catch (err) {
@@ -421,7 +421,7 @@ const ReviewAndRevise = () => {
             frameworkContent: truncateText(analysisResult.ioa + "\n\n" + analysisResult.iceberg + "\n\n" + componentsToMarkdown(analysisResult.components || []))
           },
           logger.getCaseId(true)
-        ).catch(err => console.error('Error logging new analysis generation:', err));
+        ).catch((err: Error) => console.error('Error logging new analysis generation:', err));
       }
 
       setIoa(analysisResult.ioa);

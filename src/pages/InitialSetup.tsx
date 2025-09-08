@@ -101,7 +101,7 @@ const InitialSetup = () => {
     if (isLoggingInitialized && logger) {
       // Log page visit with app_global case ID since we might not have a specific case yet
       logger.logPageVisit('initial_setup', 'enter', undefined, 'app_global')
-        .catch(err => console.error('Error logging page visit:', err));
+        .catch((err: Error) => console.error('Error logging page visit:', err));
       
       // Log exit on unmount
       return () => {
@@ -263,11 +263,11 @@ const InitialSetup = () => {
         // Log the parties
         if (isLoggingInitialized && logger) {
           for (const party of filteredResult) {
-            await logger.logParty(party.name, {
+            await logger.logParty(party.name, 'identify', {
               partyRole: party.isPrimary ? 'primary' : 'secondary',
               partyType: party.name === filteredResult[0].name ? 'self' : 'counterpart',
-              metadata: { description: party.description }
-            }, 'app_global');
+              description: party.description
+            });
           }
         }
       } else {
@@ -518,8 +518,8 @@ const InitialSetup = () => {
           // Log case file upload 
           if (isLoggingInitialized && logger) {
             try {
-              const { caseId } = await logger.logCaseFile(file, extractedText);
-              console.log(`Case file logged with ID: ${caseId}`);
+              await logger.logCaseFile(file.name, getFileTypeDescription(file), file.size);
+              console.log(`Case file logged: ${file.name}`);
             } catch (logErr) {
               console.error('Error logging case file:', logErr);
               // Continue with processing even if Firebase storage upload fails
