@@ -26,7 +26,7 @@ const stubLogger: Logger = {
 
 // Create the context with a default value
 const LoggingContext = createContext<LoggingContextType>({
-  logger: stubLogger,
+  logger: null,
   isLoggingInitialized: false,
 });
 
@@ -39,7 +39,7 @@ interface LoggingProviderProps {
  */
 export const LoggingProvider: React.FC<LoggingProviderProps> = ({ children }) => {
   return (
-    <LoggingContext.Provider value={{ logger: stubLogger, isLoggingInitialized: false }}>
+    <LoggingContext.Provider value={{ logger: null, isLoggingInitialized: false }}>
       {children}
     </LoggingContext.Provider>
   );

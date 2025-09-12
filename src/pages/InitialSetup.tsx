@@ -101,7 +101,7 @@ const InitialSetup = () => {
     if (isLoggingInitialized && logger) {
       // Log page visit with app_global case ID since we might not have a specific case yet
       logger.logPageVisit('initial_setup', 'enter', undefined, 'app_global')
-        .catch((err: Error) => console.error('Error logging page visit:', err));
+        .catch((err: unknown) => console.error('Error logging page visit:', err));
       
       // Log exit on unmount
       return () => {

@@ -214,12 +214,12 @@ const NegotiationScenario = () => {
                 frameworkContent: truncateText(JSON.stringify(uniqueScenarios))
               },
               logger.getCaseId(true)
-            ).catch((err: Error) => console.error(`Error logging scenario generation for component ${component.id}:`, err));
+            ).catch((err: unknown) => console.error(`Error logging scenario generation for component ${component.id}:`, err));
           }
 
           componentsWithScenarios.add(component.id);
           generatingCount--;
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error(`Error generating scenarios for component ${component.id}:`, err);
           generatingCount--;
           // Continue with other components, don't stop the whole process
@@ -369,7 +369,7 @@ const NegotiationScenario = () => {
             frameworkContent: truncateText(JSON.stringify(uniqueScenarios))
           },
           logger.getCaseId(true)
-        ).catch((err: Error) => console.error(`Error logging scenario generation for issue ${componentId}:`, err));
+        ).catch((err: unknown) => console.error(`Error logging scenario generation for issue ${componentId}:`, err));
       }
 
       if (!recalculationStatus.scenariosRecalculated) {
@@ -745,7 +745,7 @@ const NegotiationScenario = () => {
             frameworkContent: truncateText(JSON.stringify(updatedScenario))
           },
           logger.getCaseId(true)
-        ).catch((err: Error) => console.error(`Error logging scenario update for ${updatedScenario.id}:`, err));
+        ).catch((err: unknown) => console.error(`Error logging scenario update for ${updatedScenario.id}:`, err));
       }
 
       console.log(`Scenario ${updatedScenario.id} updated successfully`);

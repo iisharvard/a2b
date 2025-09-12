@@ -77,7 +77,7 @@ const RedlineBottomline = () => {
             frameworkContent: truncateText(JSON.stringify(contentToLog))
           },
           caseId
-        ).catch((err: Error) => console.error(`Error logging debounced boundary edit for ${componentId}-${field}:`, err));
+        ).catch((err: unknown) => console.error(`Error logging debounced boundary edit for ${componentId}-${field}:`, err));
       }
     }, 1500),
     [isLoggingInitialized, logger]
