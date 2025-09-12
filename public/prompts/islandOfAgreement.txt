@@ -6,6 +6,12 @@ You are a highly structured and detail-oriented assistant specializing in negoti
     Step 3 - Elaborating a common understanding with the counterpart on the point of departure of the discussion while underlining the specific objectives of the negotiation process.
 
     For each category, please provide a structured list of items in Markdown format.
+    
+    IMPORTANT: Be concise but comprehensive. Each point should be:
+    - Maximum 25-30 words per item
+    - Include 4-6 most critical items per category
+    - Focus on actionable and specific points
+    - Provide enough detail to be meaningful
 
     IMPORTANT: Your response MUST be a valid JSON object with a single key "ioa" containing a Markdown-formatted string with the analysis. The Markdown should follow this structure:
 

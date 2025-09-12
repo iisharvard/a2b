@@ -448,16 +448,59 @@ export const callGemini = async (
         responseMimeType: 'application/json'
       })
     };
+    
+    console.log('🔧 Generation config:', generationConfig);
+    console.log('🔧 Response format requested:', responseFormat);
+
+    console.log('🔍 Gemini request details:', {
+      model: modelName,
+      contents: geminiMessages,
+      generationConfig,
+      apiKeyLength: apiKey?.length,
+      apiKeyPrefix: apiKey?.substring(0, 10) + '...'
+    });
 
     const result = await model.generateContent({
       contents: geminiMessages,
       generationConfig,
     });
 
+    console.log('📦 Raw Gemini result:', result);
+
     const response = await result.response;
+    console.log('📨 Gemini response object:', response);
+    console.log('📨 Response candidates:', response.candidates);
+    console.log('📨 Response promptFeedback:', response.promptFeedback);
+    
+    // Log individual candidate details
+    if (response.candidates && response.candidates.length > 0) {
+      response.candidates.forEach((candidate, index) => {
+        console.log(`📨 Candidate ${index}:`, candidate);
+        console.log(`📨 Candidate ${index} content:`, candidate.content);
+        console.log(`📨 Candidate ${index} content.parts:`, candidate.content?.parts);
+        if (candidate.content?.parts) {
+          candidate.content.parts.forEach((part, partIndex) => {
+            console.log(`📨 Candidate ${index} part ${partIndex}:`, part);
+            console.log(`📨 Candidate ${index} part ${partIndex} text:`, part.text);
+          });
+        }
+        console.log(`📨 Candidate ${index} finishReason:`, candidate.finishReason);
+        console.log(`📨 Candidate ${index} safetyRatings:`, candidate.safetyRatings);
+      });
+    }
+    
     const text = response.text();
+    console.log('📝 Extracted text:', text);
+    console.log('📝 Text length:', text?.length);
+    console.log('📝 Text type:', typeof text);
 
     if (!text) {
+      console.error('❌ Empty response detected. Full response object:', {
+        response,
+        candidates: response.candidates,
+        promptFeedback: response.promptFeedback,
+        result
+      });
       throw { code: 'EMPTY_RESPONSE', message: 'Empty response from Gemini API' } as LLMError;
     }
 
@@ -470,6 +513,14 @@ export const callGemini = async (
     };
   } catch (error: any) {
     console.error('Gemini API error:', error);
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    
+    // Re-throw if it's already an LLMError
+    if (error.code && error.message) {
+      throw error;
+    }
     
     if (error.message?.includes('API key')) {
       throw { code: 'AUTH_ERROR', message: 'Invalid Gemini API key' } as LLMError;
@@ -481,7 +532,8 @@ export const callGemini = async (
     
     throw { 
       code: 'API_ERROR', 
-      message: error.message || 'Unknown error from Gemini API'
+      message: error.message || 'Unknown error from Gemini API',
+      details: error
     } as LLMError;
   }
 };
