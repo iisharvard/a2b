@@ -55,8 +55,14 @@ export const callLanguageModel = async (promptFile: string, inputs: Record<strin
     // Read the prompt file
     const promptContent = await readPromptFile(promptFile);
     
-    // Add instructions to return JSON
-    const systemPrompt = `${promptContent}\n\nIMPORTANT: Your response MUST be valid JSON. Make sure to properly escape any quotes (") inside string values by using backslash (\\"). For example, if you need to include the phrase "example" inside a string, it should be \\"example\\".`;
+    // Add instructions to return JSON - enhanced for Gemini
+    const systemPrompt = `${promptContent}\n\nCRITICAL JSON REQUIREMENTS:
+1. Your response MUST be ONLY valid JSON - no text before or after
+2. Do NOT wrap the JSON in markdown code blocks (\`\`\`)
+3. Start your response with { and end with }
+4. Properly escape ALL quotes inside string values using backslash (\\")
+5. Example: "The \"example\" text" is correct, "The "example" text" is wrong
+6. Return ONLY the JSON object, nothing else`;
     
     // Prepare messages for the LLM
     const messages: OpenAIMessage[] = [
@@ -99,11 +105,17 @@ export const callLanguageModel = async (promptFile: string, inputs: Record<strin
       // Log first 500 chars to debug
       console.log('Response text first 500 chars:', response.text.substring(0, 500));
       
-      // Clean markdown code blocks
-      const cleanedText = cleanMarkdownCodeBlocks(response.text);
+      // For Gemini with JSON response format, the response might already be valid JSON
+      let textToParse = response.text;
       
-      // Try to parse the cleaned response
-      const parsedResponse = JSON.parse(cleanedText);
+      // Only clean markdown if we detect code blocks
+      if (response.text.includes('```')) {
+        textToParse = cleanMarkdownCodeBlocks(response.text);
+        console.log('Cleaned markdown blocks from response');
+      }
+      
+      // Try to parse the response
+      const parsedResponse = JSON.parse(textToParse);
       console.log('✅ Successfully parsed LLM response');
       
       // Validate against schema

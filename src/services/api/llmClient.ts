@@ -443,10 +443,8 @@ export const callGemini = async (
     const generationConfig = {
       temperature: temperature ?? TEMPERATURE,
       maxOutputTokens: MAX_OUTPUT_TOKENS, // Limit response length
-      // Add JSON mode if requested
-      ...(responseFormat?.type === 'json_object' && {
-        responseMimeType: 'application/json'
-      })
+      // Note: Gemini's responseMimeType might cause issues with empty responses
+      // We'll rely on prompt instructions for JSON formatting instead
     };
     
     console.log('🔧 Generation config:', generationConfig);
@@ -486,10 +484,36 @@ export const callGemini = async (
         }
         console.log(`📨 Candidate ${index} finishReason:`, candidate.finishReason);
         console.log(`📨 Candidate ${index} safetyRatings:`, candidate.safetyRatings);
+        
+        // Check if response was truncated due to max tokens
+        if (candidate.finishReason === 'MAX_TOKENS') {
+          console.error('⚠️ Response was truncated due to MAX_TOKENS limit');
+          throw { 
+            code: 'RESPONSE_TRUNCATED', 
+            message: 'Gemini response was truncated. Try with a shorter prompt or increase MAX_OUTPUT_TOKENS.' 
+          } as LLMError;
+        }
       });
     }
     
-    const text = response.text();
+    let text = '';
+    
+    try {
+      // Try the standard text() method first
+      text = response.text();
+    } catch (textError) {
+      console.warn('⚠️ Standard text() extraction failed, trying alternative methods:', textError);
+      
+      // If text() fails, try to extract from candidates directly
+      if (response.candidates && response.candidates.length > 0) {
+        const candidate = response.candidates[0];
+        if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+          text = candidate.content.parts.map(part => part.text || '').join('');
+          console.log('✅ Extracted text from candidate parts:', text.substring(0, 100) + '...');
+        }
+      }
+    }
+    
     console.log('📝 Extracted text:', text);
     console.log('📝 Text length:', text?.length);
     console.log('📝 Text type:', typeof text);
@@ -569,10 +593,8 @@ export const streamGemini = async (
     const generationConfig = {
       temperature: temperature ?? TEMPERATURE,
       maxOutputTokens: MAX_OUTPUT_TOKENS, // Limit response length
-      // Add JSON mode if requested
-      ...(responseFormat?.type === 'json_object' && {
-        responseMimeType: 'application/json'
-      })
+      // Note: Gemini's responseMimeType might cause issues with empty responses
+      // We'll rely on prompt instructions for JSON formatting instead
     };
 
     const result = await model.generateContentStream({

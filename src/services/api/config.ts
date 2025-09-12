@@ -26,10 +26,10 @@ if (typeof window !== 'undefined') {
 
 export const MODEL = 'gpt-4o'; // or 'gpt-3.5-turbo' for a more cost-effective option
 export const TEMPERATURE = 0.5;
-export const MAX_OUTPUT_TOKENS = 6000; // Increased limit to prevent truncation
+export const MAX_OUTPUT_TOKENS = 8192; // Maximum for Gemini 1.5 Flash
 
 // Default model for general processing (can be overridden)
-export const PROCESSING_MODEL = GEMINI_MODEL_NAME;
+export const PROCESSING_MODEL = GEMINI_MODEL_NAME; // Use Gemini
 export const CHAT_MODEL = MODEL; // Keep OpenAI for chat
 
 // Rate limiting configuration
