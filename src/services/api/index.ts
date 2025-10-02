@@ -2,6 +2,7 @@ import { store } from '../../store';
 import { Analysis, Component, Party, Scenario } from '../../store/negotiationSlice';
 import { ApiResponse, AnalysisResponse } from '../../types/api';
 import { callLanguageModel } from './promptHandler';
+import { GEMINI_LITE_MODEL_NAME } from './config';
 import { callOpenAI } from './llmClient';
 import { apiCache, clearScenariosForComponent } from './cache';
 import { 
@@ -41,33 +42,46 @@ export const api = {
         party1Name: party1.name,
         party2Name: party2.name
       };
-      const ioaResponse = await callLanguageModel('islandOfAgreement.txt', ioaInput);
-      console.log('IoA Response:', ioaResponse);
-      
-      // Ensure we have the expected structure
-      if (!ioaResponse || !ioaResponse.ioa) {
-        console.error('Invalid IoA response structure:', ioaResponse);
-        throw new Error('Invalid IoA response: missing ioa field');
-      }
-      
-      // Call the callback with IoA result as soon as it's available
-      if (onPartialResult) {
-        onPartialResult('ioa', ioaResponse.ioa);
-      }
-      
-      // Using the combined iceberg + shared prompt instead of the separate iceberg prompt
+
       const icebergInput: IcebergInput = {
         caseContent: content,
         party1Name: party1.name,
         party2Name: party2.name
       };
-      const icebergResponse = await callLanguageModel('icebergWithShared.txt', icebergInput);
-      
-      // Call the callback with iceberg result as soon as it's available
-      if (onPartialResult) {
-        onPartialResult('iceberg', icebergResponse.iceberg);
-      }
-      
+
+      const ioaPromise = (async () => {
+        const response = await callLanguageModel('islandOfAgreement.txt', ioaInput);
+        console.log('IoA Response:', response);
+
+        if (!response || !response.ioa) {
+          console.error('Invalid IoA response structure:', response);
+          throw new Error('Invalid IoA response: missing ioa field');
+        }
+
+        if (onPartialResult) {
+          onPartialResult('ioa', response.ioa);
+        }
+
+        return response;
+      })();
+
+      const icebergPromise = (async () => {
+        const response = await callLanguageModel('icebergWithShared.txt', icebergInput);
+
+        if (!response || !response.iceberg) {
+          console.error('Invalid Iceberg response structure:', response);
+          throw new Error('Invalid Iceberg response: missing iceberg field');
+        }
+
+        if (onPartialResult) {
+          onPartialResult('iceberg', response.iceberg);
+        }
+
+        return response;
+      })();
+
+      const [ioaResponse, icebergResponse] = await Promise.all([ioaPromise, icebergPromise]);
+
       const componentsInput: ComponentsInput = {
         caseContent: content,
         party1Name: party1.name,
@@ -307,7 +321,9 @@ export const api = {
       const partiesInput: IdentifyPartiesInput = {
         caseContent
       };
-      const result = await callLanguageModel('identifyParties.txt', partiesInput);
+      const result = await callLanguageModel('identifyParties.txt', partiesInput, {
+        modelName: GEMINI_LITE_MODEL_NAME
+      });
 
       if ('rateLimited' in result) {
         throw new Error('Rate limit reached');

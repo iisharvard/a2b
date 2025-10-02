@@ -8,6 +8,7 @@ export let OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || ''; // Defaul
 export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent';
 export let GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''; // Default to empty string if not set
 export const GEMINI_MODEL_NAME = 'gemini-2.5-flash';
+export const GEMINI_LITE_MODEL_NAME = 'gemini-2.0-flash-lite';
 
 // Try to load environment variables from the env.ts file in the browser
 if (typeof window !== 'undefined') {

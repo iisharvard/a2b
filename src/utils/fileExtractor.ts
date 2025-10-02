@@ -57,26 +57,63 @@ export const extractTextFromPDF = async (file: File): Promise<string> => {
     // Extract text from each page
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      
-      // Process text content with improved formatting
-      let lastY;
+      const textContent = await page.getTextContent({ normalizeWhitespace: true });
+
+      // Process text content taking character positioning into account
+      let lastY: number | undefined;
+      let lastX: number | undefined;
       let pageText = '';
-      
-      for (const item of textContent.items) {
-        // Check if this is a new line by looking at y-position
-        if (lastY !== undefined && Math.abs(lastY - (item as any).transform[5]) > 5) {
-          pageText += '\n';
-        } else if (pageText.length > 0 && !pageText.endsWith(' ')) {
-          // Add space between words if needed
-          pageText += ' ';
+
+      for (const rawItem of textContent.items) {
+        const item = rawItem as any;
+        const text: string = item.str ?? '';
+        if (!text) {
+          continue;
         }
-        
-        pageText += (item as any).str;
-        lastY = (item as any).transform[5];
+
+        const transform: number[] = Array.isArray(item.transform) ? item.transform : [1, 0, 0, 1, 0, 0];
+        const x = transform[4];
+        const y = transform[5];
+        const itemWidth = typeof item.width === 'number' ? item.width : 0;
+        const fontHeight = typeof item.height === 'number'
+          ? item.height
+          : Math.max(Math.abs(transform[3]), Math.abs(transform[2]));
+        const avgCharWidth = text.trim().length > 0
+          ? itemWidth / text.trim().length
+          : 0;
+
+        if (lastY !== undefined) {
+          const lineThreshold = fontHeight ? fontHeight * 0.8 : 5;
+          if (Math.abs(y - lastY) > Math.max(lineThreshold, 5)) {
+            pageText = pageText.trimEnd();
+            pageText += '\n';
+            lastX = undefined;
+          }
+        }
+
+        if (lastX !== undefined) {
+          const gap = x - lastX;
+          const spaceThreshold = Math.max(avgCharWidth * 0.6, fontHeight * 0.2, 1.5);
+          if (gap > spaceThreshold && !pageText.endsWith(' ')) {
+            pageText += ' ';
+          }
+        }
+
+        pageText += text;
+
+        if (item.hasEOL) {
+          pageText = pageText.trimEnd();
+          pageText += '\n';
+          lastX = undefined;
+        } else {
+          const advanceWidth = itemWidth || (avgCharWidth ? avgCharWidth * text.length : 0);
+          lastX = x + advanceWidth;
+        }
+
+        lastY = y;
       }
-      
-      extractedText += pageText + '\n\n';
+
+      extractedText += pageText.trimEnd() + '\n\n';
     }
     
     // Clean up the URL object

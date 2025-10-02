@@ -112,6 +112,8 @@ const NegotiationScenario = () => {
   };
 
   // Generate scenarios for all components
+  const MAX_CONCURRENT_SCENARIO_CALLS = 3;
+
   const generateAllScenarios = useCallback(async () => {
     if (!currentCase || !currentCase.analysis || isGeneratingAll) return;
     
@@ -119,11 +121,6 @@ const NegotiationScenario = () => {
     setError(null);
     
     try {
-      // console.log('Generating scenarios for all components...');
-      
-      // Track whether we're currently generating scenarios
-      let generatingCount = 0;
-      
       // Track which components we already have scenarios for to avoid redundant generation
       const componentsWithScenarios = new Set(
         currentCase.scenarios
@@ -132,24 +129,20 @@ const NegotiationScenario = () => {
             currentCase.scenarios.find(s => s.id === loadedId && s.componentId === id)
           ))
       );
-      
-      // console.log('Components with scenarios already loaded:', [...componentsWithScenarios]);
-      
-      // Loop through all components and generate scenarios for each
+
+      const componentsNeedingGeneration: typeof currentCase.analysis.components = [];
+
+      // Identify components that require generation and mark existing ones as loaded
       for (const component of currentCase.analysis.components) {
-        // Skip if we already have scenarios for this component and they don't need recalculation
         const existingScenarios = currentCase.scenarios.filter(
           (s) => s.componentId === component.id
         );
-        
+
         const scenariosLoaded = existingScenarios.some(s => loadedScenarios.includes(s.id));
-        
-        if ((existingScenarios.length > 0 && recalculationStatus.scenariosRecalculated) || 
+
+        if ((existingScenarios.length > 0 && recalculationStatus.scenariosRecalculated) ||
             componentsWithScenarios.has(component.id) ||
             scenariosLoaded) {
-          // console.log(`Using existing scenarios for component: ${component.id} (${component.name})`);
-          
-          // Mark all existing scenarios as loaded
           setLoadedScenarios(prev => {
             const newLoaded = [...prev];
             existingScenarios.forEach(scenario => {
@@ -159,57 +152,42 @@ const NegotiationScenario = () => {
             });
             return newLoaded;
           });
-          
-          // Add to our tracking set
+
           componentsWithScenarios.add(component.id);
           continue;
         }
-        
-        // Generate scenarios for this component
-        generatingCount++;
-        
-        // Add this component to the generating set
+
+        componentsNeedingGeneration.push(component);
+      }
+
+      let hadError = false;
+
+      const runComponentGeneration = async (component: typeof currentCase.analysis.components[number]) => {
         setGeneratingIssueIds(prev => {
           const newSet = new Set(prev);
           newSet.add(component.id);
           return newSet;
         });
-        
+
         try {
-          // console.log(`Generating scenarios for component: ${component.id} (${component.name})`);
-          
-          // Use the generateScenarios method directly
           const newScenarios = await api.generateScenarios(component.id, (scenario) => {
-            // Mark each scenario as loaded as it comes in
             setLoadedScenarios(prev => [...prev, scenario.id]);
           });
-          
-          // Ensure newScenarios is an array and limit to exactly 5 scenarios
+
           const scenariosArray = Array.isArray(newScenarios) ? newScenarios.slice(0, 5) : [];
-          // console.log(`Generated ${scenariosArray.length} scenarios for component: ${component.id}`);
-          
-          // Make sure each scenario has a unique ID that includes the component ID
-          // We're explicitly setting the IDs 1-5 to ensure they're unique and consistent
           const uniqueScenarios = scenariosArray.map((scenario, index) => ({
             ...scenario,
             id: `${component.id}-${index + 1}`
           }));
-          
-          // First, remove any existing scenarios for this component
-          const filteredScenarios = currentCase.scenarios.filter(
-            s => s.componentId !== component.id
-          );
-          
-          // Then update Redux state with the filtered scenarios + new ones
-          dispatch(setScenarios([...filteredScenarios, ...uniqueScenarios]));
-          
-          // Log successful scenario generation for this component
+
+          dispatch(setScenarios(uniqueScenarios));
+
           if (isLoggingInitialized && logger && logger.getCaseId(true)) {
             logger.logFramework(
               'Redline',
               'generate',
-              { 
-                inputSize: component.description?.length || 0, 
+              {
+                inputSize: component.description?.length || 0,
                 wasEdited: false,
                 frameworkContent: truncateText(JSON.stringify(uniqueScenarios))
               },
@@ -218,27 +196,36 @@ const NegotiationScenario = () => {
           }
 
           componentsWithScenarios.add(component.id);
-          generatingCount--;
-        } catch (err: unknown) {
+        } catch (err) {
+          hadError = true;
           console.error(`Error generating scenarios for component ${component.id}:`, err);
-          generatingCount--;
-          // Continue with other components, don't stop the whole process
         } finally {
-          // Remove this component from the generating set
           setGeneratingIssueIds(prev => {
             const newSet = new Set(prev);
             newSet.delete(component.id);
             return newSet;
           });
         }
-      }
-      
-      // Mark scenarios as recalculated if they were generated due to analysis changes
+      };
+
+      const queue = [...componentsNeedingGeneration];
+      const workers = Array.from({ length: Math.min(MAX_CONCURRENT_SCENARIO_CALLS, queue.length) }, async () => {
+        while (queue.length > 0) {
+          const component = queue.shift();
+          if (!component) {
+            return;
+          }
+          await runComponentGeneration(component);
+        }
+      });
+
+      await Promise.all(workers);
+
       if (!recalculationStatus.scenariosRecalculated) {
         dispatch(setScenariosRecalculated(true));
       }
-      
-      if (generatingCount === 0) {
+
+      if (!hadError) {
         setError('All scenarios have been successfully generated.');
       }
     } catch (err: any) {

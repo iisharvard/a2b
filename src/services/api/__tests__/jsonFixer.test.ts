@@ -104,6 +104,24 @@ describe('JSON Fixing Logic', () => {
       expect(() => JSON.parse(fixed)).not.toThrow();
     });
 
+    it('should escape literal newlines and tabs within string values', () => {
+      const input = String.raw`{"content": "First line
+Second line	Indented"}`;
+      const fixed = fixMalformedJSON(input);
+      expect(() => JSON.parse(fixed)).not.toThrow();
+      const parsed = JSON.parse(fixed);
+      expect(parsed.content).toBe(`First line
+Second line	Indented`);
+    });
+
+    it('should escape stray backslashes inside string values', () => {
+      const input = String.raw`{"path": "C:\Projects\Example"}`;
+      const fixed = fixMalformedJSON(input);
+      expect(() => JSON.parse(fixed)).not.toThrow();
+      const parsed = JSON.parse(fixed);
+      expect(parsed.path).toBe('C:\\Projects\\Example');
+    });
+
     it('should handle empty strings', () => {
       const input = '{"empty": ""}';
       const fixed = fixMalformedJSON(input);

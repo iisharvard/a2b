@@ -32,6 +32,32 @@ export function fixJsonWithStateMachine(text: string): JsonFixResult {
       else if (char === ',' || char === '}' || char === ']') expectingValue = false;
     }
     
+    if (inString) {
+      if (char === '\n') {
+        fixed += '\\n';
+        continue;
+      }
+
+      if (char === '\r') {
+        fixed += '\\r';
+        continue;
+      }
+
+      if (char === '\t') {
+        fixed += '\\t';
+        continue;
+      }
+
+      if (char === '\\') {
+        const nextChar = text[i + 1];
+        const validEscapes = '"\\/bfnrtu';
+        if (!nextChar || !validEscapes.includes(nextChar.toLowerCase())) {
+          fixed += '\\\\';
+          continue;
+        }
+      }
+    }
+
     if (char === '"' && prevChar !== '\\') {
       // Determine if this is a structural quote
       let isStructural = false;

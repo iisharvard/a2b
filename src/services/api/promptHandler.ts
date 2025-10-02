@@ -44,7 +44,15 @@ export const readPromptFile = async (fileName: string): Promise<string> => {
  * @param inputs Object containing inputs for the prompt
  * @returns Promise that resolves with the parsed JSON response
  */
-export const callLanguageModel = async (promptFile: string, inputs: Record<string, any>): Promise<any> => {
+type LanguageModelOptions = {
+  modelName?: string;
+};
+
+export const callLanguageModel = async (
+  promptFile: string,
+  inputs: Record<string, any>,
+  options: LanguageModelOptions = {}
+): Promise<any> => {
   try {
     console.log('🤖 Calling language model with prompt:', promptFile);
     console.log('📝 Input keys:', Object.keys(inputs));
@@ -73,12 +81,12 @@ export const callLanguageModel = async (promptFile: string, inputs: Record<strin
     let response;
     // Check which model to use (this is a simple way, could be more sophisticated)
     // For now, we assume if PROCESSING_MODEL is GEMINI_MODEL_NAME, we use Gemini.
-    if (PROCESSING_MODEL === GEMINI_MODEL_NAME) {
+    if (PROCESSING_MODEL === GEMINI_MODEL_NAME || options.modelName) {
       console.log('📤 Sending request to Gemini...');
       console.log('📤 Messages being sent:', JSON.stringify(messages, null, 2));
       console.log('📤 System prompt length:', messages[0]?.content?.length);
       console.log('📤 User input length:', messages[1]?.content?.length);
-      response = await callGemini(messages, { type: 'json_object' });
+      response = await callGemini(messages, { type: 'json_object' }, undefined, undefined, options.modelName);
       console.log('📥 Received response from Gemini:', response);
       console.log('📥 Response text type:', typeof response.text);
       console.log('📥 Response text length:', response.text?.length);

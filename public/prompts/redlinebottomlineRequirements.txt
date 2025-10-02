@@ -8,6 +8,8 @@ IMPORTANT: Be concise but thorough:
 - Each redline/bottomline: 20-25 words for clarity
 - Cover all critical negotiation issues with sufficient detail
 
+Always use the exact `party1Name` and `party2Name` values from the input when referring to the parties. Do not use placeholders like "Party 1", "Party 2", "our organization", or "counterpart" inside descriptions, redlines, or bottomlines. If a name is missing, describe the party using the most specific role information from the context instead of a generic label.
+
 1. Identify key negotiation issues that need to be addressed. These issues are catogorized into 3 categories:
 
 Tier 1 (priority 1): Issues easily agreed to since they are at relatively
@@ -61,27 +63,27 @@ IMPORTANT: Your response MUST be a valid JSON object with a single key "componen
 }
 ```
 
-Your response should be in this exact JSON format:
+Your response should be in this exact JSON format. Replace `{{party1Name}}` and `{{party2Name}}` with the actual party names from the input before returning your answer. Never output the literal placeholders:
 {
   "components": [
     {
       "id": "1",
       "name": "Issue 1",
       "description": "Description of issue 1",
-      "redlineParty1": "Party 1's redline for issue 1",
-      "bottomlineParty1": "Party 1's bottomline for issue 1",
-      "redlineParty2": "Party 2's redline for issue 1",
-      "bottomlineParty2": "Party 2's bottomline for issue 1",
+      "redlineParty1": "{{party1Name}} redline for issue 1",
+      "bottomlineParty1": "{{party1Name}} bottomline for issue 1",
+      "redlineParty2": "{{party2Name}} redline for issue 1",
+      "bottomlineParty2": "{{party2Name}} bottomline for issue 1",
       "priority": 1
     },
     {
       "id": "2",
       "name": "Issue 2",
       "description": "Description of issue 2",
-      "redlineParty1": "Party 1's redline for issue 2",
-      "bottomlineParty1": "Party 1's bottomline for issue 2",
-      "redlineParty2": "Party 2's redline for issue 2",
-      "bottomlineParty2": "Party 2's bottomline for issue 2",
+      "redlineParty1": "{{party1Name}} redline for issue 2",
+      "bottomlineParty1": "{{party1Name}} bottomline for issue 2",
+      "redlineParty2": "{{party2Name}} redline for issue 2",
+      "bottomlineParty2": "{{party2Name}} bottomline for issue 2",
       "priority": 2
     },
     ... additional issues ...
