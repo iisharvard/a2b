@@ -1,16 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector } from 'react-redux';
-import { 
-  Box, 
-  Button, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogActions, 
-  Tab, 
-  Tabs, 
-  TextField, 
-  Typography, 
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  Tab,
+  Tabs,
+  TextField,
+  Typography,
   Paper,
   IconButton,
   Snackbar,
@@ -20,14 +19,15 @@ import CloseIcon from '@mui/icons-material/Close';
 import CodeIcon from '@mui/icons-material/Code';
 import PreviewIcon from '@mui/icons-material/Preview';
 import { RootState } from '../store';
-import { 
-  changeIoA, 
-  changeIceberg, 
-  changeComponents, 
-  changeBoundaries, 
-  changeScenarios 
+import {
+  changeIoA,
+  changeIceberg,
+  changeComponents,
+  changeBoundaries,
+  changeScenarios
 } from '../services/api/contentChanges';
 import { Scenario, Component } from '../store/negotiationSlice';
+import { validateIcebergContent } from '../utils/contentValidation';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -173,205 +173,204 @@ Determining the appropriate balance between international and local medical pers
   ]
 };
 
+type TabKey = 'ioa' | 'iceberg' | 'components' | 'boundaries' | 'scenarios';
+
+interface TabConfig {
+  key: TabKey;
+  label: string;
+  description: string;
+  updateLabel: string;
+  sample: string | (() => string);
+  update: (value: unknown) => { success: boolean; message: string } | { rateLimited: true };
+  parse?: (value: string) => unknown;
+}
+
 const DebugWindow: React.FC = () => {
   // State for dialog and tabs
   const [open, setOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
-  
+
   // Current analysis data from Redux
   const currentCase = useSelector((state: RootState) => state.negotiation.currentCase);
   const analysis = currentCase?.analysis;
-  
-  // State for each content type
-  const [ioaContent, setIoaContent] = useState<string>('');
-  const [icebergContent, setIcebergContent] = useState<string>('');
-  const [componentsContent, setComponentsContent] = useState<string>('');
-  const [boundariesContent, setBoundariesContent] = useState<string>('');
-  const [scenariosContent, setScenariosContent] = useState<string>('');
-  
+
+  const [tabContents, setTabContents] = useState<Record<TabKey, string>>({
+    ioa: '',
+    iceberg: '',
+    components: '',
+    boundaries: '',
+    scenarios: '',
+  });
+
+  const tabConfigs = useMemo<TabConfig[]>(() => ([
+    {
+      key: 'ioa',
+      label: 'IoA',
+      description: 'Island of Agreement Content',
+      updateLabel: 'Update IoA',
+      sample: SAMPLE_DATA.ioa,
+      update: (value: unknown) => changeIoA(value as string) as { success: boolean; message: string },
+    },
+    {
+      key: 'iceberg',
+      label: 'Iceberg',
+      description: 'Iceberg Analysis Content',
+      updateLabel: 'Update Iceberg',
+      sample: () => {
+        if (currentCase?.analysis?.iceberg && currentCase.analysis.iceberg.trim()) {
+          return currentCase.analysis.iceberg;
+        }
+        return SAMPLE_DATA.iceberg;
+      },
+      update: (value: unknown) => changeIceberg(value as string) as { success: boolean; message: string },
+    },
+    {
+      key: 'components',
+      label: 'Components',
+      description: 'Components Content (Markdown Format)',
+      updateLabel: 'Update Components',
+      sample: SAMPLE_DATA.components,
+      update: (value: unknown) => changeComponents(value as string) as { success: boolean; message: string },
+    },
+    {
+      key: 'boundaries',
+      label: 'Boundaries',
+      description: 'Boundaries Content (JSON Format)',
+      updateLabel: 'Update Boundaries',
+      sample: () => JSON.stringify(SAMPLE_DATA.boundaries, null, 2),
+      parse: (value: string) => JSON.parse(value) as Component[],
+      update: (value: unknown) => changeBoundaries(value as Component[]) as { success: boolean; message: string },
+    },
+    {
+      key: 'scenarios',
+      label: 'Scenarios',
+      description: 'Scenarios Content (JSON Format)',
+      updateLabel: 'Update Scenarios',
+      sample: () => JSON.stringify(SAMPLE_DATA.scenarios, null, 2),
+      parse: (value: string) => JSON.parse(value) as Scenario[],
+      update: (value: unknown) => changeScenarios(value as Scenario[]) as { success: boolean; message: string },
+    },
+  ]), [currentCase?.analysis?.iceberg]);
+
+  const configByKey = useMemo(() => {
+    const map = {} as Record<TabKey, TabConfig>;
+    tabConfigs.forEach((config) => {
+      map[config.key] = config;
+    });
+    return map;
+  }, [tabConfigs]);
+
   // Update local state when Redux data changes
   useEffect(() => {
-    if (analysis) {
-      setIoaContent(analysis.ioa || '');
-      setIcebergContent(analysis.iceberg || '');
-      setComponentsContent(JSON.stringify(analysis.components, null, 2) || '');
-      setBoundariesContent(JSON.stringify(analysis.components, null, 2) || '');
-      setScenariosContent(JSON.stringify(currentCase?.scenarios || [], null, 2) || '');
+    if (!analysis) {
+      setTabContents({ ioa: '', iceberg: '', components: '', boundaries: '', scenarios: '' });
+      return;
     }
+
+    setTabContents({
+      ioa: analysis.ioa || '',
+      iceberg: analysis.iceberg || '',
+      components: JSON.stringify(analysis.components, null, 2) || '',
+      boundaries: JSON.stringify(analysis.components, null, 2) || '',
+      scenarios: JSON.stringify(currentCase?.scenarios || [], null, 2) || '',
+    });
   }, [analysis, currentCase?.scenarios]);
-  
-  /*
-  // Handler for keyboard shortcut
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Check for Command+I (Mac) or Control+I (Windows/Linux)
-      if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
-        e.preventDefault();
-        setOpen(prev => !prev);
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-  */
-  
+
   // Load example data based on current tab
   const loadExampleData = () => {
-    switch (tabValue) {
-      case 0: // IoA
-        setIoaContent(SAMPLE_DATA.ioa);
-        break;
-      case 1: // Iceberg
-        // Check if there's an existing format in the current case
-        if (currentCase?.analysis?.iceberg && currentCase.analysis.iceberg.trim()) {
-          // Use the existing format as a reference
-          setIcebergContent(currentCase.analysis.iceberg);
-          setNotification({ message: 'Loaded current iceberg format from case', type: 'success' });
-        } else {
-          // Use the sample data
-          setIcebergContent(SAMPLE_DATA.iceberg);
-          setNotification({ message: 'Loaded example iceberg data', type: 'success' });
-        }
-        break;
-      case 2: // Components
-        setComponentsContent(SAMPLE_DATA.components);
-        break;
-      case 3: // Boundaries
-        setBoundariesContent(JSON.stringify(SAMPLE_DATA.boundaries, null, 2));
-        break;
-      case 4: // Scenarios
-        setScenariosContent(JSON.stringify(SAMPLE_DATA.scenarios, null, 2));
-        break;
-      default:
-        break;
+    const config = tabConfigs[tabValue];
+    if (!config) {
+      return;
     }
-    if (tabValue !== 1) {
+
+    const example = typeof config.sample === 'function' ? config.sample() : config.sample;
+    setTabContents(prev => ({
+      ...prev,
+      [config.key]: example,
+    }));
+
+    if (config.key === 'iceberg' && currentCase?.analysis?.iceberg && currentCase.analysis.iceberg.trim()) {
+      setNotification({ message: 'Loaded current iceberg format from case', type: 'success' });
+    } else {
       setNotification({ message: 'Example data loaded', type: 'success' });
     }
   };
-  
+
   // Handlers for tab changes
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
-  
+
   // Close notification
   const handleCloseNotification = () => {
     setNotification(null);
   };
-  
-  // Handlers for content updates
-  const handleUpdateIoA = async () => {
+
+  const handleUpdate = (key: TabKey) => {
+    const config = configByKey[key];
+    if (!config) {
+      return;
+    }
+
     try {
-      const result = await changeIoA(ioaContent) as any;
+      const value = tabContents[key];
+      const payload = config.parse ? config.parse(value) : value;
+      const result = config.update(payload);
+
+      if ('rateLimited' in result) {
+        setNotification({ message: 'Request was rate limited. Please try again later.', type: 'error' });
+        return;
+      }
+
       if (result.success) {
-        setNotification({ message: 'IoA updated successfully', type: 'success' });
+        setNotification({ message: result.message, type: 'success' });
       } else {
         setNotification({ message: result.message, type: 'error' });
       }
     } catch (error) {
-      setNotification({ 
-        message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 
-        type: 'error' 
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      const prefix = key === 'boundaries' || key === 'scenarios' ? 'JSON parsing error' : 'Error';
+      setNotification({
+        message: `${prefix}: ${message}`,
+        type: 'error'
       });
     }
   };
-  
-  const handleUpdateIceberg = async () => {
-    try {
-      const result = await changeIceberg(icebergContent) as any;
-      if (result.success) {
-        setNotification({ message: 'Iceberg updated successfully', type: 'success' });
-      } else {
-        setNotification({ message: result.message, type: 'error' });
-      }
-    } catch (error) {
-      setNotification({ 
-        message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 
-        type: 'error' 
-      });
+
+  const handleValidateIceberg = () => {
+    const validationMessage = validateIcebergContent(tabContents.iceberg);
+    if (validationMessage) {
+      setNotification({ message: validationMessage, type: 'error' });
+    } else {
+      setNotification({ message: 'Iceberg format is valid', type: 'success' });
     }
   };
-  
-  const handleUpdateComponents = async () => {
-    try {
-      const result = await changeComponents(componentsContent) as any;
-      if (result.success) {
-        setNotification({ message: 'Components updated successfully', type: 'success' });
-      } else {
-        setNotification({ message: result.message, type: 'error' });
-      }
-    } catch (error) {
-      setNotification({ 
-        message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 
-        type: 'error' 
-      });
-    }
-  };
-  
-  const handleUpdateBoundaries = async () => {
-    try {
-      // Parse the JSON string to get the components array
-      const boundaries = JSON.parse(boundariesContent) as Component[];
-      const result = await changeBoundaries(boundaries) as any;
-      if (result.success) {
-        setNotification({ message: 'Boundaries updated successfully', type: 'success' });
-      } else {
-        setNotification({ message: result.message, type: 'error' });
-      }
-    } catch (error) {
-      setNotification({ 
-        message: `Error: ${error instanceof Error ? error.message : 'JSON parsing error or unknown error'}`, 
-        type: 'error' 
-      });
-    }
-  };
-  
-  const handleUpdateScenarios = async () => {
-    try {
-      // Parse the JSON string to get the scenarios array
-      const scenarios = JSON.parse(scenariosContent) as Scenario[];
-      const result = await changeScenarios(scenarios) as any;
-      if (result.success) {
-        setNotification({ message: 'Scenarios updated successfully', type: 'success' });
-      } else {
-        setNotification({ message: result.message, type: 'error' });
-      }
-    } catch (error) {
-      setNotification({ 
-        message: `Error: ${error instanceof Error ? error.message : 'JSON parsing error or unknown error'}`, 
-        type: 'error' 
-      });
-    }
-  };
-  
+
   // Toggle the debug window
   const toggleDebugWindow = () => {
     setOpen(prev => !prev);
   };
-  
+
   return (
     <>
       {/* Floating button in the bottom-right corner */}
-      {/*
-      <Box 
-        sx={{ 
-          position: 'fixed', 
-          bottom: 20, 
-          right: 20, 
-          zIndex: 9999 
+      <Box
+        sx={{
+          position: 'fixed',
+          bottom: 20,
+          right: 20,
+          zIndex: 9999
         }}
       >
-        <Paper 
-          elevation={3} 
-          sx={{ 
-            borderRadius: '50%', 
-            width: 48, 
-            height: 48, 
-            display: 'flex', 
-            justifyContent: 'center', 
+        <Paper
+          elevation={3}
+          sx={{
+            borderRadius: '50%',
+            width: 48,
+            height: 48,
+            display: 'flex',
+            justifyContent: 'center',
             alignItems: 'center',
             cursor: 'pointer'
           }}
@@ -380,16 +379,15 @@ const DebugWindow: React.FC = () => {
           <CodeIcon />
         </Paper>
       </Box>
-      */}
-    
+
       {/* Debug Dialog */}
-      <Dialog 
-        open={open} 
-        onClose={() => setOpen(false)} 
-        maxWidth="md" 
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        maxWidth="md"
         fullWidth
         PaperProps={{
-          sx: { 
+          sx: {
             minHeight: '80vh',
             maxHeight: '80vh',
             position: 'fixed',
@@ -413,17 +411,15 @@ const DebugWindow: React.FC = () => {
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        
+
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs value={tabValue} onChange={handleTabChange}>
-            <Tab label="IoA" />
-            <Tab label="Iceberg" />
-            <Tab label="Components" />
-            <Tab label="Boundaries" />
-            <Tab label="Scenarios" />
+            {tabConfigs.map((config) => (
+              <Tab key={config.key} label={config.label} />
+            ))}
           </Tabs>
         </Box>
-        
+
         <DialogContent sx={{ height: '100%' }}>
           {/* Load Example Data Button */}
           <Box sx={{ position: 'absolute', top: 16, right: 60, zIndex: 10 }}>
@@ -437,200 +433,60 @@ const DebugWindow: React.FC = () => {
               Load Example
             </Button>
           </Box>
-        
-          {/* IoA Tab */}
-          <TabPanel value={tabValue} index={0}>
-            <Typography variant="subtitle2" gutterBottom>
-              Island of Agreement Content
-            </Typography>
-            <TextField
-              multiline
-              rows={15}
-              fullWidth
-              variant="outlined"
-              value={ioaContent}
-              onChange={(e) => setIoaContent(e.target.value)}
-              sx={{ fontFamily: 'monospace' }}
-            />
-            <Box sx={{ mt: 2 }}>
-              <Button 
-                variant="contained" 
-                color="primary" 
-                onClick={handleUpdateIoA}
-              >
-                Update IoA
-              </Button>
-            </Box>
-          </TabPanel>
-          
-          {/* Iceberg Tab */}
-          <TabPanel value={tabValue} index={1}>
-            <Typography variant="subtitle2" gutterBottom>
-              Iceberg Analysis Content
-            </Typography>
-            <TextField
-              multiline
-              rows={15}
-              fullWidth
-              variant="outlined"
-              value={icebergContent}
-              onChange={(e) => setIcebergContent(e.target.value)}
-              sx={{ fontFamily: 'monospace' }}
-            />
-            <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-              <Button 
-                variant="contained" 
-                color="primary" 
-                onClick={handleUpdateIceberg}
-              >
-                Update Iceberg
-              </Button>
-              <Button
+
+          {tabConfigs.map((config, index) => (
+            <TabPanel key={config.key} value={tabValue} index={index}>
+              <Typography variant="subtitle2" gutterBottom>
+                {config.description}
+              </Typography>
+              <TextField
+                multiline
+                rows={15}
+                fullWidth
                 variant="outlined"
-                color="secondary"
-                onClick={() => {
-                  try {
-                    // Check for Party 1 and Party 2 in various formats (plain text or markdown headers)
-                    const party1Pattern = /(?:^|\n)(?:## )?(?:Party 1|.*Organization|.*User.*|.*Your.*|.*We.*)/;
-                    const party2Pattern = /(?:^|\n)(?:## )?(?:Party 2|.*Counter.*|.*They.*|.*Them.*)/;
-                    
-                    // Check if the content has required sections in various formats
-                    const positionPatterns = [/Position(?:s)?/, /What/];
-                    const reasoningPatterns = [/Reasoning/, /How/];
-                    const valuesPatterns = [/Value(?:s)?/, /Motive(?:s)?/, /Why/];
-                    
-                    const hasParty1 = party1Pattern.test(icebergContent);
-                    const hasParty2 = party2Pattern.test(icebergContent);
-                    const hasPositions = positionPatterns.some(pattern => pattern.test(icebergContent));
-                    const hasReasoning = reasoningPatterns.some(pattern => pattern.test(icebergContent));
-                    const hasValues = valuesPatterns.some(pattern => pattern.test(icebergContent));
-                    const hasBulletPoints = icebergContent.includes('- ');
-                    
-                    const missingSections = [];
-                    if (!hasPositions) missingSections.push('Positions/What');
-                    if (!hasReasoning) missingSections.push('Reasoning/How');
-                    if (!hasValues) missingSections.push('Values/Motives/Why');
-                    
-                    let message = '';
-                    
-                    if (!hasParty1 || !hasParty2) {
-                      message += 'Content must include sections for Party 1 and Party 2. ';
-                    }
-                    
-                    if (missingSections.length > 0) {
-                      message += `Missing required sections: ${missingSections.join(', ')}`;
-                    }
-                    
-                    if (!hasBulletPoints) {
-                      message += (message ? ' ' : '') + 'Content must include bullet points (- ) for entries.';
-                    }
-                    
-                    if (message) {
-                      setNotification({ message, type: 'error' });
-                    } else {
-                      setNotification({ message: 'Iceberg format is valid', type: 'success' });
-                    }
-                  } catch (error) {
-                    setNotification({ 
-                      message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 
-                      type: 'error' 
-                    });
-                  }
-                }}
-              >
-                Validate Format
-              </Button>
-            </Box>
-          </TabPanel>
-          
-          {/* Components Tab */}
-          <TabPanel value={tabValue} index={2}>
-            <Typography variant="subtitle2" gutterBottom>
-              Components Content (Markdown Format)
-            </Typography>
-            <TextField
-              multiline
-              rows={15}
-              fullWidth
-              variant="outlined"
-              value={componentsContent}
-              onChange={(e) => setComponentsContent(e.target.value)}
-              sx={{ fontFamily: 'monospace' }}
-              placeholder="## Component 1&#10;&#10;Description for component 1&#10;&#10;## Component 2&#10;&#10;Description for component 2"
-            />
-            <Box sx={{ mt: 2 }}>
-              <Button 
-                variant="contained" 
-                color="primary" 
-                onClick={handleUpdateComponents}
-              >
-                Update Components
-              </Button>
-            </Box>
-          </TabPanel>
-          
-          {/* Boundaries Tab */}
-          <TabPanel value={tabValue} index={3}>
-            <Typography variant="subtitle2" gutterBottom>
-              Boundaries Content (JSON Format)
-            </Typography>
-            <TextField
-              multiline
-              rows={15}
-              fullWidth
-              variant="outlined"
-              value={boundariesContent}
-              onChange={(e) => setBoundariesContent(e.target.value)}
-              sx={{ fontFamily: 'monospace' }}
-            />
-            <Box sx={{ mt: 2 }}>
-              <Button 
-                variant="contained" 
-                color="primary" 
-                onClick={handleUpdateBoundaries}
-              >
-                Update Boundaries
-              </Button>
-            </Box>
-          </TabPanel>
-          
-          {/* Scenarios Tab */}
-          <TabPanel value={tabValue} index={4}>
-            <Typography variant="subtitle2" gutterBottom>
-              Scenarios Content (JSON Format)
-            </Typography>
-            <TextField
-              multiline
-              rows={15}
-              fullWidth
-              variant="outlined"
-              value={scenariosContent}
-              onChange={(e) => setScenariosContent(e.target.value)}
-              sx={{ fontFamily: 'monospace' }}
-            />
-            <Box sx={{ mt: 2 }}>
-              <Button 
-                variant="contained" 
-                color="primary" 
-                onClick={handleUpdateScenarios}
-              >
-                Update Scenarios
-              </Button>
-            </Box>
-          </TabPanel>
+                value={tabContents[config.key]}
+                onChange={(e) => setTabContents(prev => ({
+                  ...prev,
+                  [config.key]: e.target.value,
+                }))}
+                sx={{ fontFamily: 'monospace' }}
+                placeholder={config.key === 'components'
+                  ? '## Component 1\n\nDescription for component 1\n\n## Component 2\n\nDescription for component 2'
+                  : undefined}
+              />
+              <Box sx={{ mt: 2, display: 'flex', gap: config.key === 'iceberg' ? 2 : 0 }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => handleUpdate(config.key)}
+                >
+                  {config.updateLabel}
+                </Button>
+                {config.key === 'iceberg' && (
+                  <Button
+                    variant="outlined"
+                    color="secondary"
+                    onClick={handleValidateIceberg}
+                  >
+                    Validate Format
+                  </Button>
+                )}
+              </Box>
+            </TabPanel>
+          ))}
         </DialogContent>
       </Dialog>
-      
+
       {/* Notification */}
-      <Snackbar 
-        open={!!notification} 
-        autoHideDuration={6000} 
+      <Snackbar
+        open={!!notification}
+        autoHideDuration={6000}
         onClose={handleCloseNotification}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert 
-          onClose={handleCloseNotification} 
-          severity={notification?.type || 'info'} 
+        <Alert
+          onClose={handleCloseNotification}
+          severity={notification?.type || 'info'}
           sx={{ width: '100%' }}
         >
           {notification?.message || ''}
@@ -640,4 +496,4 @@ const DebugWindow: React.FC = () => {
   );
 };
 
-export default DebugWindow; 
+export default DebugWindow;

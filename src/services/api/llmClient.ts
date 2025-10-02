@@ -440,12 +440,16 @@ export const callGemini = async (
     const geminiMessages = convertToGeminiMessages(messages);
 
     // Configure generation settings
-    const generationConfig = {
+    const wantsJson = responseFormat?.type === 'json_object';
+
+    const generationConfig: Record<string, unknown> = {
       temperature: temperature ?? TEMPERATURE,
       maxOutputTokens: MAX_OUTPUT_TOKENS, // Limit response length
-      // Note: Gemini's responseMimeType might cause issues with empty responses
-      // We'll rely on prompt instructions for JSON formatting instead
     };
+
+    if (wantsJson) {
+      generationConfig.responseMimeType = 'application/json';
+    }
     
     console.log('🔧 Generation config:', generationConfig);
     console.log('🔧 Response format requested:', responseFormat);

@@ -1,5 +1,5 @@
 // Test the JSON fixing logic directly
-import { fixJsonWithStateMachine, fixJsonWithRegex } from '../jsonFixer';
+import { fixJsonWithStateMachine, fixJsonWithRegex, fixMalformedJson } from '../jsonFixer';
 
 // Wrapper to match the test interface
 function fixMalformedJSON(text: string): string {
@@ -126,6 +126,17 @@ Second line	Indented`);
       const input = '{"empty": ""}';
       const fixed = fixMalformedJSON(input);
       expect(() => JSON.parse(fixed)).not.toThrow();
+    });
+
+    it('should repair trailing commas via jsonrepair fallback', () => {
+      const input = '{"reasons": ["To provide aid", "To maintain influence",], "notes": "Requires coordination"}';
+      const result = fixMalformedJson(input);
+      expect(result.fixed).toBe(true);
+      expect(() => JSON.parse(result.content)).not.toThrow();
+      const parsed = JSON.parse(result.content);
+      expect(Array.isArray(parsed.reasons)).toBe(true);
+      expect(parsed.reasons.length).toBe(2);
+      expect(parsed.notes).toBe('Requires coordination');
     });
   });
 });

@@ -3,6 +3,7 @@ const STORAGE_KEYS = {
   CHAT_HISTORY: 'a2b_chat_history',
   INTERFACE_STATE: 'a2b_interface_state',
   SESSION_ID: 'a2b_session_id',
+  CURRENT_CASE: 'a2b_current_case',
 };
 
 // Type definitions for stored data
@@ -96,6 +97,47 @@ export const saveSessionId = (sessionId: string): void => {
  */
 export const getStoredSessionId = (): string | null => {
   return localStorage.getItem(STORAGE_KEYS.SESSION_ID);
+};
+
+/**
+ * Saves the current case snapshot to local storage
+ */
+export const saveCurrentCase = (currentCase: unknown | null): void => {
+  try {
+    if (currentCase) {
+      localStorage.setItem(STORAGE_KEYS.CURRENT_CASE, JSON.stringify(currentCase));
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_CASE);
+    }
+  } catch (error) {
+    console.error('Error saving current case to localStorage:', error);
+  }
+};
+
+/**
+ * Retrieves the current case snapshot from local storage
+ */
+export const getCurrentCase = <T>(): T | null => {
+  const stored = localStorage.getItem(STORAGE_KEYS.CURRENT_CASE);
+  if (!stored) return null;
+
+  try {
+    return JSON.parse(stored) as T;
+  } catch (error) {
+    console.error('Error parsing current case from localStorage:', error);
+    return null;
+  }
+};
+
+/**
+ * Clears the persisted current case from local storage
+ */
+export const clearCurrentCase = (): void => {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_CASE);
+  } catch (error) {
+    console.error('Error clearing current case from localStorage:', error);
+  }
 };
 
 /**

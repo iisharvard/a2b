@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, ReactNode } from 'react';
-import { Box, Typography, Paper, Tooltip, Collapse, TextField, IconButton, CircularProgress } from '@mui/material';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Box, Typography, Paper, Tooltip, TextField, IconButton, CircularProgress } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -43,6 +43,390 @@ const getColorForType = (type: string) => {
   }
 };
 
+const useScenarioSpectrumData = (
+  scenarios: Scenario[],
+  loadedScenarios?: string[]
+) => {
+  return useMemo(() => {
+    const validScenarios = scenarios.filter(scenario => (
+      scenario.type !== undefined &&
+      scenario.description?.trim() !== '' &&
+      !scenario.description?.includes('placeholder')
+    ));
+
+    const areScenariosLoading = Boolean(
+      loadedScenarios &&
+      scenarios.length > 0 &&
+      scenarios.some(s => !loadedScenarios.includes(s.id))
+    );
+
+    const displayedScenarios = validScenarios.slice(0, 5);
+    const hasNoScenarios = displayedScenarios.length === 0 && !areScenariosLoading;
+
+    return {
+      validScenarios,
+      displayedScenarios,
+      areScenariosLoading,
+      hasNoScenarios
+    };
+  }, [loadedScenarios, scenarios]);
+};
+
+type ScenarioPositions = {[key: string]: { x: number; y: number }};
+
+interface SpectrumChartOptions {
+  scenarios: Scenario[];
+  selectedScenarioId?: string;
+  party1Name: string;
+  party2Name: string;
+  svgRef: React.RefObject<SVGSVGElement>;
+  setHoveredScenario: (id: string | null) => void;
+  scenarioPositions: ScenarioPositions;
+  setScenarioPositions: React.Dispatch<React.SetStateAction<ScenarioPositions>>;
+  onSelectScenario: (scenario: Scenario) => void;
+}
+
+const useScenarioSpectrumChart = ({
+  scenarios,
+  selectedScenarioId,
+  party1Name,
+  party2Name,
+  svgRef,
+  setHoveredScenario,
+  scenarioPositions,
+  setScenarioPositions,
+  onSelectScenario
+}: SpectrumChartOptions) => {
+  useEffect(() => {
+    if (!svgRef.current || scenarios.length === 0) return;
+
+    const width = svgRef.current.clientWidth;
+    const height = 120;
+    const margin = { top: 20, right: 20, bottom: 30, left: 20 };
+
+    d3.select(svgRef.current).selectAll("*").remove();
+
+    const svg = d3.select(svgRef.current)
+      .attr("width", width)
+      .attr("height", height);
+
+    const scenarioCount = 5;
+    const xScale = d3.scaleLinear()
+      .domain([0, scenarioCount - 1])
+      .range([width - margin.right, margin.left]);
+
+    svg.append("text")
+      .attr("x", margin.left)
+      .attr("y", 15)
+      .attr("text-anchor", "start")
+      .attr("fill", "#666")
+      .attr("font-size", "12px")
+      .text(`Increasing risk for ${party2Name} →`);
+
+    const spectrumGroup = svg.append("g")
+      .attr("transform", `translate(0, ${height / 2})`);
+
+    const zopaWidth = (xScale(1) - xScale(3));
+    spectrumGroup.append("rect")
+      .attr("x", xScale(3))
+      .attr("y", -15)
+      .attr("width", zopaWidth)
+      .attr("height", 30)
+      .attr("fill", "rgba(0, 255, 0, 0.1)")
+      .attr("rx", 15);
+
+    svg.append("text")
+      .attr("x", xScale(2))
+      .attr("y", 35)
+      .attr("text-anchor", "middle")
+      .attr("fill", "#666")
+      .attr("font-size", "10px")
+      .text("Zone of Possible Agreement");
+
+    spectrumGroup.append("line")
+      .attr("x1", margin.left)
+      .attr("x2", width - margin.right)
+      .attr("y1", 0)
+      .attr("y2", 0)
+      .attr("stroke", "#ccc")
+      .attr("stroke-width", 2);
+
+    const displayScenarios = scenarios.slice(0, 5).map((scenario, index) => ({
+      ...scenario,
+      displayNumber: index + 1
+    }));
+
+    while (displayScenarios.length < 5) {
+      displayScenarios.push({
+        id: `placeholder-${displayScenarios.length}`,
+        componentId: '',
+        type: 'agreement_area',
+        displayNumber: displayScenarios.length + 1,
+        description: ''
+      } as Scenario & { displayNumber: number });
+    }
+
+    const reversedScenarios = [...displayScenarios].reverse();
+
+    spectrumGroup.selectAll("circle")
+      .data(reversedScenarios)
+      .enter()
+      .append("circle")
+      .attr("cx", (_d, i) => xScale(i))
+      .attr("cy", 0)
+      .attr("r", d => d.id === selectedScenarioId ? 8 : 6)
+      .attr("fill", d => {
+        if (d.id.startsWith('placeholder')) {
+          return '#cccccc40';
+        }
+
+        const color = d.type.includes('redline') ? '#ff4444' :
+          d.type.includes('bottomline') ? '#ffaa00' :
+            '#44aa44';
+        return d.id === selectedScenarioId ? color : `${color}80`;
+      })
+      .attr("class", "scenario-dot")
+      .style("cursor", d => d.id.startsWith('placeholder') ? 'default' : "pointer")
+      .style("transition", "all 0.3s ease")
+      .style("filter", d => {
+        if (d.id === selectedScenarioId) {
+          const color = d.type.includes('redline') ? '#ff4444' :
+            d.type.includes('bottomline') ? '#ffaa00' :
+              '#44aa44';
+          return `drop-shadow(0 0 4px ${color}) drop-shadow(0 0 6px ${color})`;
+        }
+        return "none";
+      })
+      .on("click", (_event, d) => {
+        if (!d.id.startsWith('placeholder')) {
+          onSelectScenario(d);
+        }
+      })
+      .on("mouseover", (_event, d) => {
+        if (!d.id.startsWith('placeholder')) {
+          setHoveredScenario(d.id);
+        }
+      })
+      .on("mouseout", () => setHoveredScenario(null));
+
+    spectrumGroup.selectAll("text.scenario-number")
+      .data(reversedScenarios)
+      .enter()
+      .append("text")
+      .attr("class", "scenario-number")
+      .attr("x", (_d, i) => xScale(i))
+      .attr("y", -20)
+      .attr("text-anchor", "middle")
+      .attr("fill", d => d.id.startsWith('placeholder') ? '#ccc' : "#666")
+      .attr("font-size", "12px")
+      .text((_d, i) => 5 - i);
+
+    svg.append("text")
+      .attr("x", margin.left)
+      .attr("y", height - 5)
+      .attr("text-anchor", "start")
+      .attr("fill", "#666")
+      .attr("font-size", "12px")
+      .text(party1Name);
+
+    svg.append("text")
+      .attr("x", width - margin.right)
+      .attr("y", height - 5)
+      .attr("text-anchor", "end")
+      .attr("fill", "#666")
+      .attr("font-size", "12px")
+      .text(party2Name);
+
+    const positions: ScenarioPositions = {};
+
+    displayScenarios.forEach((scenario, i) => {
+      if (!scenario.id.startsWith('placeholder')) {
+        positions[scenario.id] = {
+          x: xScale(4 - i) + margin.left,
+          y: 30 + margin.top
+        };
+      }
+    });
+
+    let positionsChanged = false;
+    if (Object.keys(positions).length !== Object.keys(scenarioPositions).length) {
+      positionsChanged = true;
+    } else {
+      for (const id in positions) {
+        if (!scenarioPositions[id] ||
+          positions[id].x !== scenarioPositions[id].x ||
+          positions[id].y !== scenarioPositions[id].y) {
+          positionsChanged = true;
+          break;
+        }
+      }
+    }
+
+    if (positionsChanged) {
+      setScenarioPositions(() => positions);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onSelectScenario, party1Name, party2Name, scenarios, selectedScenarioId]);
+};
+
+interface ScenarioCardProps {
+  scenario: Scenario;
+  isSelected: boolean;
+  isEditing: boolean;
+  editedDescription: string;
+  scenarioColor: string;
+  scenarioLabel: string;
+  isLoaded: boolean;
+  allowEditing: boolean;
+  onSelect: (scenario: Scenario) => void;
+  onEdit: (scenario: Scenario) => void;
+  onSave: (scenario: Scenario) => void;
+  onCancel: () => void;
+  onDescriptionChange: (value: string) => void;
+}
+
+const ScenarioCard = ({
+  scenario,
+  isSelected,
+  isEditing,
+  editedDescription,
+  scenarioColor,
+  scenarioLabel,
+  isLoaded,
+  allowEditing,
+  onSelect,
+  onEdit,
+  onSave,
+  onCancel,
+  onDescriptionChange
+}: ScenarioCardProps) => (
+  <Box>
+    <Tooltip title={isSelected ? "Click to deselect" : "Click to select"} placement="top">
+      <div>
+        <Paper
+          elevation={isSelected ? 4 : 1}
+          onClick={() => isLoaded && onSelect(scenario)}
+          sx={{
+            p: 3,
+            borderRadius: 2,
+            borderLeft: `6px solid ${scenarioColor}`,
+            opacity: isLoaded ? 1 : 0.7,
+            transition: 'all 0.3s ease',
+            cursor: isLoaded ? 'pointer' : 'default',
+            position: 'relative',
+            '&:hover': {
+              boxShadow: isLoaded ? 3 : 1,
+              bgcolor: isLoaded ? 'rgba(0, 0, 0, 0.02)' : 'inherit',
+            },
+            ...(isSelected && {
+              bgcolor: `${scenarioColor}10`,
+              borderColor: scenarioColor,
+              boxShadow: `0 0 8px ${scenarioColor}80`,
+            }),
+          }}
+        >
+          {!isLoaded && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundColor: 'rgba(255, 255, 255, 0.5)',
+                zIndex: 1,
+                borderRadius: 2
+              }}
+            >
+              <CircularProgress size={20} thickness={4} />
+            </Box>
+          )}
+
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+            <Typography
+              variant="subtitle1"
+              sx={{
+                fontWeight: 'bold',
+                color: isSelected ? scenarioColor : 'text.primary',
+                mb: 1
+              }}
+            >
+              {scenarioLabel}
+            </Typography>
+
+            {allowEditing && isLoaded && (
+              <Box>
+                {isEditing ? (
+                  <>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSave(scenario);
+                      }}
+                      sx={{ mr: 0.5 }}
+                    >
+                      <SaveIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCancel();
+                      }}
+                    >
+                      <CancelIcon fontSize="small" />
+                    </IconButton>
+                  </>
+                ) : (
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(scenario);
+                    }}
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                )}
+              </Box>
+            )}
+          </Box>
+
+          {isEditing ? (
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              value={editedDescription}
+              onChange={(e) => onDescriptionChange(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              variant="outlined"
+              size="small"
+              sx={{ mb: 1 }}
+            />
+          ) : (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                mb: 1,
+                lineHeight: 1.6,
+                fontSize: '0.9rem'
+              }}
+            >
+              {scenario.description}
+            </Typography>
+          )}
+        </Paper>
+      </div>
+    </Tooltip>
+  </Box>
+);
+
 const ScenarioSpectrum = ({ 
   scenarios, 
   onSelectScenario, 
@@ -54,39 +438,24 @@ const ScenarioSpectrum = ({
 }: ScenarioSpectrumProps) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [scenarioPositions, setScenarioPositions] = useState<{[key: string]: {x: number, y: number}}>({}); 
-  const [hoveredScenario, setHoveredScenario] = useState<string | null>(null);
+  const [scenarioPositions, setScenarioPositions] = useState<ScenarioPositions>({});
+  const [, setHoveredScenario] = useState<string | null>(null);
   const [editingScenario, setEditingScenario] = useState<string | null>(null);
   const [editedDescription, setEditedDescription] = useState<string>('');
-  
-  // Filter out invalid scenarios
-  const validScenarios = scenarios.filter(scenario => {
-    return (
-      scenario.type !== undefined && 
-      scenario.description?.trim() !== '' &&
-      // Filter out placeholder scenarios (if any)
-      !scenario.description?.includes('placeholder')
-    );
-  });
 
-  // Track if scenarios are currently loading
-  const areScenariosLoading = loadedScenarios && 
-    scenarios.length > 0 && 
-    scenarios.some(s => !loadedScenarios.includes(s.id));
+  const {
+    displayedScenarios,
+    areScenariosLoading,
+    hasNoScenarios
+  } = useScenarioSpectrumData(scenarios, loadedScenarios);
 
-  // Ensure we have exactly 5 scenarios maximum
-  const displayedScenarios = validScenarios.slice(0, 5);
+  const scenarioTypeNames = useMemo(
+    () => getScenarioTypeNames(party1Name, party2Name),
+    [party1Name, party2Name]
+  );
 
-  // Check if we have no scenarios to display
-  const hasNoScenarios = displayedScenarios.length === 0 && !areScenariosLoading;
-
-  // Get scenario type names with current party names
-  const scenarioTypeNames = getScenarioTypeNames(party1Name, party2Name);
-
-  // Get scenario name based on type
-  const getScenarioName = (type: string, index: number) => {
-    return `Scenario ${index + 1}: ${scenarioTypeNames[type as keyof typeof scenarioTypeNames] || type}`;
-  };
+  const getScenarioName = (type: string, index: number) =>
+    `Scenario ${index + 1}: ${scenarioTypeNames[type as keyof typeof scenarioTypeNames] || type}`;
 
   // Handle edit button click
   const handleEditClick = (scenario: Scenario) => {
@@ -112,202 +481,24 @@ const ScenarioSpectrum = ({
     setEditedDescription('');
   };
 
-  useEffect(() => {
-    if (!svgRef.current || scenarios.length === 0) return;
-    
-    const width = svgRef.current.clientWidth;
-    const height = 120;
-    const margin = { top: 20, right: 20, bottom: 30, left: 20 };
+  const handleSelectFromChart = useCallback((scenario: Scenario) => {
+    onSelectScenario(scenario);
+  }, [onSelectScenario]);
 
-    // Clear existing content
-    d3.select(svgRef.current).selectAll("*").remove();
+  useScenarioSpectrumChart({
+    scenarios,
+    selectedScenarioId,
+    party1Name,
+    party2Name,
+    svgRef,
+    setHoveredScenario,
+    scenarioPositions,
+    setScenarioPositions,
+    onSelectScenario: handleSelectFromChart
+  });
 
-    const svg = d3.select(svgRef.current)
-      .attr("width", width)
-      .attr("height", height);
+  const allowEditing = Boolean(onUpdateScenario);
 
-    // Always show 5 fixed positions for the spectrum
-    const scenarioCount = 5;
-    
-    // Create scale - reversed order again
-    const xScale = d3.scaleLinear()
-      .domain([0, scenarioCount - 1])
-      .range([width - margin.right, margin.left]);
-
-    // Add risk label - moved higher and aligned left with arrow
-    svg.append("text")
-      .attr("x", margin.left)
-      .attr("y", 15)
-      .attr("text-anchor", "start")
-      .attr("fill", "#666")
-      .attr("font-size", "12px")
-      .text(`Increasing risk for ${party2Name} →`);  // Added arrow
-
-    // Create the spectrum line group
-    const spectrumGroup = svg.append("g")
-      .attr("transform", `translate(0, ${height/2})`);
-
-    // Add "Zone of Possible Agreement" background
-    const zopaWidth = (xScale(1) - xScale(3)); // Positions 2,3,4 in reversed order
-    spectrumGroup.append("rect")
-      .attr("x", xScale(3))
-      .attr("y", -15)
-      .attr("width", zopaWidth)
-      .attr("height", 30)
-      .attr("fill", "rgba(0, 255, 0, 0.1)")
-      .attr("rx", 15);
-
-    // Add ZOPA label
-    svg.append("text")
-      .attr("x", xScale(2))
-      .attr("y", 35)
-      .attr("text-anchor", "middle")
-      .attr("fill", "#666")
-      .attr("font-size", "10px")
-      .text("Zone of Possible Agreement");
-
-    // Add horizontal line
-    spectrumGroup.append("line")
-      .attr("x1", margin.left)
-      .attr("x2", width - margin.right)
-      .attr("y1", 0)
-      .attr("y2", 0)
-      .attr("stroke", "#ccc")
-      .attr("stroke-width", 2);
-
-    // Ensure we handle up to 5 scenarios consistently
-    const displayScenarios = scenarios.slice(0, 5).map((scenario, index) => ({
-      ...scenario,
-      displayNumber: index + 1
-    }));
-    
-    // Fill with empty scenarios if we have less than 5
-    while (displayScenarios.length < 5) {
-      displayScenarios.push({
-        id: `placeholder-${displayScenarios.length}`,
-        componentId: '',
-        type: 'agreement_area',
-        displayNumber: displayScenarios.length + 1,
-        description: ''
-      });
-    }
-    
-    // Reverse order for display
-    const reversedScenarios = [...displayScenarios].reverse();
-
-    // Add dots for each scenario
-    spectrumGroup.selectAll("circle")
-      .data(reversedScenarios)
-      .enter()
-      .append("circle")
-      .attr("cx", (d, i) => xScale(i))
-      .attr("cy", 0)
-      .attr("r", d => d.id === selectedScenarioId ? 8 : 6)
-      .attr("fill", d => {
-        // Skip placeholder scenarios
-        if (d.id.startsWith('placeholder')) {
-          return '#cccccc40';
-        }
-        
-        const color = d.type.includes('redline') ? '#ff4444' : 
-                     d.type.includes('bottomline') ? '#ffaa00' : 
-                     '#44aa44';
-        return d.id === selectedScenarioId ? color : `${color}80`;
-      })
-      .attr("class", "scenario-dot")
-      .style("cursor", d => d.id.startsWith('placeholder') ? 'default' : "pointer")
-      .style("transition", "all 0.3s ease")
-      .style("filter", d => {
-        if (d.id === selectedScenarioId) {
-          const color = d.type.includes('redline') ? '#ff4444' : 
-                       d.type.includes('bottomline') ? '#ffaa00' : 
-                       '#44aa44';
-          return `drop-shadow(0 0 4px ${color}) drop-shadow(0 0 6px ${color})`;
-        }
-        return "none";
-      })
-      .on("click", (event, d) => {
-        if (!d.id.startsWith('placeholder')) {
-          onSelectScenario(d);
-        }
-      })
-      .on("mouseover", (event, d) => {
-        if (!d.id.startsWith('placeholder')) {
-          setHoveredScenario(d.id);
-        }
-      })
-      .on("mouseout", () => setHoveredScenario(null));
-
-    // Add scenario numbers
-    spectrumGroup.selectAll("text.scenario-number")
-      .data(reversedScenarios)
-      .enter()
-      .append("text")
-      .attr("class", "scenario-number")
-      .attr("x", (d, i) => xScale(i))
-      .attr("y", -20)
-      .attr("text-anchor", "middle")
-      .attr("fill", d => d.id.startsWith('placeholder') ? '#ccc' : "#666")
-      .attr("font-size", "12px")
-      .text((d, i) => 5 - i);  // Display 5,4,3,2,1
-
-    // Add labels - party1 on left, party2 on right
-    svg.append("text")
-      .attr("x", margin.left)
-      .attr("y", height - 5)
-      .attr("text-anchor", "start")
-      .attr("fill", "#666")
-      .attr("font-size", "12px")
-      .text(party1Name);  // Changed to party1Name
-
-    svg.append("text")
-      .attr("x", width - margin.right)
-      .attr("y", height - 5)
-      .attr("text-anchor", "end")
-      .attr("fill", "#666")
-      .attr("font-size", "12px")
-      .text(party2Name);  // Changed to party2Name
-
-    // Calculate scenario positions but only update state if they've changed
-    const positions: {[key: string]: {x: number, y: number}} = {};
-    
-    // Use displayScenarios.slice() to avoid modifying the original array
-    displayScenarios.forEach((scenario, i) => {
-      if (!scenario.id.startsWith('placeholder')) {
-        positions[scenario.id] = {
-          x: xScale(4 - i) + margin.left, // Reversed order: 4-i gives 4,3,2,1,0
-          y: 30 + margin.top
-        };
-      }
-    });
-    
-    // Compare with existing positions to avoid unnecessary state updates
-    let positionsChanged = false;
-    
-    // Check if any positions are different or if we have a different number of scenarios
-    if (Object.keys(positions).length !== Object.keys(scenarioPositions).length) {
-      positionsChanged = true;
-    } else {
-      for (const id in positions) {
-        if (!scenarioPositions[id] || 
-            positions[id].x !== scenarioPositions[id].x ||
-            positions[id].y !== scenarioPositions[id].y) {
-          positionsChanged = true;
-          break;
-        }
-      }
-    }
-    
-    // Only update state if positions have changed
-    if (positionsChanged) {
-      // Use a function form of setState to avoid including scenarioPositions in dependencies
-      setScenarioPositions(() => positions);
-    }
-    
-  // Remove scenarioPositions from dependencies to prevent infinite loop
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scenarios, selectedScenarioId, party1Name, party2Name]);
-  
   return (
     <Box ref={containerRef} sx={{ position: 'relative' }}>
       {/* Loading indicator */}
@@ -376,133 +567,24 @@ const ScenarioSpectrum = ({
               const isEditing = editingScenario === scenario.id;
               const scenarioColor = getColorForType(scenario.type);
               const isLoaded = !loadedScenarios || loadedScenarios.includes(scenario.id);
-              
+
               return (
-                <Box key={scenario.id}>
-                  <Tooltip title={isSelected ? "Click to deselect" : "Click to select"} placement="top">
-                    <div>
-                      <Paper
-                        elevation={isSelected ? 4 : 1}
-                        onClick={() => isLoaded && onSelectScenario(scenario)}
-                        sx={{
-                          p: 3,
-                          borderRadius: 2,
-                          borderLeft: `6px solid ${scenarioColor}`,
-                          opacity: isLoaded ? 1 : 0.7,
-                          transition: 'all 0.3s ease',
-                          cursor: isLoaded ? 'pointer' : 'default',
-                          position: 'relative',
-                          '&:hover': {
-                            boxShadow: isLoaded ? 3 : 1,
-                            bgcolor: isLoaded ? 'rgba(0, 0, 0, 0.02)' : 'inherit',
-                          },
-                          ...(isSelected && {
-                            bgcolor: `${scenarioColor}10`,
-                            borderColor: scenarioColor,
-                            boxShadow: `0 0 8px ${scenarioColor}80`,
-                          }),
-                        }}
-                      >
-                        {!isLoaded && (
-                          <Box 
-                            sx={{ 
-                              position: 'absolute',
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              bottom: 0,
-                              display: 'flex',
-                              justifyContent: 'center',
-                              alignItems: 'center',
-                              backgroundColor: 'rgba(255, 255, 255, 0.5)',
-                              zIndex: 1,
-                              borderRadius: 2
-                            }}
-                          >
-                            <CircularProgress size={20} thickness={4} />
-                          </Box>
-                        )}
-                        
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                          <Typography 
-                            variant="subtitle1" 
-                            sx={{ 
-                              fontWeight: 'bold', 
-                              color: isSelected ? scenarioColor : 'text.primary',
-                              mb: 1
-                            }}
-                          >
-                            {getScenarioName(scenario.type, index)}
-                          </Typography>
-                          
-                          {onUpdateScenario && isLoaded && (
-                            <Box>
-                              {isEditing ? (
-                                <>
-                                  <IconButton
-                                    size="small"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleSaveClick(scenario);
-                                    }}
-                                    sx={{ mr: 0.5 }}
-                                  >
-                                    <SaveIcon fontSize="small" />
-                                  </IconButton>
-                                  <IconButton
-                                    size="small"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleCancelClick();
-                                    }}
-                                  >
-                                    <CancelIcon fontSize="small" />
-                                  </IconButton>
-                                </>
-                              ) : (
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEditClick(scenario);
-                                  }}
-                                >
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
-                              )}
-                            </Box>
-                          )}
-                        </Box>
-                        
-                        {isEditing ? (
-                          <TextField
-                            fullWidth
-                            multiline
-                            rows={3}
-                            value={editedDescription}
-                            onChange={(e) => setEditedDescription(e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                            variant="outlined"
-                            size="small"
-                            sx={{ mb: 1 }}
-                          />
-                        ) : (
-                          <Typography 
-                            variant="body2" 
-                            color="text.secondary" 
-                            sx={{ 
-                              mb: 1,
-                              lineHeight: 1.6,
-                              fontSize: '0.9rem'
-                            }}
-                          >
-                            {scenario.description}
-                          </Typography>
-                        )}
-                      </Paper>
-                    </div>
-                  </Tooltip>
-                </Box>
+                <ScenarioCard
+                  key={scenario.id}
+                  scenario={scenario}
+                  isSelected={isSelected}
+                  isEditing={isEditing}
+                  editedDescription={editedDescription}
+                  scenarioColor={scenarioColor}
+                  scenarioLabel={getScenarioName(scenario.type, index)}
+                  isLoaded={isLoaded}
+                  allowEditing={allowEditing}
+                  onSelect={onSelectScenario}
+                  onEdit={handleEditClick}
+                  onSave={handleSaveClick}
+                  onCancel={handleCancelClick}
+                  onDescriptionChange={setEditedDescription}
+                />
               );
             })}
           </Box>

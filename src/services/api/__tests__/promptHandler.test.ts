@@ -13,6 +13,7 @@ jest.mock('../config', () => ({
 
 describe('Prompt Handler', () => {
   const mockCallOpenAI = callOpenAI as jest.MockedFunction<typeof callOpenAI>;
+  const mockCallGemini = callGemini as jest.MockedFunction<typeof callGemini>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -69,13 +70,55 @@ describe('Prompt Handler', () => {
       const result = await callLanguageModel('test.txt', { input: 'test' });
 
       expect(result).toEqual({ result: 'success' });
-      expect(mockCallOpenAI).toHaveBeenCalledWith(
-        [
-          { role: 'system', content: 'You are a helpful assistant.\n\nIMPORTANT: Your response MUST be valid JSON. Make sure to properly escape any quotes (") inside string values by using backslash (\\"). For example, if you need to include the phrase "example" inside a string, it should be \\"example\\".' },
-          { role: 'user', content: '{"input":"test"}' }
-        ],
-        { type: 'json_object' }
-      );
+      expect(mockCallOpenAI).toHaveBeenCalledTimes(1);
+      const [messages, responseFormat] = mockCallOpenAI.mock.calls[0];
+      expect(messages[0].role).toBe('system');
+      expect(messages[0].content).toContain('CRITICAL JSON REQUIREMENTS:');
+      expect(messages[0].content).toContain('Do NOT wrap the JSON in markdown code blocks');
+      expect(messages[0].content).toContain('Properly escape ALL quotes inside string values using backslash');
+      expect(messages[1]).toEqual({ role: 'user', content: '{"input":"test"}' });
+      expect(responseFormat).toEqual({ type: 'json_object' });
+    });
+
+    test('should route calls to Gemini when modelName is provided', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve('You are a helpful assistant.'),
+      });
+
+      mockCallGemini.mockResolvedValueOnce({
+        text: '{"result":"gemini"}',
+        usage: {
+          input_tokens: 7,
+          output_tokens: 14,
+          total_tokens: 21
+        }
+      } as any);
+
+      const result = await callLanguageModel('test.txt', { input: 'test' }, { modelName: 'gemini-pro' });
+
+      expect(result).toEqual({ result: 'gemini' });
+      expect(mockCallGemini).toHaveBeenCalled();
+      expect(mockCallOpenAI).not.toHaveBeenCalled();
+    });
+
+    test('should return object responses without additional parsing', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve('You are a helpful assistant.'),
+      });
+
+      mockCallOpenAI.mockResolvedValueOnce({
+        text: { result: 'already-object' },
+        usage: {
+          input_tokens: 5,
+          output_tokens: 6,
+          total_tokens: 11
+        }
+      } as any);
+
+      const result = await callLanguageModel('test.txt', { input: 'test' });
+      expect(result).toEqual({ result: 'already-object' });
     });
 
     test('should handle rate limited response', async () => {

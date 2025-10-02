@@ -1,7 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-
-// Define localStorage keys
-const STORAGE_KEY_CURRENT_CASE = 'a2b_current_case';
+import { getCurrentCase, saveCurrentCase, clearCurrentCase as clearStoredCase } from '../utils/storage';
 
 // Define types for our state
 export interface Party {
@@ -73,38 +71,28 @@ const emptyInitialState: NegotiationState = {
   error: null
 };
 
-// Helper function to load state from localStorage
-const loadStateFromStorage = (): NegotiationState => {
-  try {
-    const savedCase = localStorage.getItem(STORAGE_KEY_CURRENT_CASE);
-    if (savedCase) {
-      const parsedCase = JSON.parse(savedCase);
-      return {
-        currentCase: parsedCase,
-        loading: false,
-        error: null,
-        selectedScenario: null,
-      };
-    }
-  } catch (error) {
-    console.error('Error loading state from localStorage:', error);
+const loadInitialState = (): NegotiationState => {
+  const storedCase = getCurrentCase<Case>();
+
+  if (storedCase) {
+    return {
+      currentCase: storedCase,
+      loading: false,
+      error: null,
+      selectedScenario: null,
+    };
   }
-  return emptyInitialState;
+
+  return { ...emptyInitialState };
 };
 
-// Helper function to save state to localStorage
-const saveStateToStorage = (state: NegotiationState) => {
-  try {
-    if (state.currentCase) {
-      localStorage.setItem(STORAGE_KEY_CURRENT_CASE, JSON.stringify(state.currentCase));
-    }
-  } catch (error) {
-    console.error('Error saving state to localStorage:', error);
+const persistCurrentCase = (state: NegotiationState) => {
+  if (state.currentCase) {
+    saveCurrentCase(state.currentCase);
   }
 };
 
-// Now we initialize with the loaded state
-const initialState: NegotiationState = loadStateFromStorage();
+const initialState: NegotiationState = loadInitialState();
 
 export const negotiationSlice = createSlice({
   name: 'negotiation',
@@ -134,7 +122,7 @@ export const negotiationSlice = createSlice({
           scenarios: [],
         }
       };
-      saveStateToStorage(state);
+      persistCurrentCase(state);
     },
     setParties: (state, action: PayloadAction<Array<{name: string; description: string; isPrimary: boolean}>>) => {
       if (state.currentCase) {
@@ -146,7 +134,7 @@ export const negotiationSlice = createSlice({
           isUserSide: index === 0,
           idealOutcomes: [],
         } as Party));
-        saveStateToStorage(state);
+        persistCurrentCase(state);
       }
     },
     setAnalysis: (state, action: PayloadAction<Analysis>) => {
@@ -158,25 +146,25 @@ export const negotiationSlice = createSlice({
           state.currentCase.originalContent.analysis = JSON.parse(JSON.stringify(action.payload));
         }
         
-        saveStateToStorage(state);
+        persistCurrentCase(state);
       }
     },
     updateIoA: (state, action: PayloadAction<string>) => {
       if (state.currentCase?.analysis) {
         state.currentCase.analysis.ioa = action.payload;
-        saveStateToStorage(state);
+        persistCurrentCase(state);
       }
     },
     updateIceberg: (state, action: PayloadAction<string>) => {
       if (state.currentCase?.analysis) {
         state.currentCase.analysis.iceberg = action.payload;
-        saveStateToStorage(state);
+        persistCurrentCase(state);
       }
     },
     updateComponents: (state, action: PayloadAction<Component[]>) => {
       if (state.currentCase?.analysis) {
         state.currentCase.analysis.components = action.payload;
-        saveStateToStorage(state);
+        persistCurrentCase(state);
       }
     },
     updateComponent: (state, action: PayloadAction<Component>) => {
@@ -186,7 +174,7 @@ export const negotiationSlice = createSlice({
         );
         if (index !== -1) {
           state.currentCase.analysis.components[index] = action.payload;
-          saveStateToStorage(state);
+          persistCurrentCase(state);
         }
       }
     },
@@ -196,7 +184,7 @@ export const negotiationSlice = createSlice({
         if (action.payload.length === 0) {
           state.currentCase.scenarios = [];
           state.selectedScenario = null;
-          saveStateToStorage(state);
+          persistCurrentCase(state);
           return;
         }
         
@@ -237,7 +225,7 @@ export const negotiationSlice = createSlice({
           ];
         }
         
-        saveStateToStorage(state);
+        persistCurrentCase(state);
       }
     },
     setCaseProcessed: (state, action: PayloadAction<{processed: boolean, suggestedParties: Array<{name: string, description: string, isPrimary: boolean}>}>) => {
@@ -251,15 +239,15 @@ export const negotiationSlice = createSlice({
           isUserSide: index === 0,
           idealOutcomes: [],
         }));
-        saveStateToStorage(state);
+        persistCurrentCase(state);
       }
     },
     selectScenario: (state, action: PayloadAction<Scenario | null>) => {
       state.selectedScenario = action.payload;
-      saveStateToStorage(state);
+      persistCurrentCase(state);
     },
     clearState: (state) => {
-      localStorage.removeItem(STORAGE_KEY_CURRENT_CASE);
+      clearStoredCase();
       state.currentCase = null;
       state.loading = false;
       state.error = null;

@@ -1,3 +1,5 @@
+import { jsonrepair } from 'jsonrepair';
+
 /**
  * Utility functions for fixing malformed JSON from LLM responses
  */
@@ -5,7 +7,7 @@
 export interface JsonFixResult {
   fixed: boolean;
   content: string;
-  method?: 'state-machine' | 'regex' | 'none';
+  method?: 'state-machine' | 'regex' | 'jsonrepair' | 'none';
   quotesFixed?: number;
 }
 
@@ -214,6 +216,20 @@ export function fixMalformedJson(text: string, error?: SyntaxError): JsonFixResu
     return regexResult;
   } catch (e) {
     console.log('Regex fix also failed');
+  }
+
+  // Final attempt using jsonrepair library
+  try {
+    const repaired = jsonrepair(text);
+    JSON.parse(repaired);
+    console.log('✅ Repaired JSON using jsonrepair fallback');
+    return {
+      fixed: true,
+      content: repaired,
+      method: 'jsonrepair'
+    };
+  } catch (repairError) {
+    console.log('jsonrepair fallback failed:', repairError);
   }
   
   // Return original if no fix worked
