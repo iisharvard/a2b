@@ -6,8 +6,6 @@ import { store } from './store';
 
 // Main tabbed layout
 import MainLayout from './components/MainLayout';
-// Import the DebugWindow component
-import DebugWindow from './components/DebugWindow';
 
 // Create a theme
 const theme = createTheme({
@@ -47,8 +45,6 @@ function App() {
             <Route path="/*" element={<AppLayout />} />
           </Routes>
         </Router>
-        {/* Add Debug window */}
-        <DebugWindow />
       </ThemeProvider>
     </Provider>
   );

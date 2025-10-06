@@ -36,6 +36,7 @@ export interface Analysis {
   components: Component[];
   createdAt: string;
   updatedAt: string;
+  summary?: string;
 }
 
 export interface Case {

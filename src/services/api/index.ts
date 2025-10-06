@@ -2,7 +2,7 @@ import { store } from '../../store';
 import { Analysis, Component, Party, Scenario } from '../../store/negotiationSlice';
 import { ApiResponse, AnalysisResponse } from '../../types/api';
 import { callLanguageModel } from './promptHandler';
-import { GEMINI_LITE_MODEL_NAME } from './config';
+import { GEMINI_LITE_MODEL_NAME, GEMINI_MODEL_PRO } from './config';
 import { callOpenAI } from './llmClient';
 import { apiCache, clearScenariosForComponent } from './cache';
 import { 
@@ -80,7 +80,18 @@ export const api = {
         return response;
       })();
 
-      const [ioaResponse, icebergResponse] = await Promise.all([ioaPromise, icebergPromise]);
+      const summaryPromise = callLanguageModel('caseSummary.txt', {
+        caseContent: content,
+        party1Name: party1.name,
+        party2Name: party2.name
+      }, {
+        modelName: GEMINI_MODEL_PRO
+      }).catch(error => {
+        console.error('Failed to generate case summary:', error);
+        return null;
+      });
+
+      const [ioaResponse, icebergResponse, summaryResponse] = await Promise.all([ioaPromise, icebergPromise, summaryPromise]);
 
       const componentsInput: ComponentsInput = {
         caseContent: content,
@@ -96,13 +107,22 @@ export const api = {
         onPartialResult('components', componentsResponse.components);
       }
       
+      let summaryText = '';
+      if (summaryResponse && typeof summaryResponse === 'object') {
+        const maybeSummary = (summaryResponse as { summary?: unknown }).summary;
+        if (typeof maybeSummary === 'string') {
+          summaryText = maybeSummary;
+        }
+      }
+
       const analysis: AnalysisResponse = {
         id: requestId,
         ioa: ioaResponse.ioa,
         iceberg: icebergResponse.iceberg,
         components: componentsResponse.components,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        summary: summaryText,
       };
       
       return analysis;

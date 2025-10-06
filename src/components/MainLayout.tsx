@@ -17,18 +17,28 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  Fab,
 } from '@mui/material';
+import { keyframes } from '@mui/material/styles';
 import DescriptionIcon from '@mui/icons-material/Description';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
 import BorderAllIcon from '@mui/icons-material/BorderAll';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import LockIcon from '@mui/icons-material/Lock';
 import SaveIcon from '@mui/icons-material/Save';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import { RootState } from '../store';
 import { clearState } from '../store/negotiationSlice';
 import ExperimentalWarningDialog from './ExperimentalWarningDialog';
 import ClearButtons from './ClearButtons';
 import { clearInterfaceState, clearAllStorage } from '../utils/storage';
+import ChatDrawer from './ChatDrawer';
+
+const glow = keyframes`
+  0% { box-shadow: 0 0 0 0 rgba(25, 118, 210, 0.55); transform: scale(1); }
+  50% { box-shadow: 0 0 0 14px rgba(25, 118, 210, 0); transform: scale(1.05); }
+  100% { box-shadow: 0 0 0 0 rgba(25, 118, 210, 0); transform: scale(1); }
+`;
 
 // Import all pages
 import InitialSetup from '../pages/InitialSetup';
@@ -74,6 +84,8 @@ const MainLayout = () => {
   const [tabValue, setTabValue] = useState(0);
   const [showWarning, setShowWarning] = useState(true);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(true);
+  const [chatWidth, setChatWidth] = useState(380);
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
@@ -269,7 +281,7 @@ const MainLayout = () => {
   };
 
   return (
-    <Box sx={{ flexGrow: 1 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <ExperimentalWarningDialog
         open={showWarning}
         onClose={() => setShowWarning(false)}
@@ -373,6 +385,31 @@ const MainLayout = () => {
       <TabPanel value={tabValue} index={3}>
         <NegotiationScenario />
       </TabPanel>
+
+      <ChatDrawer
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        width={chatWidth}
+        onWidthChange={setChatWidth}
+      />
+
+      {!chatOpen && (
+        <Fab
+          color="primary"
+          aria-label="Open assistant chat"
+          onClick={() => setChatOpen(true)}
+          sx={{
+            position: 'fixed',
+            bottom: { xs: 20, sm: 32 },
+            right: { xs: 20, sm: 32 },
+            zIndex: (theme) => theme.zIndex.modal,
+            animation: `${glow} 2.4s ease-in-out infinite`,
+            boxShadow: 6,
+          }}
+        >
+          <ChatBubbleOutlineIcon />
+        </Fab>
+      )}
     </Box>
   );
 };
