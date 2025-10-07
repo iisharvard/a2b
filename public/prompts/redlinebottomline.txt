@@ -6,6 +6,11 @@ Bottomlines are tactical limits set by the negotiator based on rising risks and 
 
 Based on the provided Island of Agreements (IoA) analysis, Iceberg analysis, and existing components, your task is to recalculate and refine the redlines and bottomlines for each component to better reflect the negotiation landscape.
 
+Perspective guidance:
+- Treat {{party1Name}} (Party 1) as the user's side. Calibrate refinements so {{party1Name}} preserves slightly stronger leverage where multiple reasonable interpretations exist.
+- Keep {{party1Name}}'s redlines firm and pragmatic, and shape {{party1Name}}'s bottomlines as outcomes that still feel advantageous, not just minimally acceptable.
+- Permit {{party2Name}} to make marginally greater concessions when credible, but stay grounded in the case facts—resolve ambiguity in ways that subtly favor {{party1Name}} without becoming unrealistic.
+
 IMPORTANT: Your response MUST be a valid JSON object with a single key "components" containing an array of updated component objects. Each component object should maintain the same structure as the input but with refined redlines and bottomlines:
 
 ```

@@ -16,15 +16,24 @@ import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { sendChatMessage, ChatMessage } from '../services/api/chat';
+import { sendChatMessage, ChatMessage, ChatAction } from '../services/api/chat';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
 import { addSelectedContext, removeSelectedContext, markContextAutoAdded, resetChatState } from '../store/chatSlice';
 import ChecklistIcon from '@mui/icons-material/Checklist';
 import type { ContextKey } from '../types/chat';
+import {
+  changeIoA,
+  changeIceberg,
+  changeComponents,
+  changeBoundaries,
+  changeScenarios
+} from '../services/api/contentChanges';
+import type { Component, Scenario } from '../store/negotiationSlice';
 
 const HEADER_HEIGHT_DESKTOP = 112;
 const HEADER_HEIGHT_MOBILE = 64;
+const AUTO_OPEN_COOLDOWN_MS = 90000;
 
 interface ContextOption {
   key: ContextKey;
@@ -38,9 +47,10 @@ interface ChatDrawerProps {
   onClose: () => void;
   width: number;
   onWidthChange?: (width: number) => void;
+  onRequestOpen?: () => void;
 }
 
-const ChatDrawer = ({ open, onClose, width, onWidthChange }: ChatDrawerProps) => {
+const ChatDrawer = ({ open, onClose, width, onWidthChange, onRequestOpen }: ChatDrawerProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -53,6 +63,12 @@ const ChatDrawer = ({ open, onClose, width, onWidthChange }: ChatDrawerProps) =>
   const dispatch = useDispatch<AppDispatch>();
   const { currentCase } = useSelector((state: RootState) => state.negotiation);
   const selectedContext = useSelector((state: RootState) => state.chat.selectedContext);
+  const suppressNextSummaryRef = useRef(false);
+  const lastAutoOpenRef = useRef(0);
+  const analysisStampRef = useRef<string | null>(null);
+  const componentsSigRef = useRef<string | null>(null);
+  const scenariosSigRef = useRef<string | null>(null);
+  const initializedRef = useRef(false);
 
   const contextOptions = useMemo<ContextOption[]>(() => {
     if (!currentCase) {
@@ -97,9 +113,17 @@ const ChatDrawer = ({ open, onClose, width, onWidthChange }: ChatDrawerProps) =>
       description: 'Redlines & bottomlines',
       content: analysis?.components?.length
         ? analysis.components
-            .map(component => (
-              `${component.name}\n  Party 1 Redline: ${component.redlineParty1}\n  Party 1 Bottomline: ${component.bottomlineParty1}\n  Party 2 Redline: ${component.redlineParty2}\n  Party 2 Bottomline: ${component.bottomlineParty2}`
-            ))
+            .map(component => {
+              const lines = [
+                `${component.name}${component.id ? ` (ID: ${component.id})` : ''}`,
+                component.description ? `  Description: ${component.description}` : null,
+                `  Party 1 Redline: ${component.redlineParty1}`,
+                `  Party 1 Bottomline: ${component.bottomlineParty1}`,
+                `  Party 2 Redline: ${component.redlineParty2}`,
+                `  Party 2 Bottomline: ${component.bottomlineParty2}`
+              ].filter(Boolean);
+              return lines.join('\n');
+            })
             .join('\n\n')
         : null,
     });
@@ -273,21 +297,31 @@ const ChatDrawer = ({ open, onClose, width, onWidthChange }: ChatDrawerProps) =>
     setIsSending(true);
     setError(null);
 
-    const placeholderIndex = nextMessages.length;
-    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-
     const contextText = contextOptions
       .filter(option => selectedContext.includes(option.key) && option.content)
       .map(option => `### ${option.label}\n${option.content}`)
       .join('\n\n');
 
     try {
-      const reply = await sendChatMessage(nextMessages, contextText || undefined);
-      await streamReply(reply, placeholderIndex);
+      const result = await sendChatMessage(nextMessages, contextText || undefined);
+      const replyText = (result.reply || '').trim();
+
+      let placeholderIndex: number | null = null;
+      if (replyText) {
+        placeholderIndex = nextMessages.length;
+        setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+        await streamReply(replyText, placeholderIndex);
+      }
+
+      await applyActions(result.actions);
+
+      if (!replyText && placeholderIndex !== null) {
+        setMessages(prev => prev.slice(0, placeholderIndex));
+      }
     } catch (err) {
       console.error('Chat error:', err);
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
-      setMessages(prev => prev.slice(0, placeholderIndex));
+      setMessages(prev => prev.slice(0, nextMessages.length));
     } finally {
       setIsSending(false);
     }
@@ -314,15 +348,185 @@ const ChatDrawer = ({ open, onClose, width, onWidthChange }: ChatDrawerProps) =>
     }
   };
 
-  if (!open) {
-    return null;
-  }
+  const applyActions = useCallback(async (actions?: ChatAction[]) => {
+    if (!actions || actions.length === 0) {
+      return;
+    }
+
+    for (const action of actions) {
+      try {
+        let result;
+        switch (action.type) {
+          case 'update_ioa':
+            if (typeof action.content !== 'string' || !action.content.trim()) {
+              throw new Error('update_ioa requires "content" string');
+            }
+            result = changeIoA(action.content.trim());
+            break;
+          case 'update_iceberg':
+            if (typeof action.content !== 'string' || !action.content.trim()) {
+              throw new Error('update_iceberg requires "content" string');
+            }
+            result = changeIceberg(action.content.trim());
+            break;
+          case 'update_components':
+            if (typeof action.content !== 'string' || !action.content.trim()) {
+              throw new Error('update_components requires "content" string');
+            }
+            result = changeComponents(action.content.trim());
+            break;
+          case 'update_boundaries':
+            if (!Array.isArray(action.data)) {
+              throw new Error('update_boundaries requires "data" array');
+            }
+            result = changeBoundaries(action.data as Component[]);
+            break;
+          case 'update_scenarios':
+            if (!Array.isArray(action.data)) {
+              throw new Error('update_scenarios requires "data" array');
+            }
+            result = changeScenarios(action.data as Scenario[]);
+            break;
+          default:
+            throw new Error(`Unsupported action type: ${action.type}`);
+        }
+
+        if ('rateLimited' in result && result.rateLimited) {
+          throw new Error('Update failed due to rate limit. Please try again shortly.');
+        }
+
+        if ('success' in result && !result.success) {
+          throw new Error(result.message || 'Update failed.');
+        }
+      } catch (err) {
+        console.error('Chat action failed:', err);
+        setError(err instanceof Error ? err.message : 'Failed to apply assistant update');
+      }
+    }
+  }, []);
+
+  const truncate = useCallback((value: string, limit = 220) => {
+    if (!value) {
+      return '';
+    }
+    return value.length <= limit ? value : `${value.slice(0, limit - 3)}...`;
+  }, []);
+
+  useEffect(() => {
+    if (!currentCase || !currentCase.analysis) {
+      analysisStampRef.current = null;
+      componentsSigRef.current = null;
+      scenariosSigRef.current = null;
+      return;
+    }
+
+    const analysisStamp = currentCase.analysis.updatedAt || currentCase.analysis.createdAt || '';
+    const componentsSig = JSON.stringify(currentCase.analysis.components ?? []);
+    const scenariosSig = JSON.stringify(currentCase.scenarios ?? []);
+
+    if (!initializedRef.current) {
+      analysisStampRef.current = analysisStamp;
+      componentsSigRef.current = componentsSig;
+      scenariosSigRef.current = scenariosSig;
+      initializedRef.current = true;
+      return;
+    }
+
+    if (suppressNextSummaryRef.current) {
+      analysisStampRef.current = analysisStamp;
+      componentsSigRef.current = componentsSig;
+      scenariosSigRef.current = scenariosSig;
+      suppressNextSummaryRef.current = false;
+      return;
+    }
+
+    const analysisChanged = Boolean(analysisStamp && analysisStamp !== analysisStampRef.current);
+    const boundariesChanged = componentsSig !== componentsSigRef.current;
+    const scenariosChanged = scenariosSig !== scenariosSigRef.current && (currentCase.scenarios?.length ?? 0) > 0;
+
+    const updates: Array<{ label: string; detail?: string }> = [];
+
+    if (analysisChanged) {
+      const summaryText = currentCase.analysis.summary?.trim();
+      const detail = summaryText
+        ? `Summary snapshot: ${truncate(summaryText)}`
+        : 'Includes refreshed Island of Agreement, Iceberg, and issue breakdowns.';
+      updates.push({ label: 'a refreshed analysis package', detail });
+    }
+
+    if (boundariesChanged) {
+      const componentNames = (currentCase.analysis.components ?? [])
+        .map(component => component.name)
+        .filter((name): name is string => Boolean(name));
+      let detail: string | undefined;
+      if (componentNames.length > 0) {
+        const preview = componentNames.slice(0, 3).join(', ');
+        const ellipsis = componentNames.length > 3 ? ', ...' : '';
+        detail = `Updated issues: ${preview}${ellipsis}.`;
+      } else {
+        detail = 'Redlines and bottomlines are refreshed.';
+      }
+      updates.push({ label: 'updated component boundaries', detail });
+    }
+
+    if (scenariosChanged) {
+      const scenarios = currentCase.scenarios ?? [];
+      const scenarioCount = scenarios.length;
+      const componentIds = new Set(scenarios.map(scenario => scenario.componentId).filter(Boolean));
+      const scenarioComponents = (currentCase.analysis.components ?? [])
+        .filter(component => componentIds.has(component.id))
+        .map(component => component.name)
+        .filter((name): name is string => Boolean(name));
+
+      let detail = `${scenarioCount} scenario${scenarioCount === 1 ? '' : 's'} ready`;
+      if (scenarioComponents.length > 0) {
+        const preview = scenarioComponents.slice(0, 2).join(', ');
+        const ellipsis = scenarioComponents.length > 2 ? ', ...' : '';
+        detail += ` covering ${preview}${ellipsis}`;
+      }
+      detail += '.';
+      updates.push({ label: 'new scenarios', detail });
+    }
+
+    analysisStampRef.current = analysisStamp;
+    componentsSigRef.current = componentsSig;
+    scenariosSigRef.current = scenariosSig;
+
+    if (updates.length > 0) {
+      let message: string;
+      if (updates.length === 1) {
+        const update = updates[0];
+        message = `I have generated ${update.label} for you.`;
+        if (update.detail) {
+          message += ` ${update.detail}`;
+        }
+        message += ' **I can also help you modify it if you tell me how you want to modify it.**';
+      } else {
+        const bulletLines = updates
+          .map(update => {
+            const heading = update.label.charAt(0).toUpperCase() + update.label.slice(1);
+            return `- ${heading}${update.detail ? ` — ${update.detail}` : ''}`;
+          })
+          .join('\n');
+        message = `I have generated the following updates for you:\n\n${bulletLines}\n\n**I can also help you modify them if you tell me what you'd like to change.**`;
+      }
+
+      setMessages(prev => [...prev, { role: 'assistant', content: message }]);
+
+      const now = Date.now();
+      if (!open && onRequestOpen && now - lastAutoOpenRef.current > AUTO_OPEN_COOLDOWN_MS) {
+        onRequestOpen();
+        lastAutoOpenRef.current = now;
+      }
+    }
+  }, [currentCase, open, onRequestOpen, truncate]);
 
   const effectiveWidth = clampWidthValue(drawerWidth);
+  const isVisible = open;
 
   return (
     <>
-      {open && (
+      {isVisible && (
         <Box
           onClick={onClose}
           sx={{
@@ -354,6 +558,11 @@ const ChatDrawer = ({ open, onClose, width, onWidthChange }: ChatDrawerProps) =>
           bgcolor: 'background.paper',
           zIndex: (theme) => theme.zIndex.modal,
           overflow: 'hidden',
+          pointerEvents: isVisible ? 'auto' : 'none',
+          opacity: isVisible ? 1 : 0,
+          transform: isVisible ? 'translateY(0)' : 'translateY(8px)',
+          visibility: isVisible ? 'visible' : 'hidden',
+          transition: 'opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease',
         }}
       >
         <Box

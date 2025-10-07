@@ -51,6 +51,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { RootState } from '../store';
 import {
   setCase,
@@ -356,7 +357,7 @@ const InitialSetup = () => {
   const handleParty2Change = useCallback((event: SelectChangeEvent) => {
     const selectedName = event.target.value;
     const previousName = party2Name;
-    
+
     setParty2Name(selectedName);
     
     const selectedParty = suggestedParties.find(party => party.name === selectedName);
@@ -415,12 +416,44 @@ const InitialSetup = () => {
     ];
     partyMap.delete(party1Name.toLowerCase());
     partyMap.delete(selectedName.toLowerCase());
-    
+
     const otherParties = Array.from(partyMap.values());
     const updatedParties = [...primaryParties, ...otherParties];
-    
+
     dispatch(setParties(updatedParties));
   }, [suggestedParties, party2Name, party1Name, party1Description, party2Description, customParties, dispatch]);
+
+  const handleSwapParties = useCallback(() => {
+    if (!party1Name || !party2Name) {
+      return;
+    }
+
+    const nextParty1Name = party2Name;
+    const nextParty1Description = party2Description;
+    const nextParty2Name = party1Name;
+    const nextParty2Description = party1Description;
+
+    setParty1Name(nextParty1Name);
+    setParty1Description(nextParty1Description);
+    setParty2Name(nextParty2Name);
+    setParty2Description(nextParty2Description);
+
+    const updatedParties = [
+      {
+        name: nextParty1Name,
+        description: nextParty1Description,
+        isPrimary: true,
+      },
+      {
+        name: nextParty2Name,
+        description: nextParty2Description,
+        isPrimary: true,
+      },
+      ...customParties,
+    ];
+
+    dispatch(setParties(updatedParties));
+  }, [party1Name, party2Name, party1Description, party2Description, customParties, dispatch]);
   
   /**
    * Handles form submission
@@ -1016,22 +1049,37 @@ const InitialSetup = () => {
                   </Box>
                 }
                 action={
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={identifyParties}
-                    disabled={loading || !caseContent.trim() || fileProcessing}
-                    startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
-                    sx={{ 
-                      minWidth: '180px',
-                      boxShadow: 2,
-                      '&:hover': {
-                        boxShadow: 4,
-                      }
-                    }}
-                  >
-                    {loading ? 'Identifying...' : 'Identify Parties'}
-                  </Button>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Tooltip title="Swap Party 1 and Party 2">
+                      <span>
+                        <IconButton
+                          color="primary"
+                          onClick={handleSwapParties}
+                          disabled={!party1Name || !party2Name}
+                          aria-label="Swap parties"
+                          size="small"
+                        >
+                          <SwapHorizIcon />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={identifyParties}
+                      disabled={loading || !caseContent.trim() || fileProcessing}
+                      startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
+                      sx={{ 
+                        minWidth: '180px',
+                        boxShadow: 2,
+                        '&:hover': {
+                          boxShadow: 4,
+                        }
+                      }}
+                    >
+                      {loading ? 'Identifying...' : 'Identify Parties'}
+                    </Button>
+                  </Box>
                 }
                 subheader="Select or add parties involved in the negotiation"
               />

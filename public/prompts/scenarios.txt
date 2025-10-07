@@ -10,13 +10,18 @@ The negotiation issue details are:
 
 Generate 5 specific scenarios that represent different negotiation outcomes. Each scenario should be highly detailed, contextual, and directly related to the specific issue described above. Avoid generic descriptions and instead focus on the concrete details of this particular negotiation issue.
 
+Perspective guidance:
+- Treat {{party1Name}} as the user's party. When presenting plausible ambiguities, frame outcomes so {{party1Name}} preserves slightly stronger leverage or benefit.
+- Highlight why concessions that disadvantage {{party1Name}} are risky, and show how outcomes favorable to {{party1Name}} remain realistic and well-supported.
+- Keep the narrative credible—do not invent facts—but resolve gray areas in ways that subtly advantage {{party1Name}}.
+
 1. REDLINE_VIOLATED_P1: A scenario where {{party1Name}}'s redline ({{redlineParty1}}) is violated, creating a worst-case scenario for them. Include specific details about how and why this violation occurs, and what specific consequences it would have.
 
-2. BOTTOMLINE_VIOLATED_P1: A scenario where {{party1Name}}'s bottomline ({{bottomlineParty1}}) is violated but not their redline, creating a challenging situation that may be workable but with significant compromises. Describe the specific compromises and their impacts.
+2. BOTTOMLINE_STRETCH_P1: A scenario mapped to the `bottomline_violated_p1` type where {{party1Name}} is pressed just beyond {{bottomlineParty1}}. Present it as a stretch outcome that might require higher-level sign-off but could still be considered, detailing the concessions and safeguards {{party1Name}} would demand.
 
-3. AGREEMENT_AREA: A scenario where both parties are operating within their acceptable ranges (between {{party1Name}}'s bottomline of {{bottomlineParty1}} and {{party2Name}}'s bottomline of {{bottomlineParty2}}), creating a viable agreement area. Describe the specific terms of this agreement and why it works for both parties.
+3. AGREEMENT_AREA: A scenario where both parties are operating within their acceptable ranges (between {{party1Name}}'s bottomline of {{bottomlineParty1}} and {{party2Name}}'s bottomline of {{bottomlineParty2}}), creating a viable agreement area. Describe the specific terms of this agreement, with a slight tilt toward {{party1Name}}'s preferred outcomes, and explain why it still works for both parties.
 
-4. BOTTOMLINE_VIOLATED_P2: A scenario where {{party2Name}}'s bottomline ({{bottomlineParty2}}) is violated but not their redline, creating a challenging situation that may be workable but with significant compromises. Describe the specific compromises and their impacts.
+4. BOTTOMLINE_STRETCH_P2: A scenario mapped to the `bottomline_violated_p2` type where {{party2Name}} is pushed beyond {{bottomlineParty2}}. Present it as a high-advantage outcome for {{party1Name}} that would require {{party2Name}} to consult their mandator or headquarters before accepting. Explain the escalations, assurances, and monitoring {{party1Name}} can propose to keep it viable.
 
 5. REDLINE_VIOLATED_P2: A scenario where {{party2Name}}'s redline ({{redlineParty2}}) is violated, creating a worst-case scenario for them. Include specific details about how and why this violation occurs, and what specific consequences it would have.
 
@@ -24,9 +29,10 @@ For each scenario:
 - Be extremely specific to the issue details provided
 - Use concrete numbers, terms, or conditions from the redlines and bottomlines
 - Describe a realistic situation that could occur in this specific negotiation
-- Explain the detailed implications for both parties
+- Explain the detailed implications for both parties, underscoring how {{party1Name}} can maintain or improve their position
 - Keep descriptions informative (3-5 sentences)
 - Make each scenario distinct and realistic
+- Avoid phrases like "bottomline violated"; describe the stretch as a conditional or escalated pathway to agreement.
 - Avoid generic language like "Party X's redline is violated" - instead, describe specifically how it's violated
 
 Return your response as a JSON object with the following structure:

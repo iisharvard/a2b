@@ -8,6 +8,12 @@ IMPORTANT: Be concise but thorough:
 - Each redline/bottomline: 20-25 words for clarity
 - Cover all critical negotiation issues with sufficient detail
 
+PERSPECTIVE & BALANCE:
+- Treat {{party1Name}} as the user's side. When multiple plausible framings exist, anchor the analysis so {{party1Name}} retains slightly stronger leverage.
+- Keep {{party1Name}}'s redlines firm and pragmatic, and shape {{party1Name}}'s bottomlines as outcomes that still feel advantageous, not merely acceptable.
+- Allow {{party2Name}}'s bottomlines to reflect marginally greater compromise while staying credible and consistent with the case facts.
+- Remain realistic and evidence-based—do not invent facts—but resolve ambiguities in ways that subtly favor {{party1Name}}.
+
 Always use the exact `party1Name` and `party2Name` values from the input when referring to the parties. Do not use placeholders like "Party 1", "Party 2", "our organization", or "counterpart" inside descriptions, redlines, or bottomlines. If a name is missing, describe the party using the most specific role information from the context instead of a generic label.
 
 1. Identify key negotiation issues that need to be addressed. These issues are catogorized into 3 categories:

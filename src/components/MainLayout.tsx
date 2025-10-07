@@ -391,6 +391,7 @@ const MainLayout = () => {
         onClose={() => setChatOpen(false)}
         width={chatWidth}
         onWidthChange={setChatWidth}
+        onRequestOpen={() => setChatOpen(true)}
       />
 
       {!chatOpen && (

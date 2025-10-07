@@ -19,9 +19,9 @@ interface ScenarioSpectrumProps {
 // Scenario type names mapping
 const getScenarioTypeNames = (party1Name: string, party2Name: string) => ({
   'redline_violated_p1': `${party1Name} Redline Violated`,
-  'bottomline_violated_p1': `${party1Name} Bottomline Violated`,
+  'bottomline_violated_p1': `${party1Name} Stretch Zone (needs sign-off)`,
   'agreement_area': 'Agreement Area',
-  'bottomline_violated_p2': `${party2Name} Bottomline Violated`,
+  'bottomline_violated_p2': `${party2Name} Stretch Zone (approval required)`,
   'redline_violated_p2': `${party2Name} Redline Violated`
 });
 
