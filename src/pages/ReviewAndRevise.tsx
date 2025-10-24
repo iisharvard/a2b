@@ -266,50 +266,34 @@ const ReviewAndRevise = () => {
     }
   }, [dispatch, isLoggingInitialized, logger]);
   
-  // Process components from markdown string
-  const handleComponentsMarkdownChange = useCallback((markdownValue: string) => {
-    try {
-      // Parse the markdown into component objects
-      const parsedComponents = parseComponentsFromMarkdown(markdownValue);
-      // Update the local state
-      setComponentsMarkdown(markdownValue);
-      // Pass the parsed components to the actual handler
-      handleProcessedComponents(parsedComponents);
-    } catch (err) {
-      console.error('Error parsing components from markdown:', err);
-    }
-  }, []);
-  
   // Handle components change when they come as parsed Component objects
   const handleProcessedComponents = useCallback((components: Component[]) => {
     if (!components || components.length === 0) return;
     
     try {
-      dispatch(updateComponents(components));
-      
-      // Make sure we're keeping the most up-to-date component data
-      const updatedComponents = components.map((newComp) => {
-        // Find the existing component if it exists (by id)
-        const existingComp = currentCase?.analysis?.components?.find(c => c.id === newComp.id);
-        
-        if (!existingComp) return newComp;
-        
-        // Keep the redlines and bottomlines from the existing component
-        // but update the name and description from the new component
+      const existingComponents = currentCase?.analysis?.components || [];
+
+      const mergedComponents = components.map((newComp) => {
+        const existingComp = existingComponents.find(c => c.id === newComp.id);
+
+        if (!existingComp) {
+          return newComp;
+        }
+
         return {
           ...existingComp,
           name: newComp.name,
           description: newComp.description,
         };
       });
-      
-      // Ensure we have valid data before updating Redux
-      if (updatedComponents.length > 0) {
-        // Update Redux with the full component data
-        dispatch(updateComponents(updatedComponents));
+
+      const finalComponents = mergedComponents.length > 0 ? mergedComponents : components;
+
+      if (finalComponents.length > 0) {
+        dispatch(updateComponents(finalComponents));
         if (isLoggingInitialized && logger && logger.getCaseId(true)) {
           // Get the components as text for logging
-          const componentsText = componentsToMarkdown(updatedComponents);
+          const componentsText = componentsToMarkdown(finalComponents);
           logger.logFramework(
             'IoA', 
             'edit',
@@ -326,6 +310,21 @@ const ReviewAndRevise = () => {
       console.error('Error updating components:', err);
     }
   }, [currentCase, dispatch, isLoggingInitialized, logger]);
+
+  // Process components from markdown string
+  const handleComponentsMarkdownChange = useCallback((markdownValue: string) => {
+    try {
+      // Parse the markdown into component objects
+      const existingComponents = currentCase?.analysis?.components || [];
+      const parsedComponents = parseComponentsFromMarkdown(markdownValue, existingComponents);
+      // Update the local state
+      setComponentsMarkdown(markdownValue);
+      // Pass the parsed components to the actual handler
+      handleProcessedComponents(parsedComponents);
+    } catch (err) {
+      console.error('Error parsing components from markdown:', err);
+    }
+  }, [currentCase, handleProcessedComponents]);
 
   /**
    * Navigate to the next page

@@ -18,6 +18,8 @@ You can update application state by returning actions. Supported action types:
 
 Always validate your output. Do not make up IDs—reuse existing ones when editing.
 If you cannot determine the correct component IDs for a requested boundary change, ask the user to provide the structured boundary data (including IDs) before returning an update action.
+When returning arrays of objects, preserve every field name exactly as in the schema (id, name, redlineParty1, etc.). Only change the textual values. Never translate or rename property keys, and always include the full set of required fields for each object.
+For markdown content such as the Island of Agreement or Iceberg analysis, keep all required headings exactly as the source expects (# Island of Agreements, ## Contested Facts, etc.). You may translate the body text beneath those headings, but never rename or remove the headings.
 
 OUTPUT FORMAT
 Return ONLY valid JSON with the shape:
